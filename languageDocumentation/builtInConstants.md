@@ -57,6 +57,7 @@ Petroleum defines many symbols for keys and values in various data structures. S
 * `#BREAK_EXCEP` symbolizes a break exception.
 * `#BUILT_IN_MODULE` symbolizes a built-in module.
 * `#BUNCH` symbolizes a string, list, or map.
+* `#COL_NUM` symbolizes a column number.
 * `#COMP_TYPE` symbolizes the type of a component.
 * `#COMPS` symbolizes a list of components.
 * `#COND` symbolizes a condition.
@@ -85,6 +86,7 @@ Petroleum defines many symbols for keys and values in various data structures. S
 * `#IS_FRAME_ENTRY` symbolizes whether a map is a frame entry.
 * `#IS_PROC` symbolizes whether a map is a procedure.
 * `#IS_SCOPE` symbolizes whether a map is a scope.
+* `#LINE_NUM` symbolizes a line number.
 * `#LOC` symbolizes a string index, list index, or field key.
 * `#MESSAGE` symbolizes a message.
 * `#METHODS` symbolizes a map of methods.

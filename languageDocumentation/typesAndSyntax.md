@@ -11,7 +11,8 @@ Petroleum has the following built-in data types:
     * Every instantiation of symbol is guaranteed to be unique.
     * Symbols are useful to avoid naming collisions.
 * **String**
-    * A string is an immutable sequence of characters.
+    * A string is an immutable sequence of bytes.
+    * Each byte is interpreted as an ASCII character.
 * **List**
     * A list is a mutable sequence of values.
     * Each element may have any type.

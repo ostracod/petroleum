@@ -35,6 +35,8 @@ Nodes are represented as maps. All nodes have the following fields:
 * The `#NODE_TYPE` field stores the type of the node. The type may be `#STMT`, `#EXPR`, or `#ATTR`.
 * The `#COMPS` field stores the list of components in the node.
 * The `#PARENT` field stores the parent component.
+* The `#LINE_NUM` field stores the line number in the parent Petroleum code file.
+* The `#COL_NUM` field stores the column number in the parent Petroleum code file.
 
 Attributes do not define any additional fields beyond the node fields. The `#NODE_TYPE` field in an attribute stores `#ATTR`.
 
@@ -47,7 +49,7 @@ Invocation statements have the following fields:
 * The `#INVOC` field stores the invocable.
     * This field stores null until the invocation statement finishes prep-phase.
 * The `#PHASE` field stores the current phase, which may be `#PREP_PHASE` or `#WORK_PHASE`.
-* Invocation statements also have `#COMPS` and `#PARENT` fields which are common to all nodes.
+* Invocation statements also have `#COMPS`, `#PARENT`, `#LINE_NUM`, and `#COL_NUM` fields which are common to all nodes.
 
 Note that block attributes statements are excluded from the `#STMTS` field of statement sequence components. Instead, block attributes are stored in the `#ATTRS` field of statement sequence components. As a result, block attributes statements have no exposed representation; only the block attributes are accessible.
 
@@ -58,19 +60,19 @@ All expressions have the following fields:
 * The `#NODE_TYPE` field stores `#EXPR`.
 * The `#EXPR_TYPE` field stores the type of the expression. The type may be `#INT_EXPR`, `#STR_EXPR`, `#IDENT_EXPR`, or `#INVOC_EXPR`.
 * The `#PHASE` field stores the current phase, which may be `#PREP_PHASE` or `#WORK_PHASE`.
-* Expressions also have `#COMPS` and `#PARENT` fields which are common to all nodes.
+* Expressions also have `#COMPS`, `#PARENT`, `#LINE_NUM`, and `#COL_NUM` fields which are common to all nodes.
 
 Integer expressions have the following fields:
 
 * The `#EXPR_TYPE` field stores `#INT_EXPR`.
 * The `#INT` field stores the integer value.
-* Integer expressions also have `#NODE_TYPE`, `#COMPS`, `#PARENT`, and `#PHASE` fields which are common to all expressions.
+* Integer expressions also have `#NODE_TYPE`, `#COMPS`, `#PARENT`, `#PHASE`, `#LINE_NUM`, and `#COL_NUM` fields which are common to all expressions.
 
 String expressions have the following fields:
 
 * The `#EXPR_TYPE` field stores `#STR_EXPR`.
 * The `#STR` field stores the string value.
-* String expressions also have `#NODE_TYPE`, `#COMPS`, `#PARENT`, and `#PHASE` fields which are common to all expressions.
+* String expressions also have `#NODE_TYPE`, `#COMPS`, `#PARENT`, `#PHASE`, `#LINE_NUM`, and `#COL_NUM` fields which are common to all expressions.
 
 Identifier expressions have the following fields:
 
@@ -78,14 +80,14 @@ Identifier expressions have the following fields:
 * The `#IDENT` field stores the identifier string.
 * The `#VAR` field stores the variable which matches the identifier.
     * This field stores null until the identifier expression finishes prep-phase.
-* Identifier expressions also have `#NODE_TYPE`, `#COMPS`, `#PARENT`, and `#PHASE` fields which are common to all expressions.
+* Identifier expressions also have `#NODE_TYPE`, `#COMPS`, `#PARENT`, `#PHASE`, `#LINE_NUM`, and `#COL_NUM` fields which are common to all expressions.
 
 Invocation expressions have the following fields:
 
 * The `#EXPR_TYPE` field stores `#INVOC_EXPR`.
 * The `#INVOC` field stores the invocable.
     * This field stores null until the invocation expression finishes prep-phase.
-* Invocation expressions also have `#NODE_TYPE`, `#COMPS`, `#PARENT`, and `#PHASE` fields which are common to all expressions.
+* Invocation expressions also have `#NODE_TYPE`, `#COMPS`, `#PARENT`, `#PHASE`, `#LINE_NUM`, and `#COL_NUM` fields which are common to all expressions.
 
 ### Component Schema
 
@@ -93,36 +95,43 @@ Components are represented as maps. All components have the following fields:
 
 * The `#COMP_TYPE` field stores the type of the component. The type may be `#INT_COMP`, `#STR_COMP`, `#IDENT_COMP`, `#DECL_COMP`, `#ATTRS_COMP`, `#EXPRS_COMP`, or `#STMTS_COMP`.
 * The `#PARENT` field stores the parent node or module.
+* The `#LINE_NUM` field stores the line number in the parent Petroleum code file.
+* The `#COL_NUM` field stores the column number in the parent Petroleum code file.
 
 Integer components have the following fields:
 
 * The `#COMP_TYPE` field stores `#INT_COMP`.
 * The `#INT` field stores the integer value.
 * The `#PARENT` field stores the parent node.
+* Integer components also have `#LINE_NUM` and `#COL_NUM` fields which are common to all components.
 
 String components have the following fields:
 
 * The `#COMP_TYPE` field stores `#STR_COMP`.
 * The `#STR` field stores the string value.
 * The `#PARENT` field stores the parent node.
+* String components also have `#LINE_NUM` and `#COL_NUM` fields which are common to all components.
 
 Identifier components have the following fields:
 
 * The `#COMP_TYPE` field stores `#IDENT_COMP`.
 * The `#IDENT` field stores the identifier string.
 * The `#PARENT` field stores the parent node.
+* Identifier components also have `#LINE_NUM` and `#COL_NUM` fields which are common to all components.
 
 Declaration components have the following fields:
 
 * The `#COMP_TYPE` field stores `#DECL_COMP`.
 * The `#VAR` field stores the variable.
 * The `#PARENT` field stores the parent node.
+* Declaration components also have `#LINE_NUM` and `#COL_NUM` fields which are common to all components.
 
 Attribute sequence components have the following fields:
 
 * The `#COMP_TYPE` field stores `#ATTRS_COMP`.
 * The `#ATTRS` field stores the list of attributes.
 * The `#PARENT` field stores the parent node.
+* Attribute sequence components also have `#LINE_NUM` and `#COL_NUM` fields which are common to all components.
 
 Expression sequence components have the following fields:
 
@@ -130,6 +139,7 @@ Expression sequence components have the following fields:
 * The `#EXPRS` field stores the list of expressions.
 * The `#PHASE` field stores the current phase, which may be `#PREP_PHASE` or `#WORK_PHASE`.
 * The `#PARENT` field stores the parent node.
+* Expression sequence components also have `#LINE_NUM` and `#COL_NUM` fields which are common to all components.
 
 Statement sequence components have the following fields:
 
@@ -142,6 +152,7 @@ Statement sequence components have the following fields:
 * The `#SCOPE` field stores the scope.
 * The `#PHASE` field stores the current phase, which may be `#PREP_PHASE` or `#WORK_PHASE`.
 * The `#PARENT` field stores the parent node or module.
+* Statement sequence components also have `#LINE_NUM` and `#COL_NUM` fields which are common to all components.
 
 ### Scope Schema
 
