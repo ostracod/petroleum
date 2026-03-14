@@ -1,0 +1,8 @@
+{
+    "name": "petroleum",
+    "version": "1.0.0",
+    "type": "module",
+    "dependencies": {
+        "@types/node": ">=22.0.0"
+    }
+}
