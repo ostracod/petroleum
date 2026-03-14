@@ -1,5 +1,6 @@
 
 import { UserPackage } from "./package.js";
+import { ModuleParser } from "./moduleParser.js";
 
 if (process.argv.length <= 2) {
     console.log("Usage: node ./dist/petroleum.js <packagePath> <args?>");
@@ -10,7 +11,8 @@ const entryPackagePath = process.argv[2];
 const applicationArgs = process.argv.slice(3);
 
 const entryPackage = new UserPackage(entryPackagePath);
-// TODO: Parse main module of entry package.
-console.log(entryPackage);
+const parser = new ModuleParser(entryPackage.mainModulePath);
+const mainModule = parser.parseModule();
+console.log(mainModule.toString());
 
 
