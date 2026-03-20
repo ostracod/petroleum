@@ -20,7 +20,7 @@ export class PetSymbol {
 export class PetString {
     text: string | null;
     buffer: Buffer | null;
-    // `hexString` is used as a key in maps.
+    // `hexString` is used as a key in Maps.
     hexString: string | null;
     
     constructor(data: string | Buffer) {
@@ -56,8 +56,23 @@ export class PetString {
     }
     
     toStringLiteral(): string {
-        // TODO: Escape special characters.
-        return "\"" + this.toString() + "\"";
+        const text = this.toString();
+        const literalParts: string[] = [];
+        for (let index = 0; index < text.length; index++) {
+            let character = text.charAt(index);
+            let literalPart: string;
+            if (character === "\"") {
+                literalPart = "\\\"";
+            } else if (character === "\n") {
+                literalPart = "\\n";
+            } else if (character === "\t") {
+                literalPart = "\\t";
+            } else {
+                literalPart = character;
+            }
+            literalParts.push(literalPart);
+        }
+        return "\"" + literalParts.join("") + "\"";
     }
 }
 
@@ -65,7 +80,7 @@ export const valueToString = (value: PetValue, parents: PetValue[] = []): string
     if (value === null) {
         return "NULL";
     } else if (value instanceof PetString) {
-        return (parents.length > 0) ? value.toString() : value.toStringLiteral();
+        return (parents.length > 0) ? value.toStringLiteral() : value.toString();
     } else if (value instanceof PetList || value instanceof PetMap) {
         if (parents.some((parent) => (parent === value))) {
             return "...";
