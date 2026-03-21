@@ -42,6 +42,7 @@ Petroleum code consists of "nodes". Each node is either a "statement", "expressi
         * `\"` = Quotation mark
         * `\n` = Newline
         * `\t` = Tab
+        * `\\` = Backslash
 * **Identifier component**
     * An identifier component consists of identifier characters, which may be the following:
         * Uppercase and lowercase letters

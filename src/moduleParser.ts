@@ -1,6 +1,6 @@
 
 import * as fs from "fs";
-import { PetValue, PetString, PetList, PetMap } from "./value.js";
+import { escapeChars, PetValue, PetString, PetList, PetMap } from "./value.js";
 import { symbols } from "./constants.js";
 
 const identifierSymbols = new Set("_.?!:;'`+-*/%=<>~&|^#$".split(""));
@@ -119,15 +119,62 @@ export class ModuleParser {
     }
     
     parseStrComp(): PetMap {
-        throw new Error("Not yet implemented");
+        const posFields = this.getContentPosFields();
+        // Pass over quotation mark.
+        this.advance(1);
+        const chars: string[] = [];
+        while (true) {
+            let character = this.readText(1);
+            if (character === null) {
+                throw new Error("Missing end quotation mark");
+            } else if (character === "\"") {
+                break;
+            } else if (character === "\\") {
+                const escape = this.readText(1);
+                if (escape === null) {
+                    throw new Error("Missing escaped string character");
+                }
+                character = escapeChars[escape];
+                if (typeof character === "undefined") {
+                    throw new Error(`Unknown escaped string character "${escape}"`);
+                }
+            }
+            chars.push(character);
+        }
+        const text = chars.join("");
+        return new PetMap([
+            [symbols.COMP_TYPE, symbols.STR_COMP],
+            [symbols.STR, new PetString(text)],
+            ...posFields,
+        ]);
     }
     
     parseIdentComp(): PetMap {
-        throw new Error("Not yet implemented");
+        const posFields = this.getContentPosFields();
+        const identifier = this.readIdentifier();
+        return new PetMap([
+            [symbols.COMP_TYPE, symbols.IDENT_COMP],
+            [symbols.IDENT, new PetString(identifier)],
+            ...posFields,
+        ]);
     }
     
     parseDeclComp(): PetMap {
-        throw new Error("Not yet implemented");
+        const posFields = this.getContentPosFields();
+        // Pass over "@" symbol.
+        this.advance(1);
+        const identifier = this.readIdentifier();
+        const variable = new PetMap([
+            [symbols.VAR_TYPE, null],
+            [symbols.IDENT, new PetString(identifier)],
+            // TODO: Specify parent scope.
+            
+        ]);
+        return new PetMap([
+            [symbols.COMP_TYPE, symbols.DECL_COMP],
+            [symbols.VAR, variable],
+            ...posFields,
+        ]);
     }
     
     parseStmtsComp(): PetMap {

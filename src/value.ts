@@ -5,6 +5,19 @@ export type PetValueAndKey = null | BigInt | PetSymbol | PetList | PetMap;
 export type PetValue = PetString | PetValueAndKey;
 export type MapKey = string | PetValueAndKey;
 
+export const escapeChars: { [escape: string]: string } = {
+    "\"": "\"",
+    "n": "\n",
+    "t": "\t",
+    "\\": "\\",
+};
+
+const charEscapes: { [character: string]: string } = {};
+for (const escape in escapeChars) {
+    const character = escapeChars[escape];
+    charEscapes[character] = escape;
+}
+
 export class PetSymbol {
     displayName: string;
     
@@ -61,12 +74,9 @@ export class PetString {
         for (let index = 0; index < text.length; index++) {
             let character = text.charAt(index);
             let literalPart: string;
-            if (character === "\"") {
-                literalPart = "\\\"";
-            } else if (character === "\n") {
-                literalPart = "\\n";
-            } else if (character === "\t") {
-                literalPart = "\\t";
+            const escape = charEscapes[character];
+            if (typeof escape !== "undefined") {
+                literalPart = "\\" + escape;
             } else {
                 literalPart = character;
             }
