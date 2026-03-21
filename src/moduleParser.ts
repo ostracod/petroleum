@@ -53,6 +53,23 @@ const setCompsParent = (components: PetMap[], parent: PetValue): void => {
     }
 }
 
+const createStmtsComp = (
+    statements: PetMap[],
+    attributes: PetMap[],
+    pos: ContentPos,
+): PetMap => (
+    new PetMap([
+        [symbols.COMP_TYPE, symbols.STMTS_COMP],
+        [symbols.ATTRS, new PetList(attributes)],
+        [symbols.STMTS, new PetList(statements)],
+        // TODO: Specify scope.
+        
+        [symbols.PHASE, symbols.PREP_PHASE],
+        [symbols.LINE_NUM, 0n],
+        [symbols.COL_NUM, 0n],
+    ])
+);
+
 export class ModuleParser {
     modulePath: string;
     moduleContent: string;
@@ -223,16 +240,16 @@ export class ModuleParser {
     }
     
     parseStmtsComp(): PetMap {
+        const pos = this.getPos();
         // Pass over curly brace.
         this.advance(1);
         const { statements, attributes } = this.parseStmtSequence();
-        const pos = this.getPos();
+        const endBracePos = this.getPos();
         const character = this.readText(1);
         if (character !== "}") {
-            this.throwError("Expected close curly brace.", pos);
+            this.throwError("Expected close curly brace.", endBracePos);
         }
-        
-        throw new Error("Not yet implemented");
+        return createStmtsComp(statements, attributes, pos);
     }
     
     parseExprsComp(): PetMap {
@@ -262,7 +279,7 @@ export class ModuleParser {
         } else if (firstChar === "[") {
             return this.parseAttrsComp();
         } else {
-            this.throwError(`Unexpected character "${firstChar}".`);
+            return null;
         }
     }
     
@@ -337,21 +354,18 @@ export class ModuleParser {
         this.lineNumber = 1;
         this.columnNumber = 1;
         const { statements, attributes } = this.parseStmtSequence();
-        const scope = null;
-        const stmtsComp = new PetMap([
-            [symbols.COMP_TYPE, symbols.stmtsComp],
-            [symbols.ATTRS, new PetList(attributes)],
-            [symbols.STMTS, new PetList(statements)],
-            [symbols.SCOPE, scope],
-            [symbols.PHASE, symbols.PREP_PHASE],
-            [symbols.LINE_NUM, 0n],
-            [symbols.COL_NUM, 0n],
-        ]);
+        const character = this.peekText(1);
+        if (character !== null) {
+            this.throwError(`Unexpected character "${character}"`);
+        }
+        const dummyPos: ContentPos = { lineNumber: 0n, columnNumber: 0n };
+        const stmtsComp = createStmtsComp(statements, attributes, dummyPos);
         const module = new PetMap([
             [symbols.MODULE_TYPE, symbols.PETROL_MODULE],
             [symbols.FILE_PATH, new PetString(this.modulePath)],
             [symbols.STMTS_COMP, stmtsComp],
-            [symbols.SCOPE, scope],
+            // TODO: Specify scope.
+            
         ]);
         stmtsComp.setMember(symbols.PARENT, module);
         return module;
