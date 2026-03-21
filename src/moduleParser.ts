@@ -47,9 +47,9 @@ const invocCompIsValid = (component: PetMap): boolean => {
     return (expressions.getLength() === 1);
 };
 
-const setCompsParent = (components: PetMap[], parent: PetValue): void => {
-    for (const component of components) {
-        component.setMember(symbols.PARENT, parent);
+const setParents = (maps: PetMap[], parent: PetValue): void => {
+    for (const map of maps) {
+        map.setMember(symbols.PARENT, parent);
     }
 }
 
@@ -57,8 +57,8 @@ const createStmtsComp = (
     statements: PetMap[],
     attributes: PetMap[],
     pos: ContentPos,
-): PetMap => (
-    new PetMap([
+): PetMap => {
+    const stmtsComp = new PetMap([
         [symbols.COMP_TYPE, symbols.STMTS_COMP],
         [symbols.ATTRS, new PetList(attributes)],
         [symbols.STMTS, new PetList(statements)],
@@ -67,8 +67,11 @@ const createStmtsComp = (
         [symbols.PHASE, symbols.PREP_PHASE],
         [symbols.LINE_NUM, 0n],
         [symbols.COL_NUM, 0n],
-    ])
-);
+    ]);
+    setParents(attributes, stmtsComp);
+    setParents(statements, stmtsComp);
+    return stmtsComp;
+};
 
 export class ModuleParser {
     modulePath: string;
@@ -253,7 +256,24 @@ export class ModuleParser {
     }
     
     parseExprsComp(): PetMap {
-        throw new Error("Not yet implemented");
+        const posFields = this.getPosFields();
+        // Pass over parenthesis.
+        this.advance(1);
+        const compsSequence = this.parseCompsSequence();
+        const expressions = compsSequence.map(this.compsToExpression);
+        const endParenPos = this.getPos();
+        const character = this.readText(1);
+        if (character !== ")") {
+            this.throwError("Expected close parenthesis.", endParenPos);
+        }
+        const exprsComp = new PetMap([
+            [symbols.COMP_TYPE, symbols.EXPRS_COMP],
+            [symbols.EXPRS, new PetList(expressions)],
+            [symbols.PHASE, symbols.PREP_PHASE],
+            ...posFields,
+        ])
+        setParents(expressions, exprsComp);
+        return exprsComp;
     }
     
     parseAttrsComp(): PetMap {
@@ -312,6 +332,52 @@ export class ModuleParser {
         return output;
     }
     
+    compsToExpression(components: PetMap[]): PetMap {
+        const firstComp = components[0];
+        const pos = getCompPos(firstComp);
+        const commonFields: [PetValue, PetValue][] = [
+            [symbols.NODE_TYPE, symbols.EXPR],
+            [symbols.COMPS, new PetList(components)],
+            [symbols.PHASE, symbols.PREP_PHASE],
+            ...posToFields(pos),
+        ];
+        let expression: PetMap;
+        const firstCompType = firstComp.getMember(symbols.COMP_TYPE);
+        if (components.length > 1) {
+            if (!invocCompIsValid(firstComp)) {
+                this.throwError("Invalid invocable component", pos);
+            }
+            expression = new PetMap([
+                [symbols.EXPR_TYPE, symbols.INVOC_EXPR],
+                [symbols.INVOC, null],
+                ...commonFields,
+            ]);
+        } else if (firstCompType === symbols.INT_COMP) {
+            expression = new PetMap([
+                [symbols.EXPR_TYPE, symbols.INT_EXPR],
+                [symbols.INT, firstComp.getMember(symbols.INT)],
+                ...commonFields,
+            ]);
+        } else if (firstCompType === symbols.STR_COMP) {
+            expression = new PetMap([
+                [symbols.EXPR_TYPE, symbols.STR_EXPR],
+                [symbols.STR, firstComp.getMember(symbols.STR)],
+                ...commonFields,
+            ]);
+        } else if (firstCompType === symbols.IDENT_COMP) {
+            expression = new PetMap([
+                [symbols.EXPR_TYPE, symbols.IDENT_EXPR],
+                [symbols.IDENT, firstComp.getMember(symbols.IDENT)],
+                [symbols.VAR, null],
+                ...commonFields,
+            ]);
+        } else {
+            this.throwError("Unknown expression type", pos);
+        }
+        setParents(components, expression);
+        return expression;
+    }
+    
     parseStmtSequence(): { statements: PetMap[], attributes: PetMap[] } {
         const compsSequence = this.parseCompsSequence();
         let statementIndex = 0;
@@ -341,7 +407,7 @@ export class ModuleParser {
                 [symbols.COMPS, new PetList(components)],
                 ...posToFields(pos),
             ]);
-            setCompsParent(components, statement);
+            setParents(components, statement);
             statements.push(statement);
             statementIndex += 1;
         }
