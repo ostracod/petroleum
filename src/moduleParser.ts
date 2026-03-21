@@ -8,6 +8,12 @@ interface ContentPos {
     columnNumber: BigInt;
 }
 
+interface StmtSeqResult {
+    statements: PetMap[];
+    attributes: PetMap[];
+    scope: PetMap;
+}
+
 const identifierSymbols = new Set("_.?!:;'`+-*/%=<>~&|^#$".split(""));
 
 const isDigit = (character: string): boolean => {
@@ -57,23 +63,20 @@ const setParents = (maps: PetMap[], parent: PetValue): void => {
     }
 }
 
-const createStmtsComp = (
-    statements: PetMap[],
-    attributes: PetMap[],
-    pos: ContentPos,
-): PetMap => {
+const createStmtsComp = (stmtSeqResult: StmtSeqResult, pos: ContentPos): PetMap => {
+    const { attributes, statements, scope } = stmtSeqResult;
     const stmtsComp = new PetMap([
         [symbols.COMP_TYPE, symbols.STMTS_COMP],
         [symbols.ATTRS, new PetList(attributes)],
         [symbols.STMTS, new PetList(statements)],
-        // TODO: Specify scope.
-        
+        [symbols.SCOPE, scope],
         [symbols.PHASE, symbols.PREP_PHASE],
         [symbols.LINE_NUM, 0n],
         [symbols.COL_NUM, 0n],
     ]);
     setParents(attributes, stmtsComp);
     setParents(statements, stmtsComp);
+    scope.setMember(symbols.STMTS_COMP, stmtsComp);
     return stmtsComp;
 };
 
@@ -83,6 +86,7 @@ export class ModuleParser {
     contentIndex: number;
     lineNumber: number;
     columnNumber: number;
+    scope: PetMap | null;
     
     // `modulePath` must be an absolute path.
     constructor(modulePath: string) {
@@ -232,13 +236,14 @@ export class ModuleParser {
         const posFields = this.getPosFields();
         // Pass over "@" symbol.
         this.advance(1);
-        const identifier = this.readIdentifier();
+        const identifier = new PetString(this.readIdentifier());
         const variable = new PetMap([
             [symbols.VAR_TYPE, null],
-            [symbols.IDENT, new PetString(identifier)],
-            // TODO: Specify parent scope.
-            
+            [symbols.IDENT, identifier],
+            [symbols.SCOPE, this.scope],
         ]);
+        const varMap = this.scope.getMember(symbols.VARS) as PetMap;
+        varMap.setMember(identifier, variable);
         return new PetMap([
             [symbols.COMP_TYPE, symbols.DECL_COMP],
             [symbols.VAR, variable],
@@ -250,13 +255,13 @@ export class ModuleParser {
         const pos = this.getPos();
         // Pass over curly brace.
         this.advance(1);
-        const { statements, attributes } = this.parseStmtSequence();
+        const stmtSeqResult = this.parseStmtSequence();
         const endBracePos = this.getPos();
         const character = this.readText(1);
         if (character !== "}") {
             this.throwError("Expected close curly brace.", endBracePos);
         }
-        return createStmtsComp(statements, attributes, pos);
+        return createStmtsComp(stmtSeqResult, pos);
     }
     
     parseExprsComp(): PetMap {
@@ -406,7 +411,16 @@ export class ModuleParser {
         ]);
     }
     
-    parseStmtSequence(): { statements: PetMap[], attributes: PetMap[] } {
+    parseStmtSequence(): StmtSeqResult {
+        const lastScope = this.scope;
+        const scope = new PetMap([
+            [symbols.IS_SCOPE, 1n],
+            [symbols.VARS, new PetMap()],
+        ]);
+        if (lastScope !== null) {
+            scope.setMember(symbols.PARENT, lastScope);
+        }
+        this.scope = scope;
         const compsSequence = this.parseCompsSequence();
         let statementIndex = 0;
         const firstComps = compsSequence[statementIndex];
@@ -439,7 +453,8 @@ export class ModuleParser {
             statements.push(statement);
             statementIndex += 1;
         }
-        return { statements, attributes };
+        this.scope = lastScope;
+        return { statements, attributes, scope };
     }
     
     parseModule(): PetMap {
@@ -447,21 +462,22 @@ export class ModuleParser {
         this.contentIndex = 0;
         this.lineNumber = 1;
         this.columnNumber = 1;
-        const { statements, attributes } = this.parseStmtSequence();
+        this.scope = null;
+        const stmtSeqResult = this.parseStmtSequence();
         const character = this.peekText(1);
         if (character !== null) {
             this.throwError(`Unexpected character "${character}"`);
         }
         const dummyPos: ContentPos = { lineNumber: 0n, columnNumber: 0n };
-        const stmtsComp = createStmtsComp(statements, attributes, dummyPos);
+        const stmtsComp = createStmtsComp(stmtSeqResult, dummyPos);
         const module = new PetMap([
             [symbols.MODULE_TYPE, symbols.PETROL_MODULE],
             [symbols.FILE_PATH, new PetString(this.modulePath)],
             [symbols.STMTS_COMP, stmtsComp],
-            // TODO: Specify scope.
-            
+            [symbols.SCOPE, stmtSeqResult.scope],
         ]);
         stmtsComp.setMember(symbols.PARENT, module);
+        stmtSeqResult.scope.setMember(symbols.MODULE, module);
         return module;
     }
 }
