@@ -3,6 +3,11 @@ import * as fs from "fs";
 import { escapeChars, PetValue, PetString, PetList, PetMap } from "./value.js";
 import { symbols } from "./constants.js";
 
+interface ContentPos {
+    lineNumber: BigInt;
+    columnNumber: BigInt;
+}
+
 const identifierSymbols = new Set("_.?!:;'`+-*/%=<>~&|^#$".split(""));
 
 const isDigit = (character: string): boolean => {
@@ -19,6 +24,34 @@ const isIdentFirstChar = (character: string): boolean => {
 const isIdentChar = (character: string): boolean => (
     isIdentFirstChar(character) || isDigit(character)
 );
+
+const getCompPos = (component: PetMap): ContentPos => ({
+    lineNumber: component.getMember(symbols.LINE_NUM) as BigInt,
+    columnNumber: component.getMember(symbols.COL_NUM) as BigInt,
+});
+
+const posToFields = (pos: ContentPos): [PetValue, PetValue][] => ([
+    [symbols.LINE_NUM, pos.lineNumber],
+    [symbols.COL_NUM, pos.columnNumber],
+]);
+
+const invocCompIsValid = (component: PetMap): boolean => {
+    const compType = component.getMember(symbols.COMP_TYPE);
+    if (compType === symbols.IDENT_COMP) {
+        return true;
+    }
+    if (compType !== symbols.EXPRS_COMP) {
+        return false;
+    }
+    const expressions = component.getMember(symbols.EXPRS) as PetList;
+    return (expressions.getLength() === 1);
+};
+
+const setCompsParent = (components: PetMap[], parent: PetValue): void => {
+    for (const component of components) {
+        component.setMember(symbols.PARENT, parent);
+    }
+}
 
 export class ModuleParser {
     modulePath: string;
@@ -100,15 +133,26 @@ export class ModuleParser {
         return this.matchChars(isIdentChar);
     }
     
-    getContentPosFields(): [PetValue, PetValue][] {
-        return [
-            [symbols.LINE_NUM, BigInt(this.lineNumber)],
-            [symbols.COL_NUM, BigInt(this.columnNumber)],
-        ];
+    getPos(): ContentPos {
+        return {
+            lineNumber: BigInt(this.lineNumber),
+            columnNumber: BigInt(this.columnNumber),
+        };
+    }
+    
+    getPosFields(): [PetValue, PetValue][] {
+        return posToFields(this.getPos());
+    }
+    
+    throwError(message: string, pos?: ContentPos): void {
+        if (typeof pos === "undefined") {
+            pos = this.getPos();
+        }
+        throw new Error(`Syntax error on line ${pos.lineNumber}, column ${pos.columnNumber} of ${this.modulePath}: ${message}`);
     }
     
     parseIntComp(): PetMap {
-        const posFields = this.getContentPosFields();
+        const posFields = this.getPosFields();
         const intText = this.matchChars(isDigit);
         const intValue = parseInt(intText, 10);
         return new PetMap([
@@ -119,24 +163,25 @@ export class ModuleParser {
     }
     
     parseStrComp(): PetMap {
-        const posFields = this.getContentPosFields();
+        const posFields = this.getPosFields();
         // Pass over quotation mark.
         this.advance(1);
         const chars: string[] = [];
         while (true) {
             let character = this.readText(1);
             if (character === null) {
-                throw new Error("Missing end quotation mark");
+                this.throwError("Missing end quotation mark.");
             } else if (character === "\"") {
                 break;
             } else if (character === "\\") {
+                const pos = this.getPos();
                 const escape = this.readText(1);
                 if (escape === null) {
-                    throw new Error("Missing escaped string character");
+                    this.throwError("Missing escaped string character.", pos);
                 }
                 character = escapeChars[escape];
                 if (typeof character === "undefined") {
-                    throw new Error(`Unknown escaped string character "${escape}"`);
+                    this.throwError(`Unknown escaped string character "${escape}".`, pos);
                 }
             }
             chars.push(character);
@@ -150,7 +195,7 @@ export class ModuleParser {
     }
     
     parseIdentComp(): PetMap {
-        const posFields = this.getContentPosFields();
+        const posFields = this.getPosFields();
         const identifier = this.readIdentifier();
         return new PetMap([
             [symbols.COMP_TYPE, symbols.IDENT_COMP],
@@ -160,7 +205,7 @@ export class ModuleParser {
     }
     
     parseDeclComp(): PetMap {
-        const posFields = this.getContentPosFields();
+        const posFields = this.getPosFields();
         // Pass over "@" symbol.
         this.advance(1);
         const identifier = this.readIdentifier();
@@ -178,6 +223,15 @@ export class ModuleParser {
     }
     
     parseStmtsComp(): PetMap {
+        // Pass over curly brace.
+        this.advance(1);
+        const { statements, attributes } = this.parseStmtSequence();
+        const pos = this.getPos();
+        const character = this.readText(1);
+        if (character !== "}") {
+            this.throwError("Expected close curly brace.", pos);
+        }
+        
         throw new Error("Not yet implemented");
     }
     
@@ -208,7 +262,7 @@ export class ModuleParser {
         } else if (firstChar === "[") {
             return this.parseAttrsComp();
         } else {
-            throw new Error(`Unexpected character "${firstChar}"`);
+            this.throwError(`Unexpected character "${firstChar}".`);
         }
     }
     
@@ -241,21 +295,53 @@ export class ModuleParser {
         return output;
     }
     
+    parseStmtSequence(): { statements: PetMap[], attributes: PetMap[] } {
+        const compsSequence = this.parseCompsSequence();
+        let statementIndex = 0;
+        const firstComps = compsSequence[statementIndex];
+        let attributes: PetMap[] = [];
+        if (firstComps.length === 1) {
+            const firstComp = firstComps[0];
+            if (firstComp.getMember(symbols.COMP_TYPE) === symbols.ATTRS_COMP) {
+                const attrsList = firstComp.getMember(symbols.ATTRS) as PetList;
+                attributes = attrsList.getMembers() as PetMap[];
+                statementIndex += 1;
+            }
+        }
+        const statements: PetMap[] = [];
+        while (statementIndex < compsSequence.length) {
+            const components = compsSequence[statementIndex];
+            const firstComp = components[0];
+            const pos = getCompPos(firstComp);
+            if (!invocCompIsValid(firstComp)) {
+                this.throwError("Invalid invocable component", pos);
+            }
+            const statement = new PetMap([
+                [symbols.NODE_TYPE, symbols.STMT],
+                [symbols.STMT_TYPE, symbols.INVOC_STMT],
+                [symbols.INVOC, null],
+                [symbols.PHASE, symbols.PREP_PHASE],
+                [symbols.COMPS, new PetList(components)],
+                ...posToFields(pos),
+            ]);
+            setCompsParent(components, statement);
+            statements.push(statement);
+            statementIndex += 1;
+        }
+        return { statements, attributes };
+    }
+    
     parseModule(): PetMap {
         this.moduleContent = fs.readFileSync(this.modulePath, "utf8");
         this.contentIndex = 0;
         this.lineNumber = 1;
         this.columnNumber = 1;
-        
-        // TODO: Parse statement sequence.
-        
-        const attributes = new PetList();
-        const statements = new PetList();
+        const { statements, attributes } = this.parseStmtSequence();
         const scope = null;
         const stmtsComp = new PetMap([
             [symbols.COMP_TYPE, symbols.stmtsComp],
-            [symbols.ATTRS, attributes],
-            [symbols.STMTS, statements],
+            [symbols.ATTRS, new PetList(attributes)],
+            [symbols.STMTS, new PetList(statements)],
             [symbols.SCOPE, scope],
             [symbols.PHASE, symbols.PREP_PHASE],
             [symbols.LINE_NUM, 0n],

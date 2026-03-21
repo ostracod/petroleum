@@ -131,6 +131,14 @@ export class PetList {
         this.elements[index].value = value;
     }
     
+    getMembers(): PetValue[] {
+        return this.elements.map((element) => element.value);
+    }
+    
+    getLength(): number {
+        return this.elements.length;
+    }
+    
     toString(parents: PetValue[] = []): string {
         const nextParents = [...parents, this];
         const textList: string[] = [];
