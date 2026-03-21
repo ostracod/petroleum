@@ -35,6 +35,10 @@ const posToFields = (pos: ContentPos): [PetValue, PetValue][] => ([
     [symbols.COL_NUM, pos.columnNumber],
 ]);
 
+const getCompPosFields = (component: PetMap): [PetValue, PetValue][] => (
+    posToFields(getCompPos(component))
+);
+
 const invocCompIsValid = (component: PetMap): boolean => {
     const compType = component.getMember(symbols.COMP_TYPE);
     if (compType === symbols.IDENT_COMP) {
@@ -277,7 +281,23 @@ export class ModuleParser {
     }
     
     parseAttrsComp(): PetMap {
-        throw new Error("Not yet implemented");
+        const posFields = this.getPosFields();
+        // Pass over bracket.
+        this.advance(1);
+        const compsSequence = this.parseCompsSequence();
+        const attributes = compsSequence.map(this.compsToAttribute);
+        const endBracketPos = this.getPos();
+        const character = this.readText(1);
+        if (character !== "]") {
+            this.throwError("Expected close bracket.", endBracketPos);
+        }
+        const attrsComp = new PetMap([
+            [symbols.COMP_TYPE, symbols.ATTRS_COMP],
+            [symbols.ATTRS, new PetList(attributes)],
+            ...posFields,
+        ])
+        setParents(attributes, attrsComp);
+        return attrsComp;
     }
     
     parseComponent(): PetMap | null {
@@ -376,6 +396,14 @@ export class ModuleParser {
         }
         setParents(components, expression);
         return expression;
+    }
+    
+    compsToAttribute(components: PetMap[]): PetMap {
+        return new PetMap([
+            [symbols.NODE_TYPE, symbols.ATTR],
+            [symbols.COMPS, new PetList(components)],
+            ...getCompPosFields(components[0]),
+        ]);
     }
     
     parseStmtSequence(): { statements: PetMap[], attributes: PetMap[] } {

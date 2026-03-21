@@ -311,7 +311,7 @@ PREP_VAR @varMethods = (FUNC {
             
             COMMENT "Set up the variable as a work-var with a custom #isEven field."
             WORK_VAR @declComp = (MEMBER(comps, 1))
-            WORK_VAR @var = (MEMBER(declComp, #VAR)
+            WORK_VAR @var = (MEMBER(declComp, #VAR))
             SET_MEMBER(var, #VAR_TYPE, #WORK_VAR)
             SET_MEMBER(var, #isEven, isEven)
             
