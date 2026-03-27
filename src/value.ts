@@ -1,7 +1,9 @@
 
+import { Task } from "./task.js";
+
 // PetValueAndKey contains types which can be used as both values and Map keys.
-// TODO: Add PetFunc and EvalState to PetValueAndKey.
-export type PetValueAndKey = null | BigInt | PetSymbol | PetList | PetMap;
+// TODO: Add PetFunc to PetValueAndKey.
+export type PetValueAndKey = null | BigInt | PetSymbol | PetList | PetMap | EvalState;
 export type PetValue = PetString | PetValueAndKey;
 export type MapKey = string | PetValueAndKey;
 
@@ -200,6 +202,22 @@ export class PetMap {
         });
         const fieldsText = textList.join(", ");
         return `MAP [FIELDS [${fieldsText}]]`;
+    }
+}
+
+// PetExceptions have #EXCEP_TYPE and #EVAL_STATE fields.
+export type PetException = PetMap;
+export const PetException = PetMap;
+
+export class EvalState {
+    task: Task;
+    
+    constructor(task: Task) {
+        this.task = task;
+    }
+    
+    toString(): string {
+        throw new Error("Not yet implemented");
     }
 }
 
