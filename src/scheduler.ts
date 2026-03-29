@@ -1,16 +1,18 @@
 
 import * as valueModule from "./value.js";
 import { Task } from "./task.js";
+import { PetContext } from "./context.js";
 
 type PetException = valueModule.PetException;
 
 export class Coroutine {
-    scheduler: Scheduler;
+    context: PetContext;
     task: Task | null;
     uncaughtExcep: PetException | null;
     nextCoro: Coroutine | null;
     
-    constructor(scheduler: Scheduler, task: Task) {
+    constructor(context: PetContext, task: Task) {
+        this.context = context;
         this.task = task;
         this.uncaughtExcep = null;
         this.nextCoro = null;
@@ -21,7 +23,7 @@ export class Coroutine {
         if (task === null) {
             return;
         }
-        let result = task.advance(this.scheduler);
+        let result = task.advance(this.context);
         while (result instanceof valueModule.PetException) {
             task = task.parentTask;
             if (task === null) {
@@ -75,21 +77,23 @@ class CoroQueue {
 }
 
 export class Scheduler {
+    context: PetContext;
     highPrioCoros: CoroQueue;
     lowPrioCoros: CoroQueue;
     
-    constructor() {
+    constructor(context: PetContext) {
+        this.context = context;
         this.highPrioCoros = new CoroQueue();
         this.lowPrioCoros = new CoroQueue();
     }
     
-    schedule(task: Task, highPriority: boolean): void {
-        const coroutine = new Coroutine(this, task);
+    schedule(task: Task, highPriority: boolean = true): void {
+        const coroutine = new Coroutine(this.context, task);
         const coroQueue = highPriority ? this.highPrioCoros : this.lowPrioCoros;
         coroQueue.pushRight(coroutine);
     }
     
-    runNextCoroutine(): void {
+    runNextCoro(): void {
         let coroutine = this.highPrioCoros.popLeft();
         if (coroutine === null) {
             coroutine = this.lowPrioCoros.popLeft();

@@ -141,6 +141,10 @@ export class PetList {
         return this.elements.length;
     }
     
+    addElement(value: PetValue): void {
+        this.elements.push(new PetElement(value));
+    }
+    
     toString(parents: PetValue[] = []): string {
         const nextParents = [...parents, this];
         const textList: string[] = [];
