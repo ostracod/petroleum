@@ -429,7 +429,7 @@ export class ModuleParser {
             const firstComp = firstComps[0];
             if (firstComp.getMember(symbols.COMP_TYPE) === symbols.ATTRS_COMP) {
                 const attrsList = firstComp.getMember(symbols.ATTRS) as PetList;
-                attributes = attrsList.getMembers() as PetMap[];
+                attributes = attrsList.elements as PetMap[];
                 statementIndex += 1;
             }
         }

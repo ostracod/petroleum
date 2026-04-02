@@ -1,5 +1,5 @@
 
-import { PetValue, PetException } from "./value.js";
+import { PetValue, PetException, MemberObserver } from "./value.js";
 import { Action, TaskAction } from "./action.js";
 import { Scheduler } from "./scheduler.js";
 import { PetContext } from "./context.js";
@@ -67,6 +67,21 @@ export class LoadModuleTask extends Task {
         super(parentTask);
         this.modulePath = modulePath;
         this.stage = stage;
+    }
+    
+    advance(context: PetContext): Action {
+        throw new Error("Not yet implemented");
+    }
+}
+
+export class AwaitCondTask extends Task {
+    observer: MemberObserver;
+    memberValue: PetValue;
+    
+    constructor(observer: MemberObserver, memberValue: PetValue) {
+        super(null);
+        this.observer = observer;
+        this.memberValue = memberValue;
     }
     
     advance(context: PetContext): Action {
