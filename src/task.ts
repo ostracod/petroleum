@@ -1,5 +1,6 @@
 
-import { PetException } from "./value.js";
+import { PetValue, PetException } from "./value.js";
+import { Action, TaskAction } from "./action.js";
 import { Scheduler } from "./scheduler.js";
 import { PetContext } from "./context.js";
 
@@ -10,10 +11,14 @@ export abstract class Task {
         this.parentTask = parentTask;
     }
     
-    abstract advance(context: PetContext): Task | PetException | null;
+    abstract advance(context: PetContext): Action;
     
-    handleException(exception: PetException): Task | PetException | null {
-        return this.parentTask;
+    acceptReturnValue(returnValue: PetValue): void {
+        // Do nothing.
+    }
+    
+    handleException(exception: PetException): Action {
+        return new TaskAction(this.parentTask);
     }
 }
 
@@ -33,11 +38,12 @@ export class MainTask extends Task {
         this.moduleIndex = moduleIndex;
     }
     
-    advance(context: PetContext): Task | PetException | null {
+    advance(context: PetContext): Action {
         if (this.stage === MainTaskStage.Init) {
             const modulePath = context.entryPackage.mainModulePath;
             context.loadUserModule(modulePath);
-            return new MainTask(this.parentTask, MainTaskStage.PrepModules, 0);
+            const nextTask = new MainTask(this.parentTask, MainTaskStage.PrepModules, 0);
+            return new TaskAction(nextTask);
         } else if (this.stage === MainTaskStage.PrepModules) {
             // TODO: Await each user module which is being loaded.
             throw new Error("Not yet implemented");
@@ -63,7 +69,7 @@ export class LoadModuleTask extends Task {
         this.stage = stage;
     }
     
-    advance(context: PetContext): Task | PetException | null {
+    advance(context: PetContext): Action {
         throw new Error("Not yet implemented");
     }
 }

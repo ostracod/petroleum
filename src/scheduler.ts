@@ -1,5 +1,6 @@
 
 import * as valueModule from "./value.js";
+import { TaskAction, ReturnAction, ExcepAction } from "./action.js";
 import { Task } from "./task.js";
 import { PetContext } from "./context.js";
 
@@ -23,17 +24,25 @@ export class Coroutine {
         if (task === null) {
             return;
         }
-        let result = task.advance(this.context);
-        while (result instanceof valueModule.PetException) {
+        let action = task.advance(this.context);
+        while (action instanceof ExcepAction) {
+            const { exception } = action;
             task = task.parentTask;
             if (task === null) {
-                this.uncaughtExcep = result;
-                result = null;
+                this.uncaughtExcep = exception;
+                action = new TaskAction(null);
                 break;
             }
-            result = task.handleException(result);
+            action = task.handleException(exception);
         }
-        this.task = result as (Task | null);
+        if (action instanceof TaskAction) {
+            this.task = action.nextTask;
+        } else if (action instanceof ReturnAction) {
+            this.task = task.parentTask;
+            if (this.task !== null) {
+                this.task.acceptReturnValue(action.returnValue);
+            }
+        }
     }
     
     hasFinished(): boolean {
