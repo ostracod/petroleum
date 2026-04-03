@@ -19,34 +19,30 @@ export class Coroutine {
         this.nextCoro = null;
     }
     
-    advance(): void {
-        let task = this.task;
-        if (task === null) {
-            return;
-        }
-        let action = task.advance(this.context);
-        while (action instanceof ExcepAction) {
-            const { exception } = action;
-            task = task.parentTask;
-            if (task === null) {
-                this.uncaughtExcep = exception;
-                action = new TaskAction(null);
-                break;
+    run(): PetException | null {
+        while (this.task !== null) {
+            this.task.context = this.context;
+            let action = this.task.advance();
+            while (!(action instanceof TaskAction)) {
+                if (action instanceof ReturnAction) {
+                    this.task = this.task.parentTask;
+                    if (this.task === null) {
+                        return null;
+                    }
+                    action = this.task.acceptReturnValue(action.returnValue);
+                } else if (action instanceof ExcepAction) {
+                    const { exception } = action;
+                    this.task = this.task.parentTask;
+                    if (this.task === null) {
+                        return exception;
+                    }
+                    action = this.task.handleException(exception);
+                } else {
+                    throw new Error(`Unexpected action type ${action.constructor.name}`);
+                }
             }
-            action = task.handleException(exception);
-        }
-        if (action instanceof TaskAction) {
             this.task = action.nextTask;
-        } else if (action instanceof ReturnAction) {
-            this.task = task.parentTask;
-            if (this.task !== null) {
-                this.task.acceptReturnValue(action.returnValue);
-            }
         }
-    }
-    
-    hasFinished(): boolean {
-        return (this.task === null);
     }
 }
 
@@ -110,10 +106,7 @@ export class Scheduler {
         if (coroutine === null) {
             return;
         }
-        while (!coroutine.hasFinished()) {
-            coroutine.advance();
-        }
-        const { uncaughtExcep } = coroutine;
+        const uncaughtExcep = coroutine.run();
         // TODO: Handle `uncaughtExcep`.
         
     }

@@ -6,15 +6,16 @@ import { PetContext } from "./context.js";
 
 export abstract class Task {
     parentTask: Task | null;
+    context: PetContext;
     
     constructor(parentTask: Task | null) {
         this.parentTask = parentTask;
     }
     
-    abstract advance(context: PetContext): Action;
+    abstract advance(): Action;
     
-    acceptReturnValue(returnValue: PetValue): void {
-        // Do nothing.
+    acceptReturnValue(returnValue: PetValue): Action {
+        return new TaskAction(this);
     }
     
     handleException(exception: PetException): Action {
@@ -38,10 +39,10 @@ export class MainTask extends Task {
         this.moduleIndex = moduleIndex;
     }
     
-    advance(context: PetContext): Action {
+    advance(): Action {
         if (this.stage === MainTaskStage.Init) {
-            const modulePath = context.entryPackage.mainModulePath;
-            context.loadUserModule(modulePath);
+            const modulePath = this.context.entryPackage.mainModulePath;
+            this.context.loadUserModule(modulePath);
             const nextTask = new MainTask(this.parentTask, MainTaskStage.PrepModules, 0);
             return new TaskAction(nextTask);
         } else if (this.stage === MainTaskStage.PrepModules) {
@@ -69,7 +70,7 @@ export class LoadModuleTask extends Task {
         this.stage = stage;
     }
     
-    advance(context: PetContext): Action {
+    advance(): Action {
         throw new Error("Not yet implemented");
     }
 }
@@ -84,7 +85,7 @@ export class AwaitCondTask extends Task {
         this.memberValue = memberValue;
     }
     
-    advance(context: PetContext): Action {
+    advance(): Action {
         throw new Error("Not yet implemented");
     }
 }
