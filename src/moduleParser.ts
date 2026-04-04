@@ -4,8 +4,8 @@ import { escapeChars, PetValue, PetString, PetList, PetMap } from "./value.js";
 import { symbols } from "./constants.js";
 
 interface ContentPos {
-    lineNumber: BigInt;
-    columnNumber: BigInt;
+    lineNumber: bigint;
+    columnNumber: bigint;
 }
 
 interface StmtSeqResult {
@@ -32,8 +32,8 @@ const isIdentChar = (character: string): boolean => (
 );
 
 const getCompPos = (component: PetMap): ContentPos => ({
-    lineNumber: component.getMember(symbols.LINE_NUM) as BigInt,
-    columnNumber: component.getMember(symbols.COL_NUM) as BigInt,
+    lineNumber: component.getMember(symbols.LINE_NUM) as bigint,
+    columnNumber: component.getMember(symbols.COL_NUM) as bigint,
 });
 
 const posToFields = (pos: ContentPos): [PetValue, PetValue][] => ([

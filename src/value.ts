@@ -3,7 +3,7 @@ import { Task, AwaitCondTask } from "./task.js";
 import { Scheduler } from "./scheduler.js";
 
 // PetValueAndKey contains types which can be used as both values and Map keys.
-export type PetValueAndKey = null | BigInt | PetSymbol | PetList | PetMap | PetFunc | EvalState;
+export type PetValueAndKey = null | bigint | PetSymbol | PetList | PetMap | PetFunc | EvalState;
 export type PetValue = PetString | PetValueAndKey;
 export type MapKey = string | PetValueAndKey;
 
@@ -118,69 +118,89 @@ const valuesAreEqual = (value1: PetValue, value2: PetValue): boolean => {
     }
 }
 
-export class MemberObserver<T = any> {
-    scheduler: Scheduler;
+interface ObservableBunch<T extends PetValue = PetValue> {
+    observatory: MemberObservatory<T>;
+    getMember(location: T): PetValue;
+}
+
+export class MemberObserver<T extends PetValue = PetValue> {
+    bunch: ObservableBunch<T>;
+    location: T;
     condition: PetFunc;
     taskToResume: Task;
-    observatory: MemberObservatory<T>;
-    location: T;
     
-    constructor(scheduler: Scheduler, condition: PetFunc, taskToResume: Task) {
-        this.scheduler = scheduler;
+    constructor(
+        bunch: ObservableBunch<T>,
+        location: T,
+        condition: PetFunc,
+        taskToResume: Task,
+    ) {
+        this.bunch = bunch;
+        this.location = location;
         this.condition = condition;
         this.taskToResume = taskToResume;
     }
 }
 
-class MemberObservatory<T> {
-    observers: Map<T, Set<MemberObserver<T>>>;
+class MemberObservatory<T extends PetValue> {
+    bunch: ObservableBunch<T>;
+    observers: Map<MapKey, Set<MemberObserver<T>>>;
+    scheduler: Scheduler;
     
-    constructor() {
+    constructor(bunch: ObservableBunch<T>) {
+        this.bunch = bunch;
         this.observers = new Map();
     }
     
-    addObserver(location: T, observer: MemberObserver<T>): void {
-        let observers = this.observers.get(location);
+    addObserver(
+        scheduler: Scheduler,
+        location: T,
+        condition: PetFunc,
+        taskToResume: Task,
+    ): void {
+        this.scheduler = scheduler;
+        const mapKey = valueToMapKey(location);
+        let observers = this.observers.get(mapKey);
         if (typeof observers === "undefined") {
             observers = new Set();
-            this.observers.set(location, observers);
+            this.observers.set(mapKey, observers);
         }
+        const observer = new MemberObserver(this.bunch, location, condition, taskToResume);
         observers.add(observer);
-        observer.observatory = this;
-        observer.location = location;
     }
     
-    handleMemberChange(location: T, value: PetValue): void {
-        const observers = this.observers.get(location);
+    handleMemberChange(location: T): void {
+        const mapKey = valueToMapKey(location);
+        const observers = this.observers.get(mapKey);
         if (typeof observers === "undefined") {
             return;
         }
-        this.observers.delete(location);
+        this.observers.delete(mapKey);
         for (const observer of observers) {
-            const condTask = new AwaitCondTask(observer, value);
-            observer.scheduler.schedule(condTask);
+            const condTask = new AwaitCondTask(observer);
+            this.scheduler.schedule(condTask);
         }
     }
 }
 
-export class PetList {
+export class PetList implements ObservableBunch<bigint> {
     elements: PetValue[];
-    observatory: MemberObservatory<number>;
+    observatory: MemberObservatory<bigint>;
     
     constructor(elements: PetValue[] = []) {
         this.elements = elements;
-        this.observatory = new MemberObservatory();
+        this.observatory = new MemberObservatory<bigint>(this);
     }
     
-    getMember(index: number): PetValue {
-        return this.elements[index];
+    getMember(index: number | bigint): PetValue {
+        return this.elements[Number(index)];
     }
     
-    setMember(index: number, value: PetValue): void {
-        const lastValue = this.elements[index];
-        this.elements[index] = value;
+    setMember(index: number | bigint, value: PetValue): void {
+        const lastValue = this.elements[Number(index)];
+        this.elements[Number(index)] = value;
         if (typeof lastValue === "undefined" || !valuesAreEqual(lastValue, value)) {
-            this.observatory.handleMemberChange(index, value);
+            this.observatory.handleMemberChange(BigInt(index));
         }
     }
     
@@ -191,11 +211,7 @@ export class PetList {
     addElement(value: PetValue): void {
         const index = this.elements.length;
         this.elements.push(value);
-        this.observatory.handleMemberChange(index, value);
-    }
-    
-    addObserver(index: number, observer: MemberObserver<number>): void {
-        this.observatory.addObserver(index, observer);
+        this.observatory.handleMemberChange(BigInt(index));
     }
     
     toString(parents: PetValue[] = []): string {
@@ -219,16 +235,16 @@ class PetField {
     }
 }
 
-export class PetMap {
+export class PetMap implements ObservableBunch<PetValue> {
     fields: Map<MapKey, PetField>;
-    observatory: MemberObservatory<MapKey>;
+    observatory: MemberObservatory<PetValue>;
     
     constructor(entries: [PetValue, PetValue][] = []) {
         this.fields = new Map();
         for (const entry of entries) {
             this.setMember(entry[0], entry[1]);
         }
-        this.observatory = new MemberObservatory();
+        this.observatory = new MemberObservatory<PetValue>(this);
     }
     
     getMember(key: PetValue): PetValue | undefined {
@@ -249,13 +265,8 @@ export class PetMap {
             field.value = value;
         }
         if (typeof lastValue === "undefined" || !valuesAreEqual(lastValue, value)) {
-            this.observatory.handleMemberChange(mapKey, value);
+            this.observatory.handleMemberChange(key);
         }
-    }
-    
-    addObserver(key: PetValue, observer: MemberObserver<MapKey>): void {
-        const mapKey = valueToMapKey(key);
-        this.observatory.addObserver(mapKey, observer);
     }
     
     toString(parents: PetValue[] = []): string {

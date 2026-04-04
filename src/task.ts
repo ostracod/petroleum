@@ -1,7 +1,6 @@
 
 import { PetValue, PetException, MemberObserver } from "./value.js";
 import { Action, TaskAction } from "./action.js";
-import { Scheduler } from "./scheduler.js";
 import { PetContext } from "./context.js";
 
 export abstract class Task {
@@ -77,12 +76,10 @@ export class LoadModuleTask extends Task {
 
 export class AwaitCondTask extends Task {
     observer: MemberObserver;
-    memberValue: PetValue;
     
-    constructor(observer: MemberObserver, memberValue: PetValue) {
-        super(null);
+    constructor(observer: MemberObserver) {
+        super(observer.taskToResume);
         this.observer = observer;
-        this.memberValue = memberValue;
     }
     
     advance(): Action {
