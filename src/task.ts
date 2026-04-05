@@ -1,7 +1,14 @@
 
-import { PetValue, PetException, MemberObserver } from "./value.js";
-import { Action, TaskAction } from "./action.js";
+import * as valueModule from "./value.js";
+import { symbols } from "./symbol.js";
+import { Action, TaskAction, ExcepAction } from "./action.js";
 import { PetContext } from "./context.js";
+
+type PetValue = valueModule.PetValue;
+type PetException = valueModule.PetException;
+type PetFunc = valueModule.PetFunc;
+type ObservableBunch = valueModule.ObservableBunch;
+type MemberObserver = valueModule.MemberObserver;
 
 export abstract class Task {
     parentTask: Task | null;
@@ -19,6 +26,34 @@ export abstract class Task {
     
     handleException(exception: PetException): Action {
         return new TaskAction(this.parentTask);
+    }
+    
+    createExcepAction(exception: PetException): ExcepAction {
+        let evalState = exception.getMember(symbols.EVAL_STATE);
+        if (!(evalState instanceof valueModule.EvalState)) {
+            evalState = new valueModule.EvalState(this);
+            exception.setMember(symbols.EVAL_STATE, evalState);
+        }
+        return new ExcepAction(exception);
+    }
+    
+    createAwaitAction(
+        bunch: ObservableBunch,
+        location: PetValue,
+        condition: PetFunc,
+        taskToResume?: Task,
+    ): ExcepAction {
+        const exception = new valueModule.PetMap([
+            [symbols.EXCEP_TYPE, symbols.AWAIT_EXCEP],
+            [symbols.BUNCH, bunch],
+            [symbols.LOC, location],
+            [symbols.COND, condition],
+        ]);
+        if (typeof taskToResume !== "undefined") {
+            const evalState = new valueModule.EvalState(taskToResume);
+            exception.setMember(symbols.EVAL_STATE, evalState);
+        }
+        return this.createExcepAction(exception);
     }
 }
 
@@ -76,14 +111,38 @@ export class LoadModuleTask extends Task {
 
 export class AwaitCondTask extends Task {
     observer: MemberObserver;
+    lastMemberValue?: PetValue;
     
-    constructor(observer: MemberObserver) {
+    constructor(observer: MemberObserver, lastMemberValue?: PetValue) {
         super(observer.taskToResume);
         this.observer = observer;
+        this.lastMemberValue = lastMemberValue;
+    }
+    
+    callCondition(): Action {
+        const memberValue = this.observer.getMemberValue();
+        const condTask = new AwaitCondTask(this.observer, memberValue);
+        const nextTask = this.observer.condition.call(condTask, [memberValue]);
+        return new TaskAction(nextTask);
     }
     
     advance(): Action {
-        throw new Error("Not yet implemented");
+        return this.callCondition();
+    }
+    
+    acceptReturnValue(returnValue: PetValue): Action {
+        // TODO: Throw an error if `returnValue` is not an integer.
+        const { bunch, location, condition, taskToResume } = this.observer;
+        if (returnValue as bigint === 0n) {
+            const memberValue = this.observer.getMemberValue();
+            if (valueModule.valuesAreEqual(memberValue, this.lastMemberValue)) {
+                return this.createAwaitAction(bunch, location, condition, taskToResume);
+            } else {
+                return this.callCondition();
+            }
+        } else {
+            return new TaskAction(taskToResume);
+        }
     }
 }
 

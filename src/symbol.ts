@@ -1,5 +1,15 @@
 
-import { PetSymbol } from "./value.js";
+export class PetSymbol {
+    displayName: string;
+    
+    constructor(displayName: string) {
+        this.displayName = displayName;
+    }
+    
+    toString() {
+        return this.displayName;
+    }
+}
 
 const symbolNames = [
     "NULL", "INT", "SYMBOL", "STR", "LIST", "MAP", "FUNC", "EVAL_STATE",

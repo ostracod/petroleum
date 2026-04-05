@@ -1,10 +1,14 @@
 
 import * as valueModule from "./value.js";
+import { symbols } from "./symbol.js";
 import { TaskAction, ReturnAction, ExcepAction } from "./action.js";
-import { Task } from "./task.js";
+import { Task, AwaitCondTask } from "./task.js";
 import { PetContext } from "./context.js";
 
 type PetException = valueModule.PetException;
+type PetFunc = valueModule.PetFunc;
+type EvalState = valueModule.EvalState;
+type ObservableBunch = valueModule.ObservableBunch;
 
 export class Coroutine {
     context: PetContext;
@@ -107,8 +111,22 @@ export class Scheduler {
             return;
         }
         const uncaughtExcep = coroutine.run();
-        // TODO: Handle `uncaughtExcep`.
-        
+        if (uncaughtExcep === null) {
+            return;
+        }
+        const excepType = uncaughtExcep.getMember(symbols.EXCEP_TYPE);
+        const { task } = uncaughtExcep.getMember(symbols.EVAL_STATE) as EvalState;
+        if (excepType === symbols.PASS_EXCEP) {
+            this.schedule(task, false);
+        } else if (excepType === symbols.AWAIT_EXCEP) {
+            const bunch = uncaughtExcep.getMember(symbols.BUNCH) as ObservableBunch;
+            const location = uncaughtExcep.getMember(symbols.LOC);
+            const condition = uncaughtExcep.getMember(symbols.COND) as PetFunc;
+            bunch.observatory.addObserver(this, location, condition, task);
+        } else {
+            // TODO: Handle unexpected exception.
+            
+        }
     }
     
     hasFinished(): boolean {

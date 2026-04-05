@@ -1,6 +1,9 @@
 
-import { Task, AwaitCondTask } from "./task.js";
+import { PetSymbol } from "./symbol.js";
+import * as taskModule from "./task.js";
 import { Scheduler } from "./scheduler.js";
+
+type Task = taskModule.Task;
 
 // PetValueAndKey contains types which can be used as both values and Map keys.
 export type PetValueAndKey = null | bigint | PetSymbol | PetList | PetMap | PetFunc | EvalState;
@@ -18,18 +21,6 @@ const charEscapes: { [character: string]: string } = {};
 for (const escape in escapeChars) {
     const character = escapeChars[escape];
     charEscapes[character] = escape;
-}
-
-export class PetSymbol {
-    displayName: string;
-    
-    constructor(displayName: string) {
-        this.displayName = displayName;
-    }
-    
-    toString() {
-        return this.displayName;
-    }
 }
 
 export class PetString {
@@ -108,7 +99,7 @@ const valueToMapKey = (value: PetValue): MapKey => (
     (value instanceof PetString) ? value.toHexString() : value
 );
 
-const valuesAreEqual = (value1: PetValue, value2: PetValue): boolean => {
+export const valuesAreEqual = (value1: PetValue, value2: PetValue): boolean => {
     if (value1 instanceof PetString && value2 instanceof PetString) {
         const buffer1 = value1.toBuffer();
         const buffer2 = value2.toBuffer();
@@ -118,10 +109,12 @@ const valuesAreEqual = (value1: PetValue, value2: PetValue): boolean => {
     }
 }
 
-interface ObservableBunch<T extends PetValue = PetValue> {
+export interface ObservableBunchIface<T extends PetValue = PetValue> {
     observatory: MemberObservatory<T>;
     getMember(location: T): PetValue;
 }
+
+export type ObservableBunch<T extends PetValue = PetValue> = PetValue & ObservableBunchIface<T>;
 
 export class MemberObserver<T extends PetValue = PetValue> {
     bunch: ObservableBunch<T>;
@@ -139,6 +132,10 @@ export class MemberObserver<T extends PetValue = PetValue> {
         this.location = location;
         this.condition = condition;
         this.taskToResume = taskToResume;
+    }
+    
+    getMemberValue(): PetValue {
+        return this.bunch.getMember(this.location);
     }
 }
 
@@ -177,13 +174,13 @@ class MemberObservatory<T extends PetValue> {
         }
         this.observers.delete(mapKey);
         for (const observer of observers) {
-            const condTask = new AwaitCondTask(observer);
+            const condTask = new taskModule.AwaitCondTask(observer);
             this.scheduler.schedule(condTask);
         }
     }
 }
 
-export class PetList implements ObservableBunch<bigint> {
+export class PetList implements ObservableBunchIface<bigint> {
     elements: PetValue[];
     observatory: MemberObservatory<bigint>;
     
@@ -235,7 +232,7 @@ class PetField {
     }
 }
 
-export class PetMap implements ObservableBunch<PetValue> {
+export class PetMap implements ObservableBunchIface<PetValue> {
     fields: Map<MapKey, PetField>;
     observatory: MemberObservatory<PetValue>;
     
