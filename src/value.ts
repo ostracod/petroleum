@@ -1,5 +1,6 @@
 
 import { PetSymbol } from "./symbol.js";
+import { DeferralError, PetTypeError } from "./error.js";
 import * as taskModule from "./task.js";
 import { Scheduler } from "./scheduler.js";
 
@@ -7,7 +8,8 @@ type Task = taskModule.Task;
 
 // PetValueAndKey contains types which can be used as both values and Map keys.
 export type PetValueAndKey = null | bigint | PetSymbol | PetList | PetMap | PetFunc | EvalState;
-export type PetValue = PetString | PetValueAndKey;
+export type KnownValue = PetString | PetValueAndKey;
+export type PetValue = DeferredValue | KnownValue;
 export type MapKey = string | PetValueAndKey;
 
 export const escapeChars: { [escape: string]: string } = {
@@ -79,7 +81,8 @@ export class PetString {
     }
 }
 
-export const valueToString = (value: PetValue, parents: PetValue[] = []): string => {
+export const valueToString = (inputValue: PetValue, parents: KnownValue[] = []): string => {
+    const value = unwrapValue(inputValue);
     if (value === null) {
         return "NULL";
     } else if (value instanceof PetString) {
@@ -95,11 +98,14 @@ export const valueToString = (value: PetValue, parents: PetValue[] = []): string
     }
 };
 
-const valueToMapKey = (value: PetValue): MapKey => (
-    (value instanceof PetString) ? value.toHexString() : value
-);
+const valueToMapKey = (inputValue: PetValue): MapKey => {
+    const value = unwrapValue(inputValue);
+    return (value instanceof PetString) ? value.toHexString() : value;
+};
 
-export const valuesAreEqual = (value1: PetValue, value2: PetValue): boolean => {
+export const valuesAreEqual = (inputValue1: PetValue, inputValue2: PetValue): boolean => {
+    const value1 = unwrapValue(inputValue1);
+    const value2 = unwrapValue(inputValue2);
     if (value1 instanceof PetString && value2 instanceof PetString) {
         const buffer1 = value1.toBuffer();
         const buffer2 = value2.toBuffer();
@@ -109,22 +115,43 @@ export const valuesAreEqual = (value1: PetValue, value2: PetValue): boolean => {
     }
 }
 
-export interface ObservableBunchIface<T extends PetValue = PetValue> {
-    observatory: MemberObservatory<T>;
-    getMember(location: T): PetValue;
+const valueMayHaveChanged = (oldValue: PetValue, newValue: PetValue): boolean => {
+    const oldValueIsDeferred = (oldValue instanceof DeferredValue);
+    const newValueIsDeferred = (newValue instanceof DeferredValue);
+    if (oldValueIsDeferred && newValueIsDeferred) {
+        const oldDeferredValue = oldValue as DeferredValue;
+        const newDeferredValue = newValue as DeferredValue;
+        return (valuesAreEqual(oldDeferredValue.bunch, newDeferredValue.bunch)
+            && valuesAreEqual(oldDeferredValue.location, newDeferredValue.location));
+    } else if (oldValueIsDeferred || newValueIsDeferred) {
+        return (oldValue !== newValue);
+    } else {
+        return valuesAreEqual(oldValue, newValue);
+    }
+};
+
+export interface ObservableBunchIface {
+    observatory: MemberObservatory;
+    getMember(location: PetValue): PetValue | undefined;
 }
 
-export type ObservableBunch<T extends PetValue = PetValue> = PetValue & ObservableBunchIface<T>;
+export type ObservableBunch = KnownValue & ObservableBunchIface;
 
-export class MemberObserver<T extends PetValue = PetValue> {
-    bunch: ObservableBunch<T>;
-    location: T;
+const deferMember = (bunch: ObservableBunch, inputLocation: PetValue): PetValue => {
+    const location = unwrapValue(inputLocation);
+    const value = bunch.getMember(location);
+    return (typeof value === "undefined") ? new DeferredValue(bunch, location) : value;
+};
+
+export class MemberObserver {
+    bunch: ObservableBunch;
+    location: KnownValue;
     condition: PetFunc;
     taskToResume: Task;
     
     constructor(
-        bunch: ObservableBunch<T>,
-        location: T,
+        bunch: ObservableBunch,
+        location: KnownValue,
         condition: PetFunc,
         taskToResume: Task,
     ) {
@@ -134,28 +161,29 @@ export class MemberObserver<T extends PetValue = PetValue> {
         this.taskToResume = taskToResume;
     }
     
-    getMemberValue(): PetValue {
+    getMemberValue(): PetValue | undefined {
         return this.bunch.getMember(this.location);
     }
 }
 
-class MemberObservatory<T extends PetValue> {
-    bunch: ObservableBunch<T>;
-    observers: Map<MapKey, Set<MemberObserver<T>>>;
+class MemberObservatory {
+    bunch: ObservableBunch;
+    observers: Map<MapKey, Set<MemberObserver>>;
     scheduler: Scheduler;
     
-    constructor(bunch: ObservableBunch<T>) {
+    constructor(bunch: ObservableBunch) {
         this.bunch = bunch;
         this.observers = new Map();
     }
     
     addObserver(
         scheduler: Scheduler,
-        location: T,
+        inputLocation: PetValue,
         condition: PetFunc,
         taskToResume: Task,
     ): void {
         this.scheduler = scheduler;
+        const location = unwrapValue(inputLocation);
         const mapKey = valueToMapKey(location);
         let observers = this.observers.get(mapKey);
         if (typeof observers === "undefined") {
@@ -166,7 +194,7 @@ class MemberObservatory<T extends PetValue> {
         observers.add(observer);
     }
     
-    handleMemberChange(location: T): void {
+    handleMemberChange(location: KnownValue): void {
         const mapKey = valueToMapKey(location);
         const observers = this.observers.get(mapKey);
         if (typeof observers === "undefined") {
@@ -180,25 +208,54 @@ class MemberObservatory<T extends PetValue> {
     }
 }
 
-export class PetList implements ObservableBunchIface<bigint> {
+const valueToNumber = (value: number | PetValue): number => {
+    if (typeof value === "number") {
+        return value;
+    }
+    const knownValue = unwrapValue(value);
+    if (typeof knownValue === "bigint") {
+        return Number(knownValue);
+    } else {
+        throw new PetTypeError("Expected number");
+    }
+};
+
+const valueToBigInt = (value: number | PetValue): bigint => {
+    if (typeof value === "number") {
+        return BigInt(value);
+    }
+    const knownValue = unwrapValue(value);
+    if (typeof knownValue === "bigint") {
+        return knownValue;
+    } else {
+        throw new PetTypeError("Expected integer");
+    }
+};
+
+export class PetList implements ObservableBunchIface {
     elements: PetValue[];
-    observatory: MemberObservatory<bigint>;
+    observatory: MemberObservatory;
     
     constructor(elements: PetValue[] = []) {
         this.elements = elements;
-        this.observatory = new MemberObservatory<bigint>(this);
+        this.observatory = new MemberObservatory(this);
     }
     
-    getMember(index: number | bigint): PetValue {
-        return this.elements[Number(index)];
+    getMember(index: number | PetValue): PetValue | undefined {
+        return this.elements[valueToNumber(index)];
     }
     
-    setMember(index: number | bigint, value: PetValue): void {
-        const lastValue = this.elements[Number(index)];
-        this.elements[Number(index)] = value;
+    setMember(index: number | PetValue, value: PetValue): void {
+        const numberIndex = valueToNumber(index);
+        const lastValue = this.elements[numberIndex];
+        this.elements[numberIndex] = value;
         if (typeof lastValue === "undefined" || !valuesAreEqual(lastValue, value)) {
-            this.observatory.handleMemberChange(BigInt(index));
+            this.observatory.handleMemberChange(valueToBigInt(index));
         }
+    }
+    
+    deferMember(index: number | PetValue): PetValue {
+        return deferMember(this, valueToBigInt(index));
     }
     
     getLength(): number {
@@ -208,10 +265,10 @@ export class PetList implements ObservableBunchIface<bigint> {
     addElement(value: PetValue): void {
         const index = this.elements.length;
         this.elements.push(value);
-        this.observatory.handleMemberChange(BigInt(index));
+        this.observatory.handleMemberChange(valueToBigInt(index));
     }
     
-    toString(parents: PetValue[] = []): string {
+    toString(parents: KnownValue[] = []): string {
         const nextParents = [...parents, this];
         const textList: string[] = [];
         for (const element of this.elements) {
@@ -223,25 +280,25 @@ export class PetList implements ObservableBunchIface<bigint> {
 }
 
 class PetField {
-    key: PetValue;
+    key: KnownValue;
     value: PetValue;
     
-    constructor(key: PetValue, value: PetValue) {
+    constructor(key: KnownValue, value: PetValue) {
         this.key = key;
         this.value = value;
     }
 }
 
-export class PetMap implements ObservableBunchIface<PetValue> {
+export class PetMap implements ObservableBunchIface {
     fields: Map<MapKey, PetField>;
-    observatory: MemberObservatory<PetValue>;
+    observatory: MemberObservatory;
     
     constructor(entries: [PetValue, PetValue][] = []) {
         this.fields = new Map();
         for (const entry of entries) {
-            this.setMember(entry[0], entry[1]);
+            this.setMember(unwrapValue(entry[0]), entry[1]);
         }
-        this.observatory = new MemberObservatory<PetValue>(this);
+        this.observatory = new MemberObservatory(this);
     }
     
     getMember(key: PetValue): PetValue | undefined {
@@ -250,7 +307,8 @@ export class PetMap implements ObservableBunchIface<PetValue> {
         return field?.value;
     }
     
-    setMember(key: PetValue, value: PetValue): void {
+    setMember(inputKey: PetValue, value: PetValue): void {
+        const key = unwrapValue(inputKey);
         const mapKey = valueToMapKey(key);
         let lastValue: PetValue | undefined;
         let field = this.fields.get(mapKey);
@@ -261,12 +319,16 @@ export class PetMap implements ObservableBunchIface<PetValue> {
             lastValue = field.value;
             field.value = value;
         }
-        if (typeof lastValue === "undefined" || !valuesAreEqual(lastValue, value)) {
+        if (typeof lastValue === "undefined" || valueMayHaveChanged(lastValue, value)) {
             this.observatory.handleMemberChange(key);
         }
     }
     
-    toString(parents: PetValue[] = []): string {
+    deferMember(key: PetValue): PetValue {
+        return deferMember(this, key);
+    }
+    
+    toString(parents: KnownValue[] = []): string {
         const nextParents = [...parents, this];
         const textList: string[] = [];
         this.fields.forEach(({ key, value }) => {
@@ -312,5 +374,30 @@ export class EvalState {
         throw new Error("Not yet implemented");
     }
 }
+
+export class DeferredValue {
+    bunch: ObservableBunch;
+    location: KnownValue;
+    
+    constructor(bunch: ObservableBunch, location: KnownValue) {
+        this.bunch = bunch;
+        this.location = location;
+    }
+    
+    unwrap(): KnownValue {
+        let value = this.bunch.getMember(this.location);
+        if (typeof value === "undefined") {
+            throw new DeferralError(this);
+        }
+        while (value instanceof DeferredValue) {
+            value = value.unwrap();
+        }
+        return value;
+    }
+}
+
+export const unwrapValue = (value: PetValue): KnownValue => (
+    (value instanceof DeferredValue) ? value.unwrap() : value
+);
 
 
