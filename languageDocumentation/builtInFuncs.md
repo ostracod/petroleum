@@ -136,6 +136,17 @@ Sets the member in `$bunch` at `$loc` to be `$member`. `$bunch` may have one of 
     * If a field with the key does not exist, this function adds a new field.
 
 ```
+DEFER_MEMBER($bunch, $loc)
+```
+
+Attempts to read the member in `$bunch` at `$loc`. If the member exists, this function returns the value of the member. If the member does not exist, this function returns a deferred value. If later code needs to know the deferred value, the code will pause until the member is populated in `$bunch`. `$bunch` may have one of the following types:
+
+* If `$bunch` is a list:
+    * `$loc` is an index.
+* If `$bunch` is a map:
+    * `$loc` is a key.
+
+```
 ADD_ELEM($list, $elem)
 ```
 
