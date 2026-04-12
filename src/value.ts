@@ -1,12 +1,13 @@
 
-import { PetSymbol } from "./symbol.js";
-import { DeferralError, PetTypeError } from "./error.js";
-import * as actionModule from "./action.js";
+import * as schedulerModule from "./scheduler.js";
 import * as taskModule from "./task.js";
-import { Scheduler } from "./scheduler.js";
+import * as actionModule from "./action.js";
+import { DeferralError, PetTypeError } from "./error.js";
+import { PetSymbol } from "./symbol.js";
 
-type Action = actionModule.Action;
+type Scheduler = schedulerModule.Scheduler;
 type Task = taskModule.Task;
+type Action = actionModule.Action;
 
 // PetValueAndKey contains types which can be used as both values and Map keys.
 export type PetValueAndKey = null | bigint | PetSymbol | PetList | PetMap | PetFunc | EvalState;
@@ -353,16 +354,9 @@ export abstract class PetFunc {
         // Do nothing.
     }
     
-    abstract call(parentTask: Task, args: PetValue[]): Task;
+    abstract call(parentTask: Task, args: PetValue[]): Action;
     
     abstract toString(): string;
-}
-
-export abstract class BuiltInFunc extends PetFunc {
-    
-    toString(): string {
-        return "<builtInFunc>";
-    }
 }
 
 export class EvalState {

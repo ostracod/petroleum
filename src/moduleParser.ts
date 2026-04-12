@@ -1,7 +1,7 @@
 
 import * as fs from "fs";
-import { escapeChars, PetValue, PetString, PetList, PetMap } from "./value.js";
 import { symbols } from "./symbol.js";
+import { escapeChars, PetValue, PetString, PetList, PetMap } from "./value.js";
 
 interface ContentPos {
     lineNumber: bigint;

@@ -1,11 +1,15 @@
 
-import * as valueModule from "./value.js";
-import { symbols } from "./symbol.js";
-import { Task } from "./task.js";
 import { PetContext } from "./context.js";
+import { Task } from "./task.js";
+import { DeferralError } from "./error.js";
+import * as funcModule from "./builtInFunc.js";
+import { symbols } from "./symbol.js";
+import * as valueModule from "./value.js";
 
 type PetValue = valueModule.PetValue;
 type PetException = valueModule.PetException;
+type ObservableBunch = valueModule.ObservableBunch;
+type PetFunc = valueModule.PetFunc;
 
 declare const ActionBrand: unique symbol;
 
@@ -30,7 +34,15 @@ export abstract class Action {
             return this.runWithoutTask();
         }
         this.task.context = context;
-        return this.runWithTask();
+        try {
+            return this.runWithTask();
+        } catch (error) {
+            if (error instanceof DeferralError) {
+                const { deferredValue: { bunch, location } } = error;
+                return createAwaitAction(bunch, location, funcModule.returnTrueFunc, this);
+            }
+            throw error;
+        }
     }
     
     registerLastAction(lastAction: Action): void {
@@ -94,5 +106,24 @@ export class ExcepAction extends Action {
         }
     }
 }
+
+export const createAwaitAction = (
+    bunch: ObservableBunch,
+    location: PetValue,
+    condition: PetFunc,
+    actionToResume?: Action,
+): ExcepAction => {
+    const exception = new valueModule.PetMap([
+        [symbols.EXCEP_TYPE, symbols.AWAIT_EXCEP],
+        [symbols.BUNCH, bunch],
+        [symbols.LOC, location],
+        [symbols.COND, condition],
+    ]);
+    if (typeof actionToResume !== "undefined") {
+        const evalState = new valueModule.EvalState(actionToResume);
+        exception.setMember(symbols.EVAL_STATE, evalState);
+    }
+    return new ExcepAction(exception);
+};
 
 

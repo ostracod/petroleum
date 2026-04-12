@@ -1,9 +1,9 @@
 
-import * as valueModule from "./value.js";
-import { symbols } from "./symbol.js";
-import { Action, AdvanceAction } from "./action.js";
-import { Task } from "./task.js";
 import { PetContext } from "./context.js";
+import { Task } from "./task.js";
+import { Action, AdvanceAction } from "./action.js";
+import { symbols } from "./symbol.js";
+import * as valueModule from "./value.js";
 
 type PetException = valueModule.PetException;
 type PetFunc = valueModule.PetFunc;

@@ -1,13 +1,11 @@
 
-import * as valueModule from "./value.js";
-import { symbols } from "./symbol.js";
-import { Action, AdvanceAction, ExcepAction } from "./action.js";
 import { PetContext } from "./context.js";
+import { Action, AdvanceAction, ExcepAction, createAwaitAction } from "./action.js";
+import { symbols } from "./symbol.js";
+import * as valueModule from "./value.js";
 
 type PetValue = valueModule.PetValue;
 type PetException = valueModule.PetException;
-type PetFunc = valueModule.PetFunc;
-type ObservableBunch = valueModule.ObservableBunch;
 type MemberObserver = valueModule.MemberObserver;
 
 export abstract class Task {
@@ -25,25 +23,6 @@ export abstract class Task {
     }
     
     handleException(exception: PetException): Action {
-        return new ExcepAction(exception);
-    }
-    
-    createAwaitAction(
-        bunch: ObservableBunch,
-        location: PetValue,
-        condition: PetFunc,
-        actionToResume?: Action,
-    ): ExcepAction {
-        const exception = new valueModule.PetMap([
-            [symbols.EXCEP_TYPE, symbols.AWAIT_EXCEP],
-            [symbols.BUNCH, bunch],
-            [symbols.LOC, location],
-            [symbols.COND, condition],
-        ]);
-        if (typeof actionToResume !== "undefined") {
-            const evalState = new valueModule.EvalState(actionToResume);
-            exception.setMember(symbols.EVAL_STATE, evalState);
-        }
         return new ExcepAction(exception);
     }
 }
@@ -113,8 +92,7 @@ export class AwaitCondTask extends Task {
     callCondition(): Action {
         const memberValue = this.observer.getMemberValue();
         const condTask = new AwaitCondTask(this.observer, memberValue);
-        const nextTask = this.observer.condition.call(condTask, [memberValue]);
-        return new AdvanceAction(nextTask);
+        return this.observer.condition.call(condTask, [memberValue]);
     }
     
     advance(): Action {
@@ -127,7 +105,7 @@ export class AwaitCondTask extends Task {
         if (returnValue as bigint === 0n) {
             const memberValue = this.observer.getMemberValue();
             if (valueModule.valueMayHaveChanged(this.lastMemberValue, memberValue)) {
-                return this.createAwaitAction(bunch, location, condition, actionToResume);
+                return createAwaitAction(bunch, location, condition, actionToResume);
             } else {
                 return this.callCondition();
             }

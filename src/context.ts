@@ -1,8 +1,8 @@
 
-import { PetString, PetList } from "./value.js";
-import { MainTask, LoadModuleTask } from "./task.js";
 import { Scheduler } from "./scheduler.js";
+import { MainTask, LoadModuleTask } from "./task.js";
 import { PetPackage, UserPackage } from "./package.js";
+import { PetString, PetList } from "./value.js";
 
 export class PetContext {
     entryPackage: UserPackage;
