@@ -22,7 +22,7 @@ export class PetContext {
     
     run(): void {
         const mainTask = new MainTask();
-        this.scheduler.schedule(mainTask);
+        this.scheduler.scheduleTask(mainTask);
         while (!this.scheduler.hasFinished()) {
             this.scheduler.runNextCoro();
         }
@@ -37,7 +37,7 @@ export class PetContext {
         this.userModuleIndexes.set(modulePath, moduleIndex);
         this.userModules.addElement(null);
         const loadModuleTask = new LoadModuleTask(null, modulePath);
-        this.scheduler.schedule(loadModuleTask);
+        this.scheduler.scheduleTask(loadModuleTask);
     }
 }
 

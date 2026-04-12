@@ -1,9 +1,11 @@
 
 import { PetSymbol } from "./symbol.js";
 import { DeferralError, PetTypeError } from "./error.js";
+import * as actionModule from "./action.js";
 import * as taskModule from "./task.js";
 import { Scheduler } from "./scheduler.js";
 
+type Action = actionModule.Action;
 type Task = taskModule.Task;
 
 // PetValueAndKey contains types which can be used as both values and Map keys.
@@ -115,7 +117,7 @@ export const valuesAreEqual = (inputValue1: PetValue, inputValue2: PetValue): bo
     }
 }
 
-const valueMayHaveChanged = (oldValue: PetValue, newValue: PetValue): boolean => {
+export const valueMayHaveChanged = (oldValue: PetValue, newValue: PetValue): boolean => {
     const oldValueIsDeferred = (oldValue instanceof DeferredValue);
     const newValueIsDeferred = (newValue instanceof DeferredValue);
     if (oldValueIsDeferred && newValueIsDeferred) {
@@ -147,18 +149,18 @@ export class MemberObserver {
     bunch: ObservableBunch;
     location: KnownValue;
     condition: PetFunc;
-    taskToResume: Task;
+    actionToResume: Action;
     
     constructor(
         bunch: ObservableBunch,
         location: KnownValue,
         condition: PetFunc,
-        taskToResume: Task,
+        actionToResume: Action,
     ) {
         this.bunch = bunch;
         this.location = location;
         this.condition = condition;
-        this.taskToResume = taskToResume;
+        this.actionToResume = actionToResume;
     }
     
     getMemberValue(): PetValue | undefined {
@@ -180,7 +182,7 @@ class MemberObservatory {
         scheduler: Scheduler,
         inputLocation: PetValue,
         condition: PetFunc,
-        taskToResume: Task,
+        actionToResume: Action,
     ): void {
         this.scheduler = scheduler;
         const location = unwrapValue(inputLocation);
@@ -190,7 +192,7 @@ class MemberObservatory {
             observers = new Set();
             this.observers.set(mapKey, observers);
         }
-        const observer = new MemberObserver(this.bunch, location, condition, taskToResume);
+        const observer = new MemberObserver(this.bunch, location, condition, actionToResume);
         observers.add(observer);
     }
     
@@ -203,7 +205,7 @@ class MemberObservatory {
         this.observers.delete(mapKey);
         for (const observer of observers) {
             const condTask = new taskModule.AwaitCondTask(observer);
-            this.scheduler.schedule(condTask);
+            this.scheduler.scheduleTask(condTask);
         }
     }
 }
@@ -364,10 +366,10 @@ export abstract class BuiltInFunc extends PetFunc {
 }
 
 export class EvalState {
-    task: Task;
+    action: Action;
     
-    constructor(task: Task) {
-        this.task = task;
+    constructor(action: Action) {
+        this.action = action;
     }
     
     toString(): string {
@@ -389,10 +391,7 @@ export class DeferredValue {
         if (typeof value === "undefined") {
             throw new DeferralError(this);
         }
-        while (value instanceof DeferredValue) {
-            value = value.unwrap();
-        }
-        return value;
+        return (value instanceof DeferredValue) ? value.unwrap() : value;
     }
 }
 

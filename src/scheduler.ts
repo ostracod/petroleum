@@ -1,8 +1,8 @@
 
 import * as valueModule from "./value.js";
 import { symbols } from "./symbol.js";
-import { TaskAction, ReturnAction, ExcepAction } from "./action.js";
-import { Task, AwaitCondTask } from "./task.js";
+import { Action, AdvanceAction } from "./action.js";
+import { Task } from "./task.js";
 import { PetContext } from "./context.js";
 
 type PetException = valueModule.PetException;
@@ -12,40 +12,24 @@ type ObservableBunch = valueModule.ObservableBunch;
 
 export class Coroutine {
     context: PetContext;
-    task: Task | null;
-    uncaughtExcep: PetException | null;
+    action: Action;
     nextCoro: Coroutine | null;
     
-    constructor(context: PetContext, task: Task) {
+    constructor(context: PetContext, action: Action) {
         this.context = context;
-        this.task = task;
-        this.uncaughtExcep = null;
+        this.action = action;
         this.nextCoro = null;
     }
     
     run(): PetException | null {
-        while (this.task !== null) {
-            this.task.context = this.context;
-            let action = this.task.advance();
-            while (!(action instanceof TaskAction)) {
-                if (action instanceof ReturnAction) {
-                    this.task = this.task.parentTask;
-                    if (this.task === null) {
-                        return null;
-                    }
-                    action = this.task.acceptReturnValue(action.returnValue);
-                } else if (action instanceof ExcepAction) {
-                    const { exception } = action;
-                    this.task = this.task.parentTask;
-                    if (this.task === null) {
-                        return exception;
-                    }
-                    action = this.task.handleException(exception);
-                } else {
-                    throw new Error(`Unexpected action type ${action.constructor.name}`);
-                }
+        while (true) {
+            const result = this.action.run(this.context);
+            if (result instanceof Action) {
+                result.registerLastAction(this.action);
+                this.action = result;
+            } else {
+                return result;
             }
-            this.task = action.nextTask;
         }
     }
 }
@@ -96,10 +80,15 @@ export class Scheduler {
         this.lowPrioCoros = new CoroQueue();
     }
     
-    schedule(task: Task, highPriority: boolean = true): void {
-        const coroutine = new Coroutine(this.context, task);
+    scheduleAction(action: Action, highPriority: boolean = true): void {
+        const coroutine = new Coroutine(this.context, action);
         const coroQueue = highPriority ? this.highPrioCoros : this.lowPrioCoros;
         coroQueue.pushRight(coroutine);
+    }
+    
+    scheduleTask(task: Task, highPriority: boolean = true): void {
+        const action = new AdvanceAction(task);
+        this.scheduleAction(action, highPriority);
     }
     
     runNextCoro(): void {
@@ -115,14 +104,14 @@ export class Scheduler {
             return;
         }
         const excepType = uncaughtExcep.getMember(symbols.EXCEP_TYPE);
-        const { task } = uncaughtExcep.getMember(symbols.EVAL_STATE) as EvalState;
+        const { action } = uncaughtExcep.getMember(symbols.EVAL_STATE) as EvalState;
         if (excepType === symbols.PASS_EXCEP) {
-            this.schedule(task, false);
+            this.scheduleAction(action, false);
         } else if (excepType === symbols.AWAIT_EXCEP) {
             const bunch = uncaughtExcep.getMember(symbols.BUNCH) as ObservableBunch;
             const location = uncaughtExcep.getMember(symbols.LOC);
             const condition = uncaughtExcep.getMember(symbols.COND) as PetFunc;
-            bunch.observatory.addObserver(this, location, condition, task);
+            bunch.observatory.addObserver(this, location, condition, action);
         } else {
             // TODO: Handle unexpected exception.
             

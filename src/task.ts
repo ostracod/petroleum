@@ -1,7 +1,7 @@
 
 import * as valueModule from "./value.js";
 import { symbols } from "./symbol.js";
-import { Action, TaskAction, ExcepAction } from "./action.js";
+import { Action, AdvanceAction, ExcepAction } from "./action.js";
 import { PetContext } from "./context.js";
 
 type PetValue = valueModule.PetValue;
@@ -21,19 +21,10 @@ export abstract class Task {
     abstract advance(): Action;
     
     acceptReturnValue(returnValue: PetValue): Action {
-        return new TaskAction(this);
+        return new AdvanceAction(this);
     }
     
     handleException(exception: PetException): Action {
-        return new TaskAction(this.parentTask);
-    }
-    
-    createExcepAction(exception: PetException): ExcepAction {
-        let evalState = exception.getMember(symbols.EVAL_STATE);
-        if (!(evalState instanceof valueModule.EvalState)) {
-            evalState = new valueModule.EvalState(this);
-            exception.setMember(symbols.EVAL_STATE, evalState);
-        }
         return new ExcepAction(exception);
     }
     
@@ -41,7 +32,7 @@ export abstract class Task {
         bunch: ObservableBunch,
         location: PetValue,
         condition: PetFunc,
-        taskToResume?: Task,
+        actionToResume?: Action,
     ): ExcepAction {
         const exception = new valueModule.PetMap([
             [symbols.EXCEP_TYPE, symbols.AWAIT_EXCEP],
@@ -49,11 +40,11 @@ export abstract class Task {
             [symbols.LOC, location],
             [symbols.COND, condition],
         ]);
-        if (typeof taskToResume !== "undefined") {
-            const evalState = new valueModule.EvalState(taskToResume);
+        if (typeof actionToResume !== "undefined") {
+            const evalState = new valueModule.EvalState(actionToResume);
             exception.setMember(symbols.EVAL_STATE, evalState);
         }
-        return this.createExcepAction(exception);
+        return new ExcepAction(exception);
     }
 }
 
@@ -78,7 +69,7 @@ export class MainTask extends Task {
             const modulePath = this.context.entryPackage.mainModulePath;
             this.context.loadUserModule(modulePath);
             const nextTask = new MainTask(this.parentTask, MainTaskStage.PrepModules, 0);
-            return new TaskAction(nextTask);
+            return new AdvanceAction(nextTask);
         } else if (this.stage === MainTaskStage.PrepModules) {
             // TODO: Await each user module which is being loaded.
             throw new Error("Not yet implemented");
@@ -114,7 +105,7 @@ export class AwaitCondTask extends Task {
     lastMemberValue?: PetValue;
     
     constructor(observer: MemberObserver, lastMemberValue?: PetValue) {
-        super(observer.taskToResume);
+        super(observer.actionToResume.task);
         this.observer = observer;
         this.lastMemberValue = lastMemberValue;
     }
@@ -123,7 +114,7 @@ export class AwaitCondTask extends Task {
         const memberValue = this.observer.getMemberValue();
         const condTask = new AwaitCondTask(this.observer, memberValue);
         const nextTask = this.observer.condition.call(condTask, [memberValue]);
-        return new TaskAction(nextTask);
+        return new AdvanceAction(nextTask);
     }
     
     advance(): Action {
@@ -132,16 +123,16 @@ export class AwaitCondTask extends Task {
     
     acceptReturnValue(returnValue: PetValue): Action {
         // TODO: Throw an error if `returnValue` is not an integer.
-        const { bunch, location, condition, taskToResume } = this.observer;
+        const { bunch, location, condition, actionToResume } = this.observer;
         if (returnValue as bigint === 0n) {
             const memberValue = this.observer.getMemberValue();
-            if (valueModule.valuesAreEqual(memberValue, this.lastMemberValue)) {
-                return this.createAwaitAction(bunch, location, condition, taskToResume);
+            if (valueModule.valueMayHaveChanged(this.lastMemberValue, memberValue)) {
+                return this.createAwaitAction(bunch, location, condition, actionToResume);
             } else {
                 return this.callCondition();
             }
         } else {
-            return new TaskAction(taskToResume);
+            return actionToResume;
         }
     }
 }
