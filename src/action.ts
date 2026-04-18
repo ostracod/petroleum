@@ -93,7 +93,7 @@ export class ExcepAction extends Action {
     }
     
     runWithTask(): ActionResult {
-        return this.task.handleException(this.exception)
+        return this.task.handleException(this.exception);
     }
     
     registerLastAction(lastAction: Action): void {

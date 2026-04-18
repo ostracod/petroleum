@@ -252,7 +252,7 @@ export class PetList implements ObservableBunchIface {
         const numberIndex = valueToNumber(index);
         const lastValue = this.elements[numberIndex];
         this.elements[numberIndex] = value;
-        if (typeof lastValue === "undefined" || !valuesAreEqual(lastValue, value)) {
+        if (typeof lastValue === "undefined" || valueMayHaveChanged(lastValue, value)) {
             this.observatory.handleMemberChange(valueToBigInt(index));
         }
     }
@@ -381,7 +381,7 @@ export class DeferredValue {
     }
     
     unwrap(): KnownValue {
-        let value = this.bunch.getMember(this.location);
+        const value = this.bunch.getMember(this.location);
         if (typeof value === "undefined") {
             throw new DeferralError(this);
         }

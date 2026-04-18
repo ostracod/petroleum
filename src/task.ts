@@ -33,12 +33,8 @@ export class MainTask extends Task {
     stage: MainTaskStage;
     moduleIndex: number;
     
-    constructor(
-        parentTask: Task | null = null,
-        stage: MainTaskStage = MainTaskStage.Init,
-        moduleIndex: number = 0,
-    ) {
-        super(parentTask);
+    constructor(stage: MainTaskStage = MainTaskStage.Init, moduleIndex: number = 0) {
+        super(null);
         this.stage = stage;
         this.moduleIndex = moduleIndex;
     }
@@ -47,7 +43,7 @@ export class MainTask extends Task {
         if (this.stage === MainTaskStage.Init) {
             const modulePath = this.context.entryPackage.mainModulePath;
             this.context.loadUserModule(modulePath);
-            const nextTask = new MainTask(this.parentTask, MainTaskStage.PrepModules, 0);
+            const nextTask = new MainTask(MainTaskStage.PrepModules, 0);
             return new AdvanceAction(nextTask);
         } else if (this.stage === MainTaskStage.PrepModules) {
             // TODO: Await each user module which is being loaded.
@@ -65,11 +61,10 @@ export class LoadModuleTask extends Task {
     stage: LoadModuleStage;
     
     constructor(
-        parentTask: Task | null,
         modulePath: string,
         stage: LoadModuleStage = LoadModuleStage.Init,
     ) {
-        super(parentTask);
+        super(null);
         this.modulePath = modulePath;
         this.stage = stage;
     }
@@ -105,9 +100,9 @@ export class AwaitCondTask extends Task {
         if (returnValue as bigint === 0n) {
             const memberValue = this.observer.getMemberValue();
             if (valueModule.valueMayHaveChanged(this.lastMemberValue, memberValue)) {
-                return createAwaitAction(bunch, location, condition, actionToResume);
-            } else {
                 return this.callCondition();
+            } else {
+                return createAwaitAction(bunch, location, condition, actionToResume);
             }
         } else {
             return actionToResume;

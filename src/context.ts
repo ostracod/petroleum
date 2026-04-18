@@ -36,7 +36,7 @@ export class PetContext {
         const moduleIndex = this.userModules.getLength();
         this.userModuleIndexes.set(modulePath, moduleIndex);
         this.userModules.addElement(null);
-        const loadModuleTask = new LoadModuleTask(null, modulePath);
+        const loadModuleTask = new LoadModuleTask(modulePath);
         this.scheduler.scheduleTask(loadModuleTask);
     }
 }
