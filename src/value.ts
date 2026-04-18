@@ -150,18 +150,18 @@ export class MemberObserver {
     bunch: ObservableBunch;
     location: KnownValue;
     condition: PetFunc;
-    actionToResume: Action;
+    evalState: EvalState;
     
     constructor(
         bunch: ObservableBunch,
         location: KnownValue,
         condition: PetFunc,
-        actionToResume: Action,
+        evalState: EvalState,
     ) {
         this.bunch = bunch;
         this.location = location;
         this.condition = condition;
-        this.actionToResume = actionToResume;
+        this.evalState = evalState;
     }
     
     getMemberValue(): PetValue | undefined {
@@ -183,7 +183,7 @@ class MemberObservatory {
         scheduler: Scheduler,
         inputLocation: PetValue,
         condition: PetFunc,
-        actionToResume: Action,
+        evalState: EvalState,
     ): void {
         this.scheduler = scheduler;
         const location = unwrapValue(inputLocation);
@@ -193,7 +193,7 @@ class MemberObservatory {
             observers = new Set();
             this.observers.set(mapKey, observers);
         }
-        const observer = new MemberObserver(this.bunch, location, condition, actionToResume);
+        const observer = new MemberObserver(this.bunch, location, condition, evalState);
         observers.add(observer);
     }
     
@@ -360,10 +360,12 @@ export abstract class PetFunc {
 }
 
 export class EvalState {
-    action: Action;
+    currentAction: Action;
+    actionToResume: Action;
     
-    constructor(action: Action) {
-        this.action = action;
+    constructor(currentAction: Action, actionToResume: Action) {
+        this.currentAction = currentAction;
+        this.actionToResume = actionToResume;
     }
     
     toString(): string {

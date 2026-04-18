@@ -25,7 +25,6 @@ export class Coroutine {
         while (true) {
             const result = this.action.run(this.context);
             if (result instanceof Action) {
-                result.registerLastAction(this.action);
                 this.action = result;
             } else {
                 return result;
@@ -104,14 +103,14 @@ export class Scheduler {
             return;
         }
         const excepType = uncaughtExcep.getMember(symbols.EXCEP_TYPE);
-        const { action } = uncaughtExcep.getMember(symbols.EVAL_STATE) as EvalState;
+        const evalState = uncaughtExcep.getMember(symbols.EVAL_STATE) as EvalState;
         if (excepType === symbols.PASS_EXCEP) {
-            this.scheduleAction(action, false);
+            this.scheduleAction(evalState.actionToResume, false);
         } else if (excepType === symbols.AWAIT_EXCEP) {
             const bunch = uncaughtExcep.getMember(symbols.BUNCH) as ObservableBunch;
             const location = uncaughtExcep.getMember(symbols.LOC);
             const condition = uncaughtExcep.getMember(symbols.COND) as PetFunc;
-            bunch.observatory.addObserver(this, location, condition, action);
+            bunch.observatory.addObserver(this, location, condition, evalState);
         } else {
             // TODO: Handle unexpected exception.
             

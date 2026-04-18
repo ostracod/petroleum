@@ -3,24 +3,18 @@ import { PetContext } from "./context.js";
 import { Task } from "./task.js";
 import { DeferralError } from "./error.js";
 import * as funcModule from "./builtInFunc.js";
-import { symbols } from "./symbol.js";
 import * as valueModule from "./value.js";
 
 type PetValue = valueModule.PetValue;
 type PetException = valueModule.PetException;
-type ObservableBunch = valueModule.ObservableBunch;
-type PetFunc = valueModule.PetFunc;
-
-declare const ActionBrand: unique symbol;
 
 export type ActionResult = Action | PetException | null;
 
 export abstract class Action {
-    readonly [ActionBrand]!: typeof ActionBrand;
     task: Task | null;
     
-    constructor() {
-        // Do nothing.
+    constructor(task: Task | null) {
+        this.task = task;
     }
     
     runWithoutTask(): ActionResult {
@@ -34,28 +28,25 @@ export abstract class Action {
             return this.runWithoutTask();
         }
         this.task.context = context;
+        this.task.currentAction = this;
         try {
             return this.runWithTask();
         } catch (error) {
             if (error instanceof DeferralError) {
-                const { deferredValue: { bunch, location } } = error;
-                return createAwaitAction(bunch, location, funcModule.returnTrueFunc, this);
+                const { deferredValue } = error;
+                return this.task.createAwaitAction(
+                    deferredValue.bunch,
+                    deferredValue.location,
+                    funcModule.returnTrueFunc,
+                    new valueModule.EvalState(this, this),
+                );
             }
             throw error;
         }
     }
-    
-    registerLastAction(lastAction: Action): void {
-        // Do nothing.
-    }
 }
 
 export class AdvanceAction extends Action {
-    
-    constructor(task: Task | null) {
-        super();
-        this.task = task;
-    }
     
     runWithTask(): ActionResult {
         return this.task.advance();
@@ -65,26 +56,21 @@ export class AdvanceAction extends Action {
 export class ReturnAction extends Action {
     returnValue: PetValue;
     
-    constructor(returnValue: PetValue) {
-        super();
+    constructor(task: Task, returnValue: PetValue) {
+        super(task);
         this.returnValue = returnValue;
     }
     
     runWithTask(): ActionResult {
         return this.task.acceptReturnValue(this.returnValue);
     }
-    
-    registerLastAction(lastAction: Action): void {
-        super.registerLastAction(lastAction);
-        this.task = lastAction.task.parentTask;
-    }
 }
 
 export class ExcepAction extends Action {
     exception: PetException;
     
-    constructor(exception: PetException) {
-        super();
+    constructor(task: Task, exception: PetException) {
+        super(task);
         this.exception = exception;
     }
     
@@ -95,35 +81,6 @@ export class ExcepAction extends Action {
     runWithTask(): ActionResult {
         return this.task.handleException(this.exception);
     }
-    
-    registerLastAction(lastAction: Action): void {
-        super.registerLastAction(lastAction);
-        this.task = lastAction.task.parentTask;
-        let evalState = this.exception.getMember(symbols.EVAL_STATE);
-        if (!(evalState instanceof valueModule.EvalState)) {
-            evalState = new valueModule.EvalState(lastAction);
-            this.exception.setMember(symbols.EVAL_STATE, evalState);
-        }
-    }
 }
-
-export const createAwaitAction = (
-    bunch: ObservableBunch,
-    location: PetValue,
-    condition: PetFunc,
-    actionToResume?: Action,
-): ExcepAction => {
-    const exception = new valueModule.PetMap([
-        [symbols.EXCEP_TYPE, symbols.AWAIT_EXCEP],
-        [symbols.BUNCH, bunch],
-        [symbols.LOC, location],
-        [symbols.COND, condition],
-    ]);
-    if (typeof actionToResume !== "undefined") {
-        const evalState = new valueModule.EvalState(actionToResume);
-        exception.setMember(symbols.EVAL_STATE, evalState);
-    }
-    return new ExcepAction(exception);
-};
 
 

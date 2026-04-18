@@ -16,7 +16,7 @@ export abstract class BuiltInFunc extends PetFunc {
 class ReturnTrueFunc extends BuiltInFunc {
     
     call(parentTask: Task, args: PetValue[]): Action {
-        return new actionModule.ReturnAction(1n);
+        return new actionModule.ReturnAction(parentTask, 1n);
     }
 }
 

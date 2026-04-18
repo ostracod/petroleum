@@ -1,16 +1,22 @@
 
 import { PetContext } from "./context.js";
-import { Action, AdvanceAction, ExcepAction, createAwaitAction } from "./action.js";
+import { Action, AdvanceAction, ReturnAction, ExcepAction } from "./action.js";
+import { ModuleParser } from "./moduleParser.js";
 import { symbols } from "./symbol.js";
 import * as valueModule from "./value.js";
 
 type PetValue = valueModule.PetValue;
+type PetMap = valueModule.PetMap;
 type PetException = valueModule.PetException;
+type PetFunc = valueModule.PetFunc;
+type EvalState = valueModule.EvalState;
 type MemberObserver = valueModule.MemberObserver;
+type ObservableBunch = valueModule.ObservableBunch;
 
 export abstract class Task {
     parentTask: Task | null;
     context: PetContext;
+    currentAction: Action;
     
     constructor(parentTask: Task | null) {
         this.parentTask = parentTask;
@@ -23,30 +29,80 @@ export abstract class Task {
     }
     
     handleException(exception: PetException): Action {
-        return new ExcepAction(exception);
+        return this.createExcepAction(exception);
+    }
+    
+    createReturnAction(returnValue: PetValue): ReturnAction {
+        return new ReturnAction(this.parentTask, returnValue);
+    }
+    
+    // `exception` must be populated with evaluation state.
+    createExcepAction(exception: PetException): ExcepAction {
+        return new ExcepAction(this.parentTask, exception);
+    }
+    
+    createAwaitAction(
+        bunch: ObservableBunch,
+        location: PetValue,
+        condition: PetFunc,
+        evalState: EvalState,
+    ): ExcepAction {
+        const exception = new valueModule.PetMap([
+            [symbols.EXCEP_TYPE, symbols.AWAIT_EXCEP],
+            [symbols.BUNCH, bunch],
+            [symbols.LOC, location],
+            [symbols.COND, condition],
+            [symbols.EVAL_STATE, evalState],
+        ]);
+        return this.createExcepAction(exception);
+    }
+    
+    awaitMember(
+        bunch: ObservableBunch,
+        location: PetValue,
+        condition: PetFunc,
+        nextAction: Action,
+    ): Action {
+        const observer = new valueModule.MemberObserver(
+            bunch,
+            valueModule.unwrapValue(location),
+            condition,
+            new valueModule.EvalState(this.currentAction, nextAction),
+        );
+        const awaitTask = new AwaitCondTask(observer);
+        return new AdvanceAction(awaitTask);
     }
 }
 
-enum MainTaskStage { Init, PrepModules, EvalModules }
+enum MainTaskStage { LoadMainModule, PrepModules, EvalModules }
 
 export class MainTask extends Task {
     stage: MainTaskStage;
     moduleIndex: number;
     
-    constructor(stage: MainTaskStage = MainTaskStage.Init, moduleIndex: number = 0) {
+    constructor(
+        stage: MainTaskStage = MainTaskStage.LoadMainModule,
+        moduleIndex: number = 0,
+    ) {
         super(null);
         this.stage = stage;
         this.moduleIndex = moduleIndex;
     }
     
     advance(): Action {
-        if (this.stage === MainTaskStage.Init) {
+        if (this.stage === MainTaskStage.LoadMainModule) {
             const modulePath = this.context.entryPackage.mainModulePath;
             this.context.loadUserModule(modulePath);
             const nextTask = new MainTask(MainTaskStage.PrepModules, 0);
             return new AdvanceAction(nextTask);
         } else if (this.stage === MainTaskStage.PrepModules) {
-            // TODO: Await each user module which is being loaded.
+            const moduleAmount = this.context.userModules.getLength();
+            if (this.moduleIndex >= moduleAmount) {
+                const nextTask = new MainTask(MainTaskStage.EvalModules, moduleAmount - 1);
+                return new AdvanceAction(nextTask);
+            }
+            // TODO: Await the module to be prepped.
+            
             throw new Error("Not yet implemented");
         } else {
             throw new Error("Not yet implemented");
@@ -54,19 +110,32 @@ export class MainTask extends Task {
     }
 }
 
-enum LoadModuleStage { Init, PrepStmts }
-
 export class LoadModuleTask extends Task {
     modulePath: string;
-    stage: LoadModuleStage;
     
-    constructor(
-        modulePath: string,
-        stage: LoadModuleStage = LoadModuleStage.Init,
-    ) {
+    // `modulePath` must be an absolute path.
+    constructor(modulePath: string) {
         super(null);
         this.modulePath = modulePath;
-        this.stage = stage;
+    }
+    
+    advance(): Action {
+        // TODO: Pass if file is missing.
+        const moduleParser = new ModuleParser(this.modulePath);
+        const module = moduleParser.parseModule();
+        this.context.setUserModule(this.modulePath, module);
+        const stmtsComp = module.getMember(symbols.STMTS_COMP) as PetMap;
+        const nextTask = new PrepStmtsTask(this.parentTask, stmtsComp);
+        return new AdvanceAction(nextTask);
+    }
+}
+
+export class PrepStmtsTask extends Task {
+    stmtsComp: PetMap;
+    
+    constructor(parent: Task | null, stmtsComp: PetMap) {
+        super(parent);
+        this.stmtsComp = stmtsComp;
     }
     
     advance(): Action {
@@ -79,13 +148,21 @@ export class AwaitCondTask extends Task {
     lastMemberValue?: PetValue;
     
     constructor(observer: MemberObserver, lastMemberValue?: PetValue) {
-        super(observer.actionToResume.task);
+        super(observer.evalState.currentAction.task);
         this.observer = observer;
         this.lastMemberValue = lastMemberValue;
     }
     
+    awaitObserver(): Action {
+        const { bunch, location, condition, evalState } = this.observer;
+        return this.createAwaitAction(bunch, location, condition, evalState);
+    }
+    
     callCondition(): Action {
         const memberValue = this.observer.getMemberValue();
+        if (typeof memberValue === "undefined") {
+            return this.awaitObserver();
+        }
         const condTask = new AwaitCondTask(this.observer, memberValue);
         return this.observer.condition.call(condTask, [memberValue]);
     }
@@ -96,16 +173,15 @@ export class AwaitCondTask extends Task {
     
     acceptReturnValue(returnValue: PetValue): Action {
         // TODO: Throw an error if `returnValue` is not an integer.
-        const { bunch, location, condition, actionToResume } = this.observer;
         if (returnValue as bigint === 0n) {
             const memberValue = this.observer.getMemberValue();
             if (valueModule.valueMayHaveChanged(this.lastMemberValue, memberValue)) {
                 return this.callCondition();
             } else {
-                return createAwaitAction(bunch, location, condition, actionToResume);
+                return this.awaitObserver();
             }
         } else {
-            return actionToResume;
+            return this.observer.evalState.actionToResume;
         }
     }
 }
