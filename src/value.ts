@@ -129,7 +129,7 @@ export const valueMayHaveChanged = (oldValue: PetValue, newValue: PetValue): boo
     } else if (oldValueIsDeferred || newValueIsDeferred) {
         return (oldValue !== newValue);
     } else {
-        return valuesAreEqual(oldValue, newValue);
+        return !valuesAreEqual(oldValue, newValue);
     }
 };
 
@@ -298,10 +298,10 @@ export class PetMap implements ObservableBunchIface {
     
     constructor(entries: [PetValue, PetValue][] = []) {
         this.fields = new Map();
+        this.observatory = new MemberObservatory(this);
         for (const entry of entries) {
             this.setMember(unwrapValue(entry[0]), entry[1]);
         }
-        this.observatory = new MemberObservatory(this);
     }
     
     getMember(key: PetValue): PetValue | undefined {

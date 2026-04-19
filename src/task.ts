@@ -3,6 +3,7 @@ import { PetContext } from "./context.js";
 import { Action, AdvanceAction, ReturnAction, ExcepAction } from "./action.js";
 import { ModuleParser } from "./moduleParser.js";
 import { symbols } from "./symbol.js";
+import * as funcModule from "./builtInFunc.js";
 import * as valueModule from "./value.js";
 
 type PetValue = valueModule.PetValue;
@@ -74,14 +75,14 @@ export abstract class Task {
     }
 }
 
-enum MainTaskStage { LoadMainModule, PrepModules, EvalModules }
+enum MainStage { LoadMainModule, PrepModules, EvalModules }
 
 export class MainTask extends Task {
-    stage: MainTaskStage;
+    stage: MainStage;
     moduleIndex: number;
     
     constructor(
-        stage: MainTaskStage = MainTaskStage.LoadMainModule,
+        stage: MainStage = MainStage.LoadMainModule,
         moduleIndex: number = 0,
     ) {
         super(null);
@@ -90,22 +91,71 @@ export class MainTask extends Task {
     }
     
     advance(): Action {
-        if (this.stage === MainTaskStage.LoadMainModule) {
+        if (this.stage === MainStage.LoadMainModule) {
             const modulePath = this.context.entryPackage.mainModulePath;
             this.context.loadUserModule(modulePath);
-            const nextTask = new MainTask(MainTaskStage.PrepModules, 0);
+            const nextTask = new MainTask(MainStage.PrepModules, 0);
             return new AdvanceAction(nextTask);
-        } else if (this.stage === MainTaskStage.PrepModules) {
+        } else if (this.stage === MainStage.PrepModules) {
             const moduleAmount = this.context.userModules.getLength();
-            if (this.moduleIndex >= moduleAmount) {
-                const nextTask = new MainTask(MainTaskStage.EvalModules, moduleAmount - 1);
-                return new AdvanceAction(nextTask);
+            let nextTask: Task;
+            if (this.moduleIndex < moduleAmount) {
+                nextTask = new AwaitModulePrepTask(this, this.moduleIndex);
+            } else {
+                nextTask = new MainTask(MainStage.EvalModules, moduleAmount - 1);
             }
-            // TODO: Await the module to be prepped.
-            
+            return new AdvanceAction(nextTask);
+        } else if (this.stage === MainStage.EvalModules) {
             throw new Error("Not yet implemented");
-        } else {
-            throw new Error("Not yet implemented");
+        }
+    }
+    
+    acceptReturnValue(returnValue: PetValue): Action {
+        if (this.stage === MainStage.PrepModules) {
+            const nextTask = new MainTask(MainStage.PrepModules, this.moduleIndex + 1);
+            return new AdvanceAction(nextTask);
+        }
+    }
+}
+
+enum AwaitModulePrepStage { LoadModule, PrepModule }
+
+class AwaitModulePrepTask extends Task {
+    moduleIndex: number;
+    stage: AwaitModulePrepStage;
+    
+    constructor(
+        parent: Task | null,
+        moduleIndex: number,
+        stage: AwaitModulePrepStage = AwaitModulePrepStage.LoadModule,
+    ) {
+        super(parent);
+        this.moduleIndex = moduleIndex;
+        this.stage = stage;
+    }
+    
+    advance(): Action {
+        if (this.stage === AwaitModulePrepStage.LoadModule) {
+            const nextTask = new AwaitModulePrepTask(
+                this.parentTask,
+                this.moduleIndex,
+                AwaitModulePrepStage.PrepModule,
+            );
+            return this.awaitMember(
+                this.context.userModules,
+                BigInt(this.moduleIndex),
+                new funcModule.NotEqualFunc(null),
+                new AdvanceAction(nextTask),
+            );
+        } else if (this.stage === AwaitModulePrepStage.PrepModule) {
+            const module = this.context.userModules.getMember(this.moduleIndex) as PetMap;
+            const stmtsComp = module.getMember(symbols.STMTS_COMP) as PetMap;
+            return this.awaitMember(
+                stmtsComp,
+                symbols.PHASE,
+                new funcModule.NotEqualFunc(symbols.PREP_PHASE),
+                this.createReturnAction(null),
+            );
         }
     }
 }

@@ -37,7 +37,7 @@ export abstract class Action {
                 return this.task.createAwaitAction(
                     deferredValue.bunch,
                     deferredValue.location,
-                    funcModule.returnTrueFunc,
+                    new funcModule.ConstantFunc(1n),
                     new valueModule.EvalState(this, this),
                 );
             }
