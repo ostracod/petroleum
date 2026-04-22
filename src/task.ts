@@ -7,6 +7,7 @@ import * as funcModule from "./builtInFunc.js";
 import * as valueModule from "./value.js";
 
 type PetValue = valueModule.PetValue;
+type PetList = valueModule.PetList;
 type PetMap = valueModule.PetMap;
 type PetException = valueModule.PetException;
 type PetFunc = valueModule.PetFunc;
@@ -180,16 +181,76 @@ export class LoadModuleTask extends Task {
     }
 }
 
+enum PrepStmtsStage { PrepStmts, AwaitStmts }
+
 export class PrepStmtsTask extends Task {
     stmtsComp: PetMap;
+    stage: PrepStmtsStage;
+    stmtIndex: number;
     
-    constructor(parent: Task | null, stmtsComp: PetMap) {
+    constructor(
+        parent: Task | null,
+        stmtsComp: PetMap,
+        stage: PrepStmtsStage = PrepStmtsStage.PrepStmts,
+        stmtIndex: number = 0,
+    ) {
         super(parent);
         this.stmtsComp = stmtsComp;
+        this.stage = stage;
+        this.stmtIndex = stmtIndex;
     }
     
     advance(): Action {
-        throw new Error("Not yet implemented");
+        const stmts = this.stmtsComp.getMember(symbols.STMTS) as PetList;
+        if (this.stage === PrepStmtsStage.PrepStmts) {
+            for (let index = 0; index < stmts.getLength(); index++) {
+                const stmt = stmts.getMember(index) as PetMap;
+                // TODO: Invoke #PREP method on `stmt`.
+                const task = new DummyPrepTask(null, stmt);
+                this.context.scheduler.scheduleTask(task);
+            }
+            const nextTask = new PrepStmtsTask(
+                this.parentTask,
+                this.stmtsComp,
+                PrepStmtsStage.AwaitStmts,
+                0,
+            );
+            return new AdvanceAction(nextTask);
+        } else if (this.stage === PrepStmtsStage.AwaitStmts) {
+            if (this.stmtIndex < stmts.getLength()) {
+                const stmt = stmts.getMember(this.stmtIndex) as PetMap;
+                const nextTask = new PrepStmtsTask(
+                    this.parentTask,
+                    this.stmtsComp,
+                    PrepStmtsStage.AwaitStmts,
+                    this.stmtIndex + 1,
+                );
+                const nextAction = new AdvanceAction(nextTask);
+                return this.awaitMember(
+                    stmt,
+                    symbols.PHASE,
+                    new funcModule.NotEqualFunc(symbols.PREP_PHASE),
+                    nextAction,
+                );
+            } else {
+                this.stmtsComp.setMember(symbols.PHASE, symbols.WORK_PHASE);
+                return this.createReturnAction(null);
+            }
+        }
+    }
+}
+
+export class DummyPrepTask extends Task {
+    stmt: PetMap;
+    
+    constructor(parent: Task | null, stmt: PetMap) {
+        super(parent);
+        this.stmt = stmt;
+    }
+    
+    advance(): Action {
+        this.stmt.setMember(symbols.PHASE, symbols.WORK_PHASE);
+        return this.createReturnAction(null);
     }
 }
 
