@@ -107,15 +107,25 @@ export class MainTask extends Task {
             }
             return new AdvanceAction(nextTask);
         } else if (this.stage === MainStage.EvalModules) {
-            throw new Error("Not yet implemented");
+            if (this.moduleIndex >= 0) {
+                const module = this.context.userModules.getMember(this.moduleIndex) as PetMap;
+                const stmtsComp = module.getMember(symbols.STMTS_COMP) as PetMap;
+                const nextTask = new EvalStmtsTask(this, stmtsComp);
+                return new AdvanceAction(nextTask);
+            } else {
+                return this.createReturnAction(null);
+            }
         }
     }
     
     acceptReturnValue(returnValue: PetValue): Action {
+        let nextTask: Task;
         if (this.stage === MainStage.PrepModules) {
-            const nextTask = new MainTask(MainStage.PrepModules, this.moduleIndex + 1);
-            return new AdvanceAction(nextTask);
+            nextTask = new MainTask(MainStage.PrepModules, this.moduleIndex + 1);
+        } else if (this.stage === MainStage.EvalModules) {
+            nextTask = new MainTask(MainStage.EvalModules, this.moduleIndex - 1);
         }
+        return new AdvanceAction(nextTask);
     }
 }
 
@@ -250,6 +260,53 @@ export class DummyPrepTask extends Task {
     
     advance(): Action {
         this.stmt.setMember(symbols.PHASE, symbols.WORK_PHASE);
+        return this.createReturnAction(null);
+    }
+}
+
+export class EvalStmtsTask extends Task {
+    stmtsComp: PetMap;
+    stmtIndex: number;
+    
+    constructor(parent: Task | null, stmtsComp: PetMap, stmtIndex: number = 0) {
+        super(parent);
+        this.stmtsComp = stmtsComp;
+        this.stmtIndex = stmtIndex;
+    }
+    
+    advance(): Action {
+        const stmts = this.stmtsComp.getMember(symbols.STMTS) as PetList;
+        if (this.stmtIndex < stmts.getLength()) {
+            const stmt = stmts.getMember(this.stmtIndex) as PetMap;
+            // TODO: Invoke #EVAL method on `stmt`.
+            const nextTask = new DummyEvalTask(this, stmt);
+            return new AdvanceAction(nextTask);
+        } else {
+            return this.createReturnAction(null);
+        }
+    }
+    
+    acceptReturnValue(returnValue: PetValue): Action {
+        const nextTask = new EvalStmtsTask(
+            this.parentTask,
+            this.stmtsComp,
+            this.stmtIndex + 1,
+        );
+        return new AdvanceAction(nextTask);
+    }
+}
+
+export class DummyEvalTask extends Task {
+    stmt: PetMap;
+    
+    constructor(parent: Task | null, stmt: PetMap) {
+        super(parent);
+        this.stmt = stmt;
+    }
+    
+    advance(): Action {
+        console.log("Wow! I am the dummy eval task");
+        console.log(this.stmt);
         return this.createReturnAction(null);
     }
 }
