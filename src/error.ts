@@ -1,5 +1,5 @@
 
-import { DeferredValue } from "./value.js";
+import type { DeferredValue } from "./value.js";
 
 export class DeferralError extends Error {
     deferredValue: DeferredValue;

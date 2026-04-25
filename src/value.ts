@@ -1,13 +1,9 @@
 
-import * as schedulerModule from "./scheduler.js";
-import * as taskModule from "./task.js";
-import * as actionModule from "./action.js";
+import type { Scheduler } from "./scheduler.js";
+import type { Action } from "./action.js";
+import type { PetSymbol } from "./symbol.js";
+import { Task, AwaitCondTask } from "./task.js";
 import { DeferralError, PetTypeError } from "./error.js";
-import { PetSymbol } from "./symbol.js";
-
-type Scheduler = schedulerModule.Scheduler;
-type Task = taskModule.Task;
-type Action = actionModule.Action;
 
 // PetValueAndKey contains types which can be used as both values and Map keys.
 export type PetValueAndKey = null | bigint | PetSymbol | PetList | PetMap | PetFunc | EvalState;
@@ -205,7 +201,7 @@ class MemberObservatory {
         }
         this.observers.delete(mapKey);
         for (const observer of observers) {
-            const condTask = new taskModule.AwaitCondTask(observer);
+            const condTask = new AwaitCondTask(observer);
             this.scheduler.scheduleTask(condTask);
         }
     }

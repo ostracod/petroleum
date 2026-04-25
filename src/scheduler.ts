@@ -1,14 +1,9 @@
 
-import { PetContext } from "./context.js";
-import { Task } from "./task.js";
+import type { PetContext } from "./context.js";
+import type { Task } from "./task.js";
+import type { PetException, PetFunc, EvalState, ObservableBunch } from "./value.js";
 import { Action, AdvanceAction } from "./action.js";
 import { symbols } from "./symbol.js";
-import * as valueModule from "./value.js";
-
-type PetException = valueModule.PetException;
-type PetFunc = valueModule.PetFunc;
-type EvalState = valueModule.EvalState;
-type ObservableBunch = valueModule.ObservableBunch;
 
 export class Coroutine {
     context: PetContext;

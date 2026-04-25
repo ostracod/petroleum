@@ -1,6 +1,8 @@
 
-import { Scheduler } from "./scheduler.js";
+// Import this module first so we can define classes in the correct order.
 import { MainTask, LoadModuleTask } from "./task.js";
+
+import { Scheduler } from "./scheduler.js";
 import { UserPackage } from "./package.js";
 import { PetString, PetList, PetMap } from "./value.js";
 

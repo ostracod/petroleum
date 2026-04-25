@@ -1,20 +1,11 @@
 
-import { PetContext } from "./context.js";
+import type { PetContext } from "./context.js";
+import { funcInvocationMethods } from "./methods.js";
+import { NotEqualFunc } from "./builtInFunc.js";
+import { PetValue, PetList, PetMap, PetException, MemberObserver, ObservableBunch, PetFunc, EvalState, unwrapValue, valueMayHaveChanged } from "./value.js";
 import { Action, AdvanceAction, ReturnAction, ExcepAction } from "./action.js";
 import { ModuleParser } from "./moduleParser.js";
 import { symbols } from "./symbol.js";
-import * as methodsModule from "./methods.js";
-import * as funcModule from "./builtInFunc.js";
-import * as valueModule from "./value.js";
-
-type PetValue = valueModule.PetValue;
-type PetList = valueModule.PetList;
-type PetMap = valueModule.PetMap;
-type PetException = valueModule.PetException;
-type PetFunc = valueModule.PetFunc;
-type EvalState = valueModule.EvalState;
-type MemberObserver = valueModule.MemberObserver;
-type ObservableBunch = valueModule.ObservableBunch;
 
 export abstract class Task {
     parentTask: Task | null;
@@ -50,7 +41,7 @@ export abstract class Task {
         condition: PetFunc,
         evalState: EvalState,
     ): ExcepAction {
-        const exception = new valueModule.PetMap([
+        const exception = new PetMap([
             [symbols.EXCEP_TYPE, symbols.AWAIT_EXCEP],
             [symbols.BUNCH, bunch],
             [symbols.LOC, location],
@@ -66,11 +57,11 @@ export abstract class Task {
         condition: PetFunc,
         nextAction: Action,
     ): Action {
-        const observer = new valueModule.MemberObserver(
+        const observer = new MemberObserver(
             bunch,
-            valueModule.unwrapValue(location),
+            unwrapValue(location),
             condition,
-            new valueModule.EvalState(this.currentAction, nextAction),
+            new EvalState(this.currentAction, nextAction),
         );
         const awaitTask = new AwaitCondTask(observer);
         return new AdvanceAction(awaitTask);
@@ -162,7 +153,7 @@ class AwaitModulePrepTask extends Task {
             return this.awaitMember(
                 this.context.userModules,
                 BigInt(this.moduleIndex),
-                new funcModule.NotEqualFunc(null),
+                new NotEqualFunc(null),
                 new AdvanceAction(nextTask),
             );
         } else if (this.stage === AwaitModulePrepStage.PrepModule) {
@@ -171,7 +162,7 @@ class AwaitModulePrepTask extends Task {
             return this.awaitMember(
                 stmtsComp,
                 symbols.PHASE,
-                new funcModule.NotEqualFunc(symbols.PREP_PHASE),
+                new NotEqualFunc(symbols.PREP_PHASE),
                 this.createReturnAction(null),
             );
         }
@@ -246,7 +237,7 @@ export class PrepStmtsTask extends Task {
                 return this.awaitMember(
                     stmt,
                     symbols.PHASE,
-                    new funcModule.NotEqualFunc(symbols.PREP_PHASE),
+                    new NotEqualFunc(symbols.PREP_PHASE),
                     nextAction,
                 );
             } else {
@@ -350,7 +341,7 @@ export class AwaitCondTask extends Task {
         // TODO: Throw an error if `returnValue` is not an integer.
         if (returnValue as bigint === 0n) {
             const memberValue = this.observer.getMemberValue();
-            if (valueModule.valueMayHaveChanged(this.lastMemberValue, memberValue)) {
+            if (valueMayHaveChanged(this.lastMemberValue, memberValue)) {
                 return this.callCondition();
             } else {
                 return this.awaitObserver();
@@ -411,7 +402,7 @@ export class CallMethodTask extends Task {
                     return this.awaitMember(
                         worker,
                         symbols.PHASE,
-                        new funcModule.NotEqualFunc(symbols.PREP_PHASE),
+                        new NotEqualFunc(symbols.PREP_PHASE),
                         this.createReturnAction(null),
                     );
                 }
@@ -430,8 +421,8 @@ export class CallMethodTask extends Task {
             let methodMap: PetMap;
             if (workerIsInvocation(worker)) {
                 const invocable = worker.getMember(symbols.INVOC);
-                if (invocable instanceof valueModule.PetFunc) {
-                    methodMap = methodsModule.funcInvocationMethods;
+                if (invocable instanceof PetFunc) {
+                    methodMap = funcInvocationMethods;
                 } else {
                     const procedure = invocable as PetMap;
                     methodMap = procedure.getMember(symbols.METHODS) as PetMap;

@@ -1,10 +1,8 @@
 
-import * as taskModule from "./task.js";
-import * as actionModule from "./action.js";
 import { PetValue, PetFunc, valuesAreEqual } from "./value.js";
 
-type Action = actionModule.Action;
-type Task = taskModule.Task;
+import type { Task } from "./task.js";
+import { Action, ReturnAction } from "./action.js";
 
 export abstract class BuiltInFunc extends PetFunc {
     
@@ -22,7 +20,7 @@ export class ConstantFunc extends BuiltInFunc {
     }
     
     call(parentTask: Task, args: PetValue[]): Action {
-        return new actionModule.ReturnAction(parentTask, this.constantValue);
+        return new ReturnAction(parentTask, this.constantValue);
     }
 }
 
@@ -36,7 +34,7 @@ export class NotEqualFunc extends BuiltInFunc {
     
     call(parentTask: Task, args: PetValue[]): Action {
         const result = valuesAreEqual(args[0], this.comparisonValue) ? 0n : 1n;
-        return new actionModule.ReturnAction(parentTask, result);
+        return new ReturnAction(parentTask, result);
     }
 }
 

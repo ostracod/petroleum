@@ -1,12 +1,9 @@
 
-import { PetContext } from "./context.js";
-import { Task } from "./task.js";
+import type { PetContext } from "./context.js";
+import type { Task } from "./task.js";
 import { DeferralError } from "./error.js";
-import * as funcModule from "./builtInFunc.js";
-import * as valueModule from "./value.js";
-
-type PetValue = valueModule.PetValue;
-type PetException = valueModule.PetException;
+import { ConstantFunc } from "./builtInFunc.js";
+import { PetValue, PetException, EvalState } from "./value.js";
 
 export type ActionResult = Action | PetException | null;
 
@@ -37,8 +34,8 @@ export abstract class Action {
                 return this.task.createAwaitAction(
                     deferredValue.bunch,
                     deferredValue.location,
-                    new funcModule.ConstantFunc(1n),
-                    new valueModule.EvalState(this, this),
+                    new ConstantFunc(1n),
+                    new EvalState(this, this),
                 );
             }
             throw error;
