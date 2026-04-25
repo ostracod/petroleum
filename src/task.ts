@@ -1,11 +1,13 @@
 
-import type { PetContext } from "./context.js";
-import { funcInvocationMethods } from "./methods.js";
-import { NotEqualFunc } from "./builtInFunc.js";
-import { PetValue, PetList, PetMap, PetException, MemberObserver, ObservableBunch, PetFunc, EvalState, unwrapValue, valueMayHaveChanged } from "./value.js";
-import { Action, AdvanceAction, ReturnAction, ExcepAction } from "./action.js";
-import { ModuleParser } from "./moduleParser.js";
+import "./package.js";
+
 import { symbols } from "./symbol.js";
+import { PetValue, PetList, PetMap, PetException, MemberObserver, ObservableBunch, PetFunc, EvalState, unwrapValue, valueMayHaveChanged } from "./value.js";
+import { NotEqualFunc } from "./builtInFunc.js";
+import { funcInvocationMethods } from "./methods.js";
+import { ModuleParser } from "./moduleParser.js";
+import { Action, AdvanceAction, ReturnAction, ExcepAction } from "./action.js";
+import { PetContext } from "./context.js";
 
 export abstract class Task {
     parentTask: Task | null;

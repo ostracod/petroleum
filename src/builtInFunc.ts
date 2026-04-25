@@ -1,7 +1,8 @@
 
-import { PetValue, PetFunc, valuesAreEqual } from "./value.js";
+import "./value.js";
 
-import type { Task } from "./task.js";
+import { PetValue, PetFunc, valuesAreEqual } from "./value.js";
+import { Task } from "./task.js";
 import { Action, ReturnAction } from "./action.js";
 
 export abstract class BuiltInFunc extends PetFunc {

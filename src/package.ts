@@ -1,7 +1,9 @@
 
-import type { PetSymbol } from "./symbol.js";
+import "./moduleParser.js";
+
 import * as fs from "fs";
 import * as pathUtils from "path";
+import { PetSymbol } from "./symbol.js";
 import { PetString } from "./value.js";
 
 export class PetPackage {

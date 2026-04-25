@@ -1,4 +1,6 @@
 
+import "./context.js";
+
 import { PetContext } from "./context.js";
 
 if (process.argv.length <= 2) {

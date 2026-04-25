@@ -1,10 +1,11 @@
 
-import { BuiltInFunc } from "./builtInFunc.js";
-import { PetValue, PetMap } from "./value.js";
-import { symbols } from "./symbol.js";
+import "./builtInFunc.js";
 
-import type { Action } from "./action.js";
-import type { Task } from "./task.js";
+import { symbols } from "./symbol.js";
+import { PetValue, PetMap } from "./value.js";
+import { BuiltInFunc } from "./builtInFunc.js";
+import { Task } from "./task.js";
+import { Action } from "./action.js";
 
 class FuncPrepMethod extends BuiltInFunc {
     

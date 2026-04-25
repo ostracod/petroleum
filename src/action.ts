@@ -1,9 +1,11 @@
 
-import type { PetContext } from "./context.js";
-import type { Task } from "./task.js";
-import { DeferralError } from "./error.js";
-import { ConstantFunc } from "./builtInFunc.js";
+import "./task.js";
+
 import { PetValue, PetException, EvalState } from "./value.js";
+import { ConstantFunc } from "./builtInFunc.js";
+import { DeferralError } from "./error.js";
+import { Task } from "./task.js";
+import { PetContext } from "./context.js";
 
 export type ActionResult = Action | PetException | null;
 

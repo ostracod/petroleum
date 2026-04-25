@@ -1,10 +1,10 @@
 
-// Import this module first so we can define classes in the correct order.
-import { MainTask, LoadModuleTask } from "./task.js";
+import "./scheduler.js";
 
-import { Scheduler } from "./scheduler.js";
-import { UserPackage } from "./package.js";
 import { PetString, PetList, PetMap } from "./value.js";
+import { UserPackage } from "./package.js";
+import { MainTask, LoadModuleTask } from "./task.js";
+import { Scheduler } from "./scheduler.js";
 
 export class PetContext {
     entryPackage: UserPackage;

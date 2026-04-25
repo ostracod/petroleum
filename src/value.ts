@@ -1,9 +1,11 @@
 
-import type { Scheduler } from "./scheduler.js";
-import type { Action } from "./action.js";
-import type { PetSymbol } from "./symbol.js";
-import { Task, AwaitCondTask } from "./task.js";
+import "./symbol.js";
+
+import { PetSymbol } from "./symbol.js";
 import { DeferralError, PetTypeError } from "./error.js";
+import { Task, AwaitCondTask } from "./task.js";
+import { Action } from "./action.js";
+import { Scheduler } from "./scheduler.js";
 
 // PetValueAndKey contains types which can be used as both values and Map keys.
 export type PetValueAndKey = null | bigint | PetSymbol | PetList | PetMap | PetFunc | EvalState;

@@ -1,4 +1,6 @@
 
+import "./error.js";
+
 import * as fs from "fs";
 import { symbols } from "./symbol.js";
 import { escapeChars, PetValue, PetString, PetList, PetMap } from "./value.js";
