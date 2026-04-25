@@ -3,6 +3,7 @@ import { PetContext } from "./context.js";
 import { Action, AdvanceAction, ReturnAction, ExcepAction } from "./action.js";
 import { ModuleParser } from "./moduleParser.js";
 import { symbols } from "./symbol.js";
+import * as methodsModule from "./methods.js";
 import * as funcModule from "./builtInFunc.js";
 import * as valueModule from "./value.js";
 
@@ -73,6 +74,12 @@ export abstract class Task {
         );
         const awaitTask = new AwaitCondTask(observer);
         return new AdvanceAction(awaitTask);
+    }
+    
+    callWorkerMethod(worker: PetMap, key: PetValue, args: PetValue[]): Action {
+        const invocation = new MethodInvocation(this, worker, key, args);
+        const task = new CallMethodTask(invocation);
+        return new AdvanceAction(task);
     }
 }
 
@@ -351,6 +358,147 @@ export class AwaitCondTask extends Task {
         } else {
             return this.observer.evalState.actionToResume;
         }
+    }
+}
+
+class MethodInvocation {
+    parentTask: Task | null;
+    worker: PetMap;
+    key: PetValue;
+    args: PetValue[];
+    
+    constructor(parentTask: Task | null, worker: PetMap, key: PetValue, args: PetValue[]) {
+        this.parentTask = parentTask;
+        this.worker = worker;
+        this.key = key;
+        this.args = args;
+    }
+}
+
+const workerIsInvocation = (worker: PetMap): boolean => {
+    const nodeType = worker.getMember(symbols.NODE_TYPE);
+    if (nodeType === symbols.STMT) {
+        const stmtType = worker.getMember(symbols.STMT_TYPE);
+        return (stmtType === symbols.INVOC_STMT);
+    } else if (nodeType === symbols.EXPR) {
+        const exprType = worker.getMember(symbols.EXPR_TYPE);
+        return (exprType === symbols.INVOC_EXPR);
+    }
+    return false;
+};
+
+enum CallMethodStage { Init, Invoke }
+
+export class CallMethodTask extends Task {
+    invocation: MethodInvocation;
+    stage: CallMethodStage;
+    
+    constructor(invocation: MethodInvocation, stage: CallMethodStage = CallMethodStage.Init) {
+        super(invocation.parentTask);
+        this.invocation = invocation;
+        this.stage = stage;
+    }
+    
+    advance(): Action {
+        const { worker, key: methodKey } = this.invocation;
+        if (this.stage === CallMethodStage.Init) {
+            if (methodKey === symbols.PREP) {
+                const phase = worker.getMember(symbols.PHASE);
+                if (phase === symbols.WORK_PHASE) {
+                    return this.createReturnAction(null);
+                }
+                if (this.context.preppingWorkers.has(worker)) {
+                    return this.awaitMember(
+                        worker,
+                        symbols.PHASE,
+                        new funcModule.NotEqualFunc(symbols.PREP_PHASE),
+                        this.createReturnAction(null),
+                    );
+                }
+                this.context.preppingWorkers.add(worker);
+                if (workerIsInvocation(worker)) {
+                    const nextTask = new DetermineInvocTask(this, worker);
+                    return new AdvanceAction(nextTask);
+                }
+            }
+            if (methodKey === symbols.EVAL) {
+                return this.callWorkerMethod(worker, symbols.PREP, []);
+            }
+            const nextTask = new CallMethodTask(this.invocation, CallMethodStage.Invoke);
+            return new AdvanceAction(nextTask);
+        } else if (this.stage === CallMethodStage.Invoke) {
+            let methodMap: PetMap;
+            if (workerIsInvocation(worker)) {
+                const invocable = worker.getMember(symbols.INVOC);
+                if (invocable instanceof valueModule.PetFunc) {
+                    methodMap = methodsModule.funcInvocationMethods;
+                } else {
+                    const procedure = invocable as PetMap;
+                    methodMap = procedure.getMember(symbols.METHODS) as PetMap;
+                }
+            } else {
+                // TODO: Support calling methods on more types of workers.
+                throw new Error("Not yet implemented");
+            }
+            const method = methodMap.getMember(methodKey) as PetFunc;
+            return method.call(this, [worker, ...this.invocation.args]);
+        }
+    }
+    
+    acceptReturnValue(returnValue: PetValue): Action {
+        const { worker, key: methodKey } = this.invocation;
+        if (this.stage === CallMethodStage.Init) {
+            const nextAction = new CallMethodTask(this.invocation, CallMethodStage.Invoke);
+            return new AdvanceAction(nextAction);
+        } else if (this.stage === CallMethodStage.Invoke) {
+            if (methodKey === symbols.PREP) {
+                worker.setMember(symbols.PHASE, symbols.WORK_PHASE);
+                this.context.preppingWorkers.delete(worker);
+            }
+            let nextReturnValue: PetValue;
+            if (methodKey === symbols.EVAL) {
+                nextReturnValue = returnValue;
+            } else {
+                nextReturnValue = null;
+            }
+            return this.createReturnAction(nextReturnValue);
+        }
+    }
+}
+
+export class DetermineInvocTask extends Task {
+    worker: PetMap;
+    
+    constructor(parent: Task | null, worker: PetMap) {
+        super(parent);
+        this.worker = worker;
+    }
+    
+    advance(): Action {
+        const comps = this.worker.getMember(symbols.COMPS) as PetList;
+        const firstComp = comps.getMember(0) as PetMap;
+        const compType = firstComp.getMember(symbols.COMP_TYPE);
+        if (compType === symbols.IDENT_COMP) {
+            // TODO: Read value of variable.
+            throw new Error("Not yet implemented");
+            const invocable = null;
+            
+            this.worker.setMember(symbols.INVOC, invocable);
+            return this.createReturnAction(null);
+        } else if (compType === symbols.EXPRS_COMP) {
+            // TODO: Create frame.
+            throw new Error("Not yet implemented");
+            const frame = null;
+            
+            return this.callWorkerMethod(firstComp, symbols.EVAL, [frame]);
+        } else {
+            throw new Error("First component in invocation is invalid");
+        }
+    }
+    
+    acceptReturnValue(returnValue: PetValue): Action {
+        this.worker.setMember(symbols.INVOC, returnValue);
+        return this.createReturnAction(null);
     }
 }
 

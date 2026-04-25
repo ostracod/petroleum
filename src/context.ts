@@ -12,6 +12,7 @@ export class PetContext {
     userModules: PetList;
     // Map from absolute module path to index in `userModules`.
     userModuleIndexes: Map<string, number>;
+    preppingWorkers: Set<PetMap>;
     
     constructor(entryPackagePath: string, applicationArgs: string[]) {
         this.entryPackage = new UserPackage(entryPackagePath);
@@ -19,6 +20,7 @@ export class PetContext {
         this.scheduler = new Scheduler(this);
         this.userModules = new PetList();
         this.userModuleIndexes = new Map();
+        this.preppingWorkers = new Set();
     }
     
     run(): void {
