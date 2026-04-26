@@ -32,7 +32,7 @@ For documentation on Petroleum, please consult these pages:
 * [Variables and Coroutines](languageDocumentation/varsAndCoroutines.md)
 * [Module System and Module Attributes](languageDocumentation/moduleSystem.md)
 * [Built-In Constants](languageDocumentation/builtInConstants.md)
-* [Representation Schema](languageDocumentation/representationSchemas.md)
+* [Representation Schemas](languageDocumentation/representationSchemas.md)
 * [Built-In Procedures](languageDocumentation/builtInProcs.md)
 * [Built-In Functions](languageDocumentation/builtInFuncs.md)
 * [Built-In Modules](languageDocumentation/builtInModules.md)

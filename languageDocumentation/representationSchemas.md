@@ -226,10 +226,14 @@ Methods are defined as functions. Petroleum recognizes methods with the followin
 * The `#PREP` method prepares the parent worker for work-phase.
     * This method accepts the parent worker as an argument.
 * The `#EVAL` method evaluates the parent worker.
-    * This method accepts the parent worker and current frame as arguments.
+    * This method accepts the following arguments:
+        * The parent worker
+        * The current frame or scope
+    * When the parent statement sequence is in prep-phase, the second argument should be a scope. Otherwise, the argument should be a frame.
     * When the parent worker is an expression, the return value of the method is the return value of the expression.
 * The `#ACCESSED_VARS` method returns the list of variables which the `#EVAL` method may access.
-    * This method determines the frame entries which a function closure will store.
+    * This method accepts the parent worker as an argument.
+    * Function closures use this method to determine which frame entries to store.
 
 The user may define methods with other keys if desired. The user is responsible for deciding when to invoke such methods.
 

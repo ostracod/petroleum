@@ -233,16 +233,10 @@ SCOPE($code)
 Returns the scope of `$code`. `$code` may be a node or a component.
 
 ```
-SEARCH_SCOPES($startScope, $name)
+FIND_VAR($varSpace, $name)
 ```
 
-Searches through scopes for a prep-var with `$name` starting at `$startScope`. Returns a prep-var or null.
-
-```
-SEARCH_FRAMES($startFrame, $name)
-```
-
-Searches through frames for a variable with `$name` starting at `$startFrame`. Returns a frame entry, prep-var, or null.
+Searches through frames and scopes for a variable with `$name` starting at `$varSpace`. `$varSpace` may be a frame or a scope. Returns a frame entry, prep-var, or null.
 
 ```
 PRINT($value)
