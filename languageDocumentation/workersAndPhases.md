@@ -37,7 +37,7 @@ The list below describes the behavior of `#PREP` and `#WORK` methods in each typ
     * The `#PREP` method of the component calls the `#PREP` method of each statement.
     * The `#EVAL` method of the component creates a new frame and calls the `#EVAL` method of each statement.
 
-The behavior of `#PREP` and `#WORK` methods have the following noteworthy implications:
+The behaviors of `#PREP` and `#WORK` methods have the following noteworthy implications:
 
 * The invocable of an invocation expression or statement must be known during prep-phase.
 * Each procedure can define its own custom prep-phase behavior.

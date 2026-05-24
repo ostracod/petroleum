@@ -93,7 +93,7 @@ Each statement may have one of the following forms:
     * A block attributes statement can only appear as the first statement in a statement sequence.
     * For example: In the statement sequence component `{[ARGS @args], RET (123)}`, `[ARGS @args]` is a block attributes statement.
 
-The available forms of an attribute depend on the parent expression or statement of the attribute. Valid attribute forms are documented on a per-invocable basis.
+The available forms of an attribute depend on the parent expression or statement of the attribute. Valid attribute forms are documented on a per-procedure basis.
 
 Note that placeholders in this documentation begin a dollar sign (`$`), but the dollar sign is not otherwise syntactically significant. For example: When `ADD($int1, $int2)` appears in this documentation, `$int1` and `$int2` are placeholders for actual expressions.
 

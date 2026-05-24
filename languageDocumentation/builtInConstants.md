@@ -8,7 +8,7 @@ Built-in constants are defined as prep-vars in the parent scope of every module 
 * `FALSE` is equal to 0.
 * `CMD_LINE_ARGS` is the list of argument strings passed when running the Petroleum application.
 
-Methods for every type of worker are defined in the following constants:
+Worker methods are defined in the following constants:
 
 * `INT_EXPR_METHODS` is the map of methods for integer expressions.
 * `STR_EXPR_METHODS` is the map of methods for string expressions.
@@ -29,6 +29,15 @@ By convention, built-in symbol identifiers begin with a number sign (`#`). Note 
 * `#MAP` symbolizes a map.
 * `#FUNC` symbolizes a function.
 * `#EVAL_STATE` symbolizes an evaluation state.
+
+Exception types include the following symbols:
+
+* `#BREAK_EXCEP` symbolizes a break exception.
+* `#CONT_EXCEP` symbolizes a continue exception.
+* `#RET_EXCEP` symbolizes a return exception.
+* `#PASS_EXCEP` symbolizes a pass exception.
+* `#AWAIT_EXCEP` symbolizes an await exception.
+* `#ERROR_EXCEP` symbolizes an error exception.
 
 Error types include the following symbols:
 
@@ -53,17 +62,13 @@ Petroleum defines many symbols for keys and values in various data structures. S
 * `#ATTR` symbolizes an attribute.
 * `#ATTRS` symbolizes a list of attributes.
 * `#ATTRS_COMP` symbolizes an attribute sequence component.
-* `#AWAIT_EXCEP` symbolizes an await exception.
-* `#BREAK_EXCEP` symbolizes a break exception.
 * `#BUILT_IN_MODULE` symbolizes a built-in module.
 * `#BUNCH` symbolizes a string, list, or map.
 * `#COL_NUM` symbolizes a column number.
 * `#COMP_TYPE` symbolizes the type of a component.
 * `#COMPS` symbolizes a list of components.
 * `#COND` symbolizes a condition.
-* `#CONT_EXCEP` symbolizes a continue exception.
 * `#DECL_COMP` symbolizes a declaration component.
-* `#ERROR_EXCEP` symbolizes an error exception.
 * `#ERROR_TYPE` symbolizes the type of an error.
 * `#EXCEP_TYPE` symbolizes the type of an exception.
 * `#EXPR` symbolizes an expression.
@@ -94,12 +99,10 @@ Petroleum defines many symbols for keys and values in various data structures. S
 * `#MODULE_TYPE` symbolizes the type of a module.
 * `#NODE_TYPE` symbolizes the type of a node.
 * `#PARENT` symbolizes a parent.
-* `#PASS_EXCEP` symbolizes a pass exception.
 * `#PETROL_MODULE` symbolizes a module written in Petroleum code.
 * `#PHASE` symbolizes a phase.
 * `#PREP_PHASE` symbolizes prep-phase.
 * `#PREP_VAR` symbolizes a prep-var.
-* `#RET_EXCEP` symbolizes a return exception.
 * `#RET_LEVEL` symbolizes the level of a return exception.
 * `#SCOPE` symbolizes a scope.
 * `#STMT` symbolizes a statement.

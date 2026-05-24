@@ -18,7 +18,7 @@ Symbolizes a file or a directory. The file system `TYPE` function returns these 
 #FILE_SYSTEM_ERROR
 ```
 
-Symbolizes a file system error. When the file system module throws an error, the `#ERROR_TYPE` field stores `#FILE_SYSTEM_ERROR`.
+Symbolizes a file system error, such as a missing file or inadequte permission. In some errors thrown by the file system module, the `#ERROR_TYPE` field stores `#FILE_SYSTEM_ERROR`.
 
 ```
 EXISTS($path)
@@ -36,7 +36,7 @@ Returns the type of file system entity at `$path`. This function returns `#FILE`
 READ_FILE($path)
 ```
 
-Returns the content of the file at `$path`.
+Returns the content of the file at `$path` as a string.
 
 ```
 READ_DIR($path)
@@ -48,7 +48,7 @@ Returns the list of entity names in the directory at `$path`.
 WRITE_FILE($path, $str)
 ```
 
-Writes `$str` into the file at `$path`. If the file does not exist, this function creates a new file.
+Writes `$str` into a file at `$path`. If the file exists, this function replaces the old contents of the file. If the file does not exist, this function creates a new file.
 
 ```
 ADD_DIR($path)
