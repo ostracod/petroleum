@@ -4,8 +4,8 @@ import "./task.js";
 import { symbols } from "./symbol.js";
 import { PetException, PetFunc, EvalState, ObservableBunch } from "./value.js";
 import { ConstantFunc } from "./builtInFunc.js";
-import { DeferralError } from "./error.js";
-import { Action, ActionResult, TaskDef, TaskMembers, Task } from "./task.js";
+import { DeferralError, CoroEndError } from "./error.js";
+import { Action, TaskDef, TaskMembers, Task } from "./task.js";
 import { PetContext } from "./context.js";
 
 export class Coroutine {
@@ -21,11 +21,13 @@ export class Coroutine {
     
     run(): PetException | null {
         while (true) {
-            let result: ActionResult;
+            let result: Action;
             try {
                 result = this.action.run();
             } catch (error) {
-                if (error instanceof DeferralError) {
+                if (error instanceof CoroEndError) {
+                    return error.unhandledExcep;
+                } else if (error instanceof DeferralError) {
                     const { deferredValue } = error;
                     const { task } = this.action;
                     result = task.throwAwaitExcep(
@@ -38,11 +40,7 @@ export class Coroutine {
                     throw error;
                 }
             }
-            if (result instanceof PetException || result === null) {
-                return result as PetException | null;
-            } else {
-                this.action = result;
-            }
+            this.action = result;
         }
     }
 }
@@ -107,6 +105,12 @@ export class Scheduler {
         const members: TaskMembers<ParamsT, StateT> = {
             parentTask: null,
             stages: taskDef.stages,
+            acceptReturnValue: (value) => {
+                throw new CoroEndError(null);
+            },
+            handleException: (exception) => {
+                throw new CoroEndError(exception);
+            },
         };
         const task = new Task<ParamsT, StateT>(
             this.context,

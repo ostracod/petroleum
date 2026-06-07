@@ -3,7 +3,7 @@ import "./symbol.js";
 
 import { PetSymbol } from "./symbol.js";
 import { DeferralError, PetTypeError } from "./error.js";
-import { Action, ActionResult, Task, awaitCondTask } from "./task.js";
+import { Action, Task, awaitCondTask } from "./task.js";
 import { Scheduler } from "./scheduler.js";
 
 // PetValueAndKey contains types which can be used as both values and Map keys.
@@ -346,8 +346,8 @@ export const PetException = PetMap;
 
 export interface FuncCaller {
     task: Task;
-    acceptReturnValue: (value: PetValue) => ActionResult;
-    handleException: (exception: PetException) => ActionResult;
+    acceptReturnValue: (value: PetValue) => Action;
+    handleException: (exception: PetException) => Action;
 }
 
 export abstract class PetFunc {
@@ -356,7 +356,7 @@ export abstract class PetFunc {
         // Do nothing.
     }
     
-    abstract call(caller: FuncCaller, args: PetValue[]): ActionResult;
+    abstract call(caller: FuncCaller, args: PetValue[]): Action;
     
     abstract toString(): string;
 }

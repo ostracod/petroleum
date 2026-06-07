@@ -1,7 +1,7 @@
 
 import "./methods.js";
 
-import { DeferredValue } from "./value.js";
+import { DeferredValue, PetException } from "./value.js";
 
 export class DeferralError extends Error {
     deferredValue: DeferredValue;
@@ -9,6 +9,15 @@ export class DeferralError extends Error {
     constructor(deferredValue: DeferredValue) {
         super();
         this.deferredValue = deferredValue;
+    }
+}
+
+export class CoroEndError extends Error {
+    unhandledExcep: PetException | null;
+    
+    constructor(unhandledExcep: PetException | null = null) {
+        super();
+        this.unhandledExcep = unhandledExcep;
     }
 }
 

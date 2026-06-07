@@ -2,7 +2,7 @@
 import "./value.js";
 
 import { PetValue, FuncCaller, PetFunc, valuesAreEqual } from "./value.js";
-import { ActionResult, Task } from "./task.js";
+import { Action, Task } from "./task.js";
 
 export abstract class BuiltInFunc extends PetFunc {
     
@@ -19,7 +19,7 @@ export class ConstantFunc extends BuiltInFunc {
         this.constantValue = constantValue;
     }
     
-    call(caller: FuncCaller, args: PetValue[]): ActionResult {
+    call(caller: FuncCaller, args: PetValue[]): Action {
         return caller.acceptReturnValue(this.constantValue);
     }
 }
@@ -32,7 +32,7 @@ export class NotEqualFunc extends BuiltInFunc {
         this.comparisonValue = comparisonValue;
     }
     
-    call(caller: FuncCaller, args: PetValue[]): ActionResult {
+    call(caller: FuncCaller, args: PetValue[]): Action {
         const result = valuesAreEqual(args[0], this.comparisonValue) ? 0n : 1n;
         return caller.acceptReturnValue(result);
     }

@@ -9,12 +9,11 @@ import { ModuleParser } from "./moduleParser.js";
 import { PetContext } from "./context.js";
 
 export interface Action {
-    task: Task;
-    run: () => ActionResult;
+    task: Task | null;
+    run: () => Action;
 }
 
-export type ActionResult = Action | PetException | null;
-export type Stage<ParamsT, StateT> = (task: Task<ParamsT, StateT>) => ActionResult;
+export type Stage<ParamsT, StateT> = (task: Task<ParamsT, StateT>) => Action;
 
 export interface TaskDef<ParamsT, StateT> {
     getInitState: (params: ParamsT) => StateT;
@@ -24,9 +23,8 @@ export interface TaskDef<ParamsT, StateT> {
 export interface TaskMembers<ParamsT, StateT> {
     parentTask: Task | null;
     stages: Stage<ParamsT, StateT>[];
-    // acceptReturnValue and handleException are undefined if the task has no parent.
-    acceptReturnValue?: (value: PetValue) => ActionResult,
-    handleException?: (exception: PetException) => ActionResult,
+    acceptReturnValue: (value: PetValue) => Action;
+    handleException: (exception: PetException) => Action;
 }
 
 interface MethodInvocation {
@@ -64,7 +62,7 @@ export class Task<ParamsT = any, StateT = any> {
         };
     }
     
-    advanceStage(nextState: StateT): ActionResult {
+    advanceStage(nextState: StateT): Action {
         const nextStageIndex = this.stageIndex + 1;
         if (nextStageIndex > this.members.stages.length) {
             throw new Error("Cannot advance past final stage.");
@@ -79,7 +77,7 @@ export class Task<ParamsT = any, StateT = any> {
         return task.getStageAction();
     }
     
-    repeatStage(nextState: StateT): ActionResult {
+    repeatStage(nextState: StateT): Action {
         const task = new Task(
             this.context,
             this.members,
@@ -90,37 +88,27 @@ export class Task<ParamsT = any, StateT = any> {
         return task.getStageAction();
     }
     
-    returnValue(value: PetValue): ActionResult {
-        const { acceptReturnValue } = this.members;
-        if (typeof acceptReturnValue === "undefined") {
-            return null;
-        } else {
-            return {
-                task: this,
-                run: () => acceptReturnValue(value),
-            };
-        }
+    returnValue(value: PetValue): Action {
+        return {
+            task: this.members.parentTask,
+            run: () => this.members.acceptReturnValue(value),
+        };
     }
     
     // `exception` must be populated with evaluation state.
-    throwException(exception: PetException): ActionResult {
-        const { handleException } = this.members;
-        if (typeof handleException === "undefined") {
-            return exception;
-        } else {
-            return {
-                task: this,
-                run: () => handleException(exception),
-            };
-        }
+    throwException(exception: PetException): Action {
+        return {
+            task: this.members.parentTask,
+            run: () => this.members.handleException(exception),
+        };
     }
     
     runTask<T1, T2>(
         taskDef: TaskDef<T1, T2>,
         params: T1,
-        acceptReturnValue: (value: PetValue) => ActionResult,
-        handleException?: (exception: PetException) => ActionResult,
-    ): ActionResult {
+        acceptReturnValue: (value: PetValue) => Action,
+        handleException?: (exception: PetException) => Action,
+    ): Action {
         if (typeof handleException === "undefined") {
             handleException = (exception) => this.throwException(exception);
         }
@@ -145,7 +133,7 @@ export class Task<ParamsT = any, StateT = any> {
         location: PetValue,
         condition: PetFunc,
         evalState: EvalState,
-    ): ActionResult {
+    ): Action {
         const exception = new PetMap([
             [symbols.EXCEP_TYPE, symbols.AWAIT_EXCEP],
             [symbols.BUNCH, bunch],
@@ -156,7 +144,7 @@ export class Task<ParamsT = any, StateT = any> {
         return this.throwException(exception);
     }
     
-    throwObserverAwait(observer: MemberObserver): ActionResult {
+    throwObserverAwait(observer: MemberObserver): Action {
         const { bunch, location, condition, evalState } = observer;
         return this.throwAwaitExcep(bunch, location, condition, evalState);
     }
@@ -165,13 +153,8 @@ export class Task<ParamsT = any, StateT = any> {
         bunch: ObservableBunch,
         location: PetValue,
         condition: PetFunc,
-        actionResult: ActionResult,
-    ): ActionResult {
-        // TODO: Rework this if we get rid of ActionResult type.
-        const nextAction: Action = {
-            task: this,
-            run: () => actionResult,
-        };
+        nextAction: Action,
+    ): Action {
         const observer = new MemberObserver(
             bunch,
             unwrapValue(location),
@@ -180,19 +163,16 @@ export class Task<ParamsT = any, StateT = any> {
         );
         return this.runTask(
             awaitCondTask, { observer },
-            (value) => actionResult,
+            (value) => nextAction,
         );
     }
     
     callFunction(
         func: PetFunc,
         args: PetValue[],
-        acceptReturnValue: (value: PetValue) => ActionResult,
-    ): ActionResult {
-        let { handleException } = this.members;
-        if (typeof handleException === "undefined") {
-            handleException = (exception) => exception;
-        }
+        acceptReturnValue: (value: PetValue) => Action,
+    ): Action {
+        const { handleException } = this.members;
         const caller: FuncCaller = { task: this, acceptReturnValue, handleException };
         return {
             task: this,
@@ -204,8 +184,8 @@ export class Task<ParamsT = any, StateT = any> {
         worker: PetMap,
         key: PetValue,
         args: PetValue[],
-        acceptReturnValue: (value: PetValue) => ActionResult,
-    ): ActionResult {
+        acceptReturnValue: (value: PetValue) => Action,
+    ): Action {
         const invocation: MethodInvocation = { worker, key, args };
         return this.runTask(callMethodTask, invocation, acceptReturnValue);
     }
