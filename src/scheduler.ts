@@ -1,10 +1,11 @@
 
-import "./action.js";
+import "./task.js";
 
 import { symbols } from "./symbol.js";
 import { PetException, PetFunc, EvalState, ObservableBunch } from "./value.js";
-import { Task } from "./task.js";
-import { Action, AdvanceAction } from "./action.js";
+import { ConstantFunc } from "./builtInFunc.js";
+import { DeferralError } from "./error.js";
+import { Action, ActionResult, TaskDef, TaskMembers, Task } from "./task.js";
 import { PetContext } from "./context.js";
 
 export class Coroutine {
@@ -20,11 +21,27 @@ export class Coroutine {
     
     run(): PetException | null {
         while (true) {
-            const result = this.action.run(this.context);
-            if (result instanceof Action) {
-                this.action = result;
+            let result: ActionResult;
+            try {
+                result = this.action.run();
+            } catch (error) {
+                if (error instanceof DeferralError) {
+                    const { deferredValue } = error;
+                    const { task } = this.action;
+                    result = task.throwAwaitExcep(
+                        deferredValue.bunch,
+                        deferredValue.location,
+                        new ConstantFunc(1n),
+                        new EvalState(task, this.action),
+                    );
+                } else {
+                    throw error;
+                }
+            }
+            if (result instanceof PetException || result === null) {
+                return result as PetException | null;
             } else {
-                return result;
+                this.action = result;
             }
         }
     }
@@ -82,9 +99,23 @@ export class Scheduler {
         coroQueue.pushRight(coroutine);
     }
     
-    scheduleTask(task: Task, highPriority: boolean = true): void {
-        const action = new AdvanceAction(task);
-        this.scheduleAction(action, highPriority);
+    scheduleTask<ParamsT, StateT>(
+        taskDef: TaskDef<ParamsT, StateT>,
+        params: ParamsT,
+        highPriority: boolean = true,
+    ): void {
+        const members: TaskMembers<ParamsT, StateT> = {
+            parentTask: null,
+            stages: taskDef.stages,
+        };
+        const task = new Task<ParamsT, StateT>(
+            this.context,
+            members,
+            params,
+            taskDef.getInitState(params),
+            0,
+        );
+        this.scheduleAction(task.getStageAction());
     }
     
     runNextCoro(): void {

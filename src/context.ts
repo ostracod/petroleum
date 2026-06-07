@@ -3,14 +3,14 @@ import "./scheduler.js";
 
 import { PetString, PetList, PetMap } from "./value.js";
 import { UserPackage } from "./package.js";
-import { MainTask, LoadModuleTask } from "./task.js";
+import { mainTask, loadModuleTask } from "./task.js";
 import { Scheduler } from "./scheduler.js";
 
 export class PetContext {
     entryPackage: UserPackage;
     applicationArgs: PetList;
     scheduler: Scheduler;
-    // This needs to be a PetList so that MainTask can await each element.
+    // This needs to be a PetList so that mainTask can await each element.
     userModules: PetList;
     // Map from absolute module path to index in `userModules`.
     userModuleIndexes: Map<string, number>;
@@ -26,8 +26,7 @@ export class PetContext {
     }
     
     run(): void {
-        const mainTask = new MainTask();
-        this.scheduler.scheduleTask(mainTask);
+        this.scheduler.scheduleTask(mainTask, null);
         while (!this.scheduler.hasFinished()) {
             this.scheduler.runNextCoro();
         }
@@ -40,8 +39,7 @@ export class PetContext {
         const moduleIndex = this.userModules.getLength();
         this.userModuleIndexes.set(modulePath, moduleIndex);
         this.userModules.addElement(null);
-        const loadModuleTask = new LoadModuleTask(modulePath);
-        this.scheduler.scheduleTask(loadModuleTask);
+        this.scheduler.scheduleTask(loadModuleTask, { modulePath });
     }
     
     setUserModule(modulePath: string, module: PetMap): void {

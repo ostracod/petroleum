@@ -2,47 +2,150 @@
 import "./package.js";
 
 import { symbols } from "./symbol.js";
-import { PetValue, PetList, PetMap, PetException, MemberObserver, ObservableBunch, PetFunc, EvalState, unwrapValue, valueMayHaveChanged } from "./value.js";
+import { PetValue, PetList, PetMap, PetException, MemberObserver, ObservableBunch, FuncCaller, PetFunc, EvalState, unwrapValue, valueMayHaveChanged } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
 import { funcInvocationMethods } from "./methods.js";
 import { ModuleParser } from "./moduleParser.js";
-import { Action, AdvanceAction, ReturnAction, ExcepAction } from "./action.js";
 import { PetContext } from "./context.js";
 
-export abstract class Task {
+export interface Action {
+    task: Task;
+    run: () => ActionResult;
+}
+
+export type ActionResult = Action | PetException | null;
+export type Stage<ParamsT, StateT> = (task: Task<ParamsT, StateT>) => ActionResult;
+
+export interface TaskDef<ParamsT, StateT> {
+    getInitState: (params: ParamsT) => StateT;
+    stages: Stage<ParamsT, StateT>[];
+}
+
+export interface TaskMembers<ParamsT, StateT> {
     parentTask: Task | null;
+    stages: Stage<ParamsT, StateT>[];
+    // acceptReturnValue and handleException are undefined if the task has no parent.
+    acceptReturnValue?: (value: PetValue) => ActionResult,
+    handleException?: (exception: PetException) => ActionResult,
+}
+
+interface MethodInvocation {
+    worker: PetMap;
+    key: PetValue;
+    args: PetValue[];
+}
+
+export class Task<ParamsT = any, StateT = any> {
     context: PetContext;
-    currentAction: Action;
+    members: TaskMembers<ParamsT, StateT>;
+    params: ParamsT;
+    state: StateT;
+    stageIndex: number;
     
-    constructor(parentTask: Task | null) {
-        this.parentTask = parentTask;
+    constructor(
+        context: PetContext,
+        members: TaskMembers<ParamsT, StateT>,
+        params: ParamsT,
+        state: StateT,
+        stageIndex: number,
+    ) {
+        this.context = context;
+        this.members = members;
+        this.params = params;
+        this.state = state;
+        this.stageIndex = stageIndex;
     }
     
-    abstract advance(): Action;
-    
-    acceptReturnValue(returnValue: PetValue): Action {
-        return new AdvanceAction(this);
+    getStageAction(): Action {
+        const stage = this.members.stages[this.stageIndex];
+        return {
+            task: this,
+            run: () => stage(this),
+        };
     }
     
-    handleException(exception: PetException): Action {
-        return this.createExcepAction(exception);
+    advanceStage(nextState: StateT): ActionResult {
+        const nextStageIndex = this.stageIndex + 1;
+        if (nextStageIndex > this.members.stages.length) {
+            throw new Error("Cannot advance past final stage.");
+        }
+        const task = new Task(
+            this.context,
+            this.members,
+            this.params,
+            nextState,
+            nextStageIndex,
+        );
+        return task.getStageAction();
     }
     
-    createReturnAction(returnValue: PetValue): ReturnAction {
-        return new ReturnAction(this.parentTask, returnValue);
+    repeatStage(nextState: StateT): ActionResult {
+        const task = new Task(
+            this.context,
+            this.members,
+            this.params,
+            nextState,
+            this.stageIndex,
+        );
+        return task.getStageAction();
+    }
+    
+    returnValue(value: PetValue): ActionResult {
+        const { acceptReturnValue } = this.members;
+        if (typeof acceptReturnValue === "undefined") {
+            return null;
+        } else {
+            return {
+                task: this,
+                run: () => acceptReturnValue(value),
+            };
+        }
     }
     
     // `exception` must be populated with evaluation state.
-    createExcepAction(exception: PetException): ExcepAction {
-        return new ExcepAction(this.parentTask, exception);
+    throwException(exception: PetException): ActionResult {
+        const { handleException } = this.members;
+        if (typeof handleException === "undefined") {
+            return exception;
+        } else {
+            return {
+                task: this,
+                run: () => handleException(exception),
+            };
+        }
     }
     
-    createAwaitAction(
+    runTask<T1, T2>(
+        taskDef: TaskDef<T1, T2>,
+        params: T1,
+        acceptReturnValue: (value: PetValue) => ActionResult,
+        handleException?: (exception: PetException) => ActionResult,
+    ): ActionResult {
+        if (typeof handleException === "undefined") {
+            handleException = (exception) => this.throwException(exception);
+        }
+        const members: TaskMembers<T1, T2> = {
+            parentTask: this,
+            stages: taskDef.stages,
+            acceptReturnValue,
+            handleException,
+        };
+        const task = new Task<T1, T2>(
+            this.context,
+            members,
+            params,
+            taskDef.getInitState(params),
+            0,
+        );
+        return task.getStageAction();
+    }
+    
+    throwAwaitExcep(
         bunch: ObservableBunch,
         location: PetValue,
         condition: PetFunc,
         evalState: EvalState,
-    ): ExcepAction {
+    ): ActionResult {
         const exception = new PetMap([
             [symbols.EXCEP_TYPE, symbols.AWAIT_EXCEP],
             [symbols.BUNCH, bunch],
@@ -50,323 +153,244 @@ export abstract class Task {
             [symbols.COND, condition],
             [symbols.EVAL_STATE, evalState],
         ]);
-        return this.createExcepAction(exception);
+        return this.throwException(exception);
+    }
+    
+    throwObserverAwait(observer: MemberObserver): ActionResult {
+        const { bunch, location, condition, evalState } = observer;
+        return this.throwAwaitExcep(bunch, location, condition, evalState);
     }
     
     awaitMember(
         bunch: ObservableBunch,
         location: PetValue,
         condition: PetFunc,
-        nextAction: Action,
-    ): Action {
+        actionResult: ActionResult,
+    ): ActionResult {
+        // TODO: Rework this if we get rid of ActionResult type.
+        const nextAction: Action = {
+            task: this,
+            run: () => actionResult,
+        };
         const observer = new MemberObserver(
             bunch,
             unwrapValue(location),
             condition,
-            new EvalState(this.currentAction, nextAction),
+            new EvalState(this, nextAction),
         );
-        const awaitTask = new AwaitCondTask(observer);
-        return new AdvanceAction(awaitTask);
+        return this.runTask(
+            awaitCondTask, { observer },
+            (value) => actionResult,
+        );
     }
     
-    callWorkerMethod(worker: PetMap, key: PetValue, args: PetValue[]): Action {
-        const invocation = new MethodInvocation(this, worker, key, args);
-        const task = new CallMethodTask(invocation);
-        return new AdvanceAction(task);
+    callFunction(
+        func: PetFunc,
+        args: PetValue[],
+        acceptReturnValue: (value: PetValue) => ActionResult,
+    ): ActionResult {
+        let { handleException } = this.members;
+        if (typeof handleException === "undefined") {
+            handleException = (exception) => exception;
+        }
+        const caller: FuncCaller = { task: this, acceptReturnValue, handleException };
+        return {
+            task: this,
+            run: () => func.call(caller, args),
+        };
+    }
+    
+    callWorkerMethod(
+        worker: PetMap,
+        key: PetValue,
+        args: PetValue[],
+        acceptReturnValue: (value: PetValue) => ActionResult,
+    ): ActionResult {
+        const invocation: MethodInvocation = { worker, key, args };
+        return this.runTask(callMethodTask, invocation, acceptReturnValue);
     }
 }
 
-enum MainStage { LoadMainModule, PrepModules, EvalModules }
-
-export class MainTask extends Task {
-    stage: MainStage;
-    moduleIndex: number;
-    
-    constructor(
-        stage: MainStage = MainStage.LoadMainModule,
-        moduleIndex: number = 0,
-    ) {
-        super(null);
-        this.stage = stage;
-        this.moduleIndex = moduleIndex;
-    }
-    
-    advance(): Action {
-        if (this.stage === MainStage.LoadMainModule) {
-            const modulePath = this.context.entryPackage.mainModulePath;
-            this.context.loadUserModule(modulePath);
-            const nextTask = new MainTask(MainStage.PrepModules, 0);
-            return new AdvanceAction(nextTask);
-        } else if (this.stage === MainStage.PrepModules) {
-            const moduleAmount = this.context.userModules.getLength();
-            let nextTask: Task;
-            if (this.moduleIndex < moduleAmount) {
-                nextTask = new AwaitModulePrepTask(this, this.moduleIndex);
+export const mainTask: TaskDef<null, { moduleIndex: number }> = {
+    getInitState: (params) => ({ moduleIndex: 0 }),
+    stages: [
+        (task) => {
+            const modulePath = task.context.entryPackage.mainModulePath;
+            task.context.loadUserModule(modulePath);
+            return task.advanceStage({ moduleIndex: 0 });
+        },
+        (task) => {
+            const { moduleIndex } = task.state;
+            const moduleAmount = task.context.userModules.getLength();
+            if (moduleIndex < moduleAmount) {
+                return task.runTask(
+                    awaitModulePrepTask, { moduleIndex },
+                    (value) => task.repeatStage({ moduleIndex: moduleIndex + 1 }),
+                );
             } else {
-                nextTask = new MainTask(MainStage.EvalModules, moduleAmount - 1);
+                return task.advanceStage({ moduleIndex: moduleAmount - 1 });
             }
-            return new AdvanceAction(nextTask);
-        } else if (this.stage === MainStage.EvalModules) {
-            if (this.moduleIndex >= 0) {
-                const module = this.context.userModules.getMember(this.moduleIndex) as PetMap;
+        },
+        (task) => {
+            const { moduleIndex } = task.state;
+            if (moduleIndex >= 0) {
+                const module = task.context.userModules.getMember(moduleIndex) as PetMap;
                 const stmtsComp = module.getMember(symbols.STMTS_COMP) as PetMap;
-                const nextTask = new EvalStmtsTask(this, stmtsComp);
-                return new AdvanceAction(nextTask);
+                return task.runTask(
+                    evalStmtsTask, { stmtsComp },
+                    (value) => task.repeatStage({ moduleIndex: moduleIndex - 1 }),
+                );
             } else {
-                return this.createReturnAction(null);
+                return task.returnValue(null);
             }
-        }
-    }
-    
-    acceptReturnValue(returnValue: PetValue): Action {
-        let nextTask: Task;
-        if (this.stage === MainStage.PrepModules) {
-            nextTask = new MainTask(MainStage.PrepModules, this.moduleIndex + 1);
-        } else if (this.stage === MainStage.EvalModules) {
-            nextTask = new MainTask(MainStage.EvalModules, this.moduleIndex - 1);
-        }
-        return new AdvanceAction(nextTask);
-    }
-}
+        },
+    ],
+};
 
-enum AwaitModulePrepStage { LoadModule, PrepModule }
-
-class AwaitModulePrepTask extends Task {
-    moduleIndex: number;
-    stage: AwaitModulePrepStage;
-    
-    constructor(
-        parent: Task | null,
-        moduleIndex: number,
-        stage: AwaitModulePrepStage = AwaitModulePrepStage.LoadModule,
-    ) {
-        super(parent);
-        this.moduleIndex = moduleIndex;
-        this.stage = stage;
-    }
-    
-    advance(): Action {
-        if (this.stage === AwaitModulePrepStage.LoadModule) {
-            const nextTask = new AwaitModulePrepTask(
-                this.parentTask,
-                this.moduleIndex,
-                AwaitModulePrepStage.PrepModule,
-            );
-            return this.awaitMember(
-                this.context.userModules,
-                BigInt(this.moduleIndex),
+const awaitModulePrepTask: TaskDef<{ moduleIndex: number }, null> = {
+    getInitState: (params) => null,
+    stages: [
+        (task) => {
+            return task.awaitMember(
+                task.context.userModules,
+                BigInt(task.params.moduleIndex),
                 new NotEqualFunc(null),
-                new AdvanceAction(nextTask),
+                task.advanceStage(null),
             );
-        } else if (this.stage === AwaitModulePrepStage.PrepModule) {
-            const module = this.context.userModules.getMember(this.moduleIndex) as PetMap;
+        },
+        (task) => {
+            const modules = task.context.userModules;
+            const module = modules.getMember(task.params.moduleIndex) as PetMap;
             const stmtsComp = module.getMember(symbols.STMTS_COMP) as PetMap;
-            return this.awaitMember(
+            return task.awaitMember(
                 stmtsComp,
                 symbols.PHASE,
                 new NotEqualFunc(symbols.PREP_PHASE),
-                this.createReturnAction(null),
+                task.returnValue(null),
             );
-        }
-    }
-}
+        },
+    ],
+};
 
-export class LoadModuleTask extends Task {
-    modulePath: string;
-    
-    // `modulePath` must be an absolute path.
-    constructor(modulePath: string) {
-        super(null);
-        this.modulePath = modulePath;
-    }
-    
-    advance(): Action {
-        // TODO: Pass if file is missing.
-        const moduleParser = new ModuleParser(this.modulePath);
-        const module = moduleParser.parseModule();
-        this.context.setUserModule(this.modulePath, module);
-        const stmtsComp = module.getMember(symbols.STMTS_COMP) as PetMap;
-        const nextTask = new PrepStmtsTask(this.parentTask, stmtsComp);
-        return new AdvanceAction(nextTask);
-    }
-}
+export const loadModuleTask: TaskDef<{ modulePath: string }, null> = {
+    getInitState: (params) => null,
+    stages: [
+        (task) => {
+            // TODO: Pass if file is missing.
+            const { modulePath } = task.params;
+            const moduleParser = new ModuleParser(modulePath);
+            const module = moduleParser.parseModule();
+            task.context.setUserModule(modulePath, module);
+            const stmtsComp = module.getMember(symbols.STMTS_COMP) as PetMap;
+            return task.runTask(
+                prepStmtsTask, { stmtsComp },
+                (value) => task.returnValue(null),
+            );
+        },
+    ],
+};
 
-enum PrepStmtsStage { PrepStmts, AwaitStmts }
-
-export class PrepStmtsTask extends Task {
-    stmtsComp: PetMap;
-    stage: PrepStmtsStage;
-    stmtIndex: number;
-    
-    constructor(
-        parent: Task | null,
-        stmtsComp: PetMap,
-        stage: PrepStmtsStage = PrepStmtsStage.PrepStmts,
-        stmtIndex: number = 0,
-    ) {
-        super(parent);
-        this.stmtsComp = stmtsComp;
-        this.stage = stage;
-        this.stmtIndex = stmtIndex;
-    }
-    
-    advance(): Action {
-        const stmts = this.stmtsComp.getMember(symbols.STMTS) as PetList;
-        if (this.stage === PrepStmtsStage.PrepStmts) {
+const prepStmtsTask: TaskDef<{ stmtsComp: PetMap }, { stmtIndex: number }> = {
+    getInitState: (params) => ({ stmtIndex: 0 }),
+    stages: [
+        (task) => {
+            const stmts = task.params.stmtsComp.getMember(symbols.STMTS) as PetList;
             for (let index = 0; index < stmts.getLength(); index++) {
                 const stmt = stmts.getMember(index) as PetMap;
                 // TODO: Invoke #PREP method on `stmt`.
-                const task = new DummyPrepTask(null, stmt);
-                this.context.scheduler.scheduleTask(task);
+                task.context.scheduler.scheduleTask(dummyPrepTask, { stmt });
             }
-            const nextTask = new PrepStmtsTask(
-                this.parentTask,
-                this.stmtsComp,
-                PrepStmtsStage.AwaitStmts,
-                0,
-            );
-            return new AdvanceAction(nextTask);
-        } else if (this.stage === PrepStmtsStage.AwaitStmts) {
-            if (this.stmtIndex < stmts.getLength()) {
-                const stmt = stmts.getMember(this.stmtIndex) as PetMap;
-                const nextTask = new PrepStmtsTask(
-                    this.parentTask,
-                    this.stmtsComp,
-                    PrepStmtsStage.AwaitStmts,
-                    this.stmtIndex + 1,
-                );
-                const nextAction = new AdvanceAction(nextTask);
-                return this.awaitMember(
+            return task.advanceStage({ stmtIndex: 0 });
+        },
+        (task) => {
+            const { stmtsComp } = task.params;
+            const { stmtIndex } = task.state;
+            const stmts = stmtsComp.getMember(symbols.STMTS) as PetList;
+            if (stmtIndex < stmts.getLength()) {
+                const stmt = stmts.getMember(stmtIndex) as PetMap;
+                return task.awaitMember(
                     stmt,
                     symbols.PHASE,
                     new NotEqualFunc(symbols.PREP_PHASE),
-                    nextAction,
+                    task.repeatStage({ stmtIndex: stmtIndex + 1 }),
                 );
             } else {
-                this.stmtsComp.setMember(symbols.PHASE, symbols.WORK_PHASE);
-                return this.createReturnAction(null);
+                stmtsComp.setMember(symbols.PHASE, symbols.WORK_PHASE);
+                return task.returnValue(null);
             }
-        }
-    }
-}
+        },
+    ],
+};
 
-export class DummyPrepTask extends Task {
-    stmt: PetMap;
-    
-    constructor(parent: Task | null, stmt: PetMap) {
-        super(parent);
-        this.stmt = stmt;
-    }
-    
-    advance(): Action {
-        this.stmt.setMember(symbols.PHASE, symbols.WORK_PHASE);
-        return this.createReturnAction(null);
-    }
-}
+const dummyPrepTask: TaskDef<{ stmt: PetMap }, null> = {
+    getInitState: (params) => null,
+    stages: [
+        (task) => {
+            task.params.stmt.setMember(symbols.PHASE, symbols.WORK_PHASE);
+            return task.returnValue(null);
+        },
+    ],
+};
 
-export class EvalStmtsTask extends Task {
-    stmtsComp: PetMap;
-    stmtIndex: number;
-    
-    constructor(parent: Task | null, stmtsComp: PetMap, stmtIndex: number = 0) {
-        super(parent);
-        this.stmtsComp = stmtsComp;
-        this.stmtIndex = stmtIndex;
-    }
-    
-    advance(): Action {
-        const stmts = this.stmtsComp.getMember(symbols.STMTS) as PetList;
-        if (this.stmtIndex < stmts.getLength()) {
-            const stmt = stmts.getMember(this.stmtIndex) as PetMap;
-            // TODO: Invoke #EVAL method on `stmt`.
-            const nextTask = new DummyEvalTask(this, stmt);
-            return new AdvanceAction(nextTask);
-        } else {
-            return this.createReturnAction(null);
-        }
-    }
-    
-    acceptReturnValue(returnValue: PetValue): Action {
-        const nextTask = new EvalStmtsTask(
-            this.parentTask,
-            this.stmtsComp,
-            this.stmtIndex + 1,
-        );
-        return new AdvanceAction(nextTask);
-    }
-}
-
-export class DummyEvalTask extends Task {
-    stmt: PetMap;
-    
-    constructor(parent: Task | null, stmt: PetMap) {
-        super(parent);
-        this.stmt = stmt;
-    }
-    
-    advance(): Action {
-        console.log("Wow! I am the dummy eval task");
-        console.log(this.stmt);
-        return this.createReturnAction(null);
-    }
-}
-
-export class AwaitCondTask extends Task {
-    observer: MemberObserver;
-    lastMemberValue?: PetValue;
-    
-    constructor(observer: MemberObserver, lastMemberValue?: PetValue) {
-        super(observer.evalState.currentAction.task);
-        this.observer = observer;
-        this.lastMemberValue = lastMemberValue;
-    }
-    
-    awaitObserver(): Action {
-        const { bunch, location, condition, evalState } = this.observer;
-        return this.createAwaitAction(bunch, location, condition, evalState);
-    }
-    
-    callCondition(): Action {
-        const memberValue = this.observer.getMemberValue();
-        if (typeof memberValue === "undefined") {
-            return this.awaitObserver();
-        }
-        const condTask = new AwaitCondTask(this.observer, memberValue);
-        return this.observer.condition.call(condTask, [memberValue]);
-    }
-    
-    advance(): Action {
-        return this.callCondition();
-    }
-    
-    acceptReturnValue(returnValue: PetValue): Action {
-        // TODO: Throw an error if `returnValue` is not an integer.
-        if (returnValue as bigint === 0n) {
-            const memberValue = this.observer.getMemberValue();
-            if (valueMayHaveChanged(this.lastMemberValue, memberValue)) {
-                return this.callCondition();
+const evalStmtsTask: TaskDef<{ stmtsComp: PetMap }, { stmtIndex: number }> = {
+    getInitState: (params) => ({ stmtIndex: 0 }),
+    stages: [
+        (task) => {
+            const stmts = task.params.stmtsComp.getMember(symbols.STMTS) as PetList;
+            const { stmtIndex } = task.state;
+            if (stmtIndex < stmts.getLength()) {
+                const stmt = stmts.getMember(stmtIndex) as PetMap;
+                // TODO: Invoke #EVAL method on `stmt`.
+                return task.runTask(
+                    dummyEvalTask, { stmt },
+                    (value) => task.repeatStage({ stmtIndex: stmtIndex + 1 }),
+                );
             } else {
-                return this.awaitObserver();
+                return task.returnValue(null);
             }
-        } else {
-            return this.observer.evalState.actionToResume;
-        }
-    }
-}
+        },
+    ],
+};
 
-class MethodInvocation {
-    parentTask: Task | null;
-    worker: PetMap;
-    key: PetValue;
-    args: PetValue[];
-    
-    constructor(parentTask: Task | null, worker: PetMap, key: PetValue, args: PetValue[]) {
-        this.parentTask = parentTask;
-        this.worker = worker;
-        this.key = key;
-        this.args = args;
-    }
-}
+const dummyEvalTask: TaskDef<{ stmt: PetMap }, null> = {
+    getInitState: (params) => null,
+    stages: [
+        (task) => {
+            console.log("Wow! I am the dummy eval task");
+            console.log(task.params.stmt);
+            return task.returnValue(null);
+        },
+    ],
+};
+
+export const awaitCondTask: TaskDef<{ observer: MemberObserver }, null> = {
+    getInitState: (params) => null,
+    stages: [
+        (task) => {
+            const { observer } = task.params;
+            const memberValue = observer.getMemberValue();
+            if (typeof memberValue === "undefined") {
+                return task.throwObserverAwait(observer);
+            }
+            return task.callFunction(
+                observer.condition, [memberValue],
+                (returnValue) => {
+                    // TODO: Throw an error if `returnValue` is not an integer.
+                    if (returnValue as bigint === 0n) {
+                        const newMemberValue = observer.getMemberValue();
+                        if (valueMayHaveChanged(memberValue, newMemberValue)) {
+                            return task.repeatStage(null);
+                        } else {
+                            return task.throwObserverAwait(observer);
+                        }
+                    } else {
+                        return observer.evalState.actionToResume;
+                    }
+                },
+            );
+        },
+    ],
+};
 
 const workerIsInvocation = (worker: PetMap): boolean => {
     const nodeType = worker.getMember(symbols.NODE_TYPE);
@@ -380,46 +404,42 @@ const workerIsInvocation = (worker: PetMap): boolean => {
     return false;
 };
 
-enum CallMethodStage { Init, Invoke }
-
-export class CallMethodTask extends Task {
-    invocation: MethodInvocation;
-    stage: CallMethodStage;
-    
-    constructor(invocation: MethodInvocation, stage: CallMethodStage = CallMethodStage.Init) {
-        super(invocation.parentTask);
-        this.invocation = invocation;
-        this.stage = stage;
-    }
-    
-    advance(): Action {
-        const { worker, key: methodKey } = this.invocation;
-        if (this.stage === CallMethodStage.Init) {
+const callMethodTask: TaskDef<MethodInvocation, null> = {
+    getInitState: (params) => null,
+    stages: [
+        (task) => {
+            const { worker, key: methodKey } = task.params;
             if (methodKey === symbols.PREP) {
                 const phase = worker.getMember(symbols.PHASE);
                 if (phase === symbols.WORK_PHASE) {
-                    return this.createReturnAction(null);
+                    return task.returnValue(null);
                 }
-                if (this.context.preppingWorkers.has(worker)) {
-                    return this.awaitMember(
+                if (task.context.preppingWorkers.has(worker)) {
+                    return task.awaitMember(
                         worker,
                         symbols.PHASE,
                         new NotEqualFunc(symbols.PREP_PHASE),
-                        this.createReturnAction(null),
+                        task.returnValue(null),
                     );
                 }
-                this.context.preppingWorkers.add(worker);
+                task.context.preppingWorkers.add(worker);
                 if (workerIsInvocation(worker)) {
-                    const nextTask = new DetermineInvocTask(this, worker);
-                    return new AdvanceAction(nextTask);
+                    return task.runTask(
+                        determineInvocTask, { worker },
+                        (value) => task.advanceStage(null),
+                    );
                 }
             }
             if (methodKey === symbols.EVAL) {
-                return this.callWorkerMethod(worker, symbols.PREP, []);
+                return task.callWorkerMethod(
+                    worker, symbols.PREP, [],
+                    (value) => task.advanceStage(null),
+                );
             }
-            const nextTask = new CallMethodTask(this.invocation, CallMethodStage.Invoke);
-            return new AdvanceAction(nextTask);
-        } else if (this.stage === CallMethodStage.Invoke) {
+            return task.advanceStage(null);
+        },
+        (task) => {
+            const { worker, key: methodKey } = task.params;
             let methodMap: PetMap;
             if (workerIsInvocation(worker)) {
                 const invocable = worker.getMember(symbols.INVOC);
@@ -434,65 +454,58 @@ export class CallMethodTask extends Task {
                 throw new Error("Not yet implemented");
             }
             const method = methodMap.getMember(methodKey) as PetFunc;
-            return method.call(this, [worker, ...this.invocation.args]);
-        }
-    }
-    
-    acceptReturnValue(returnValue: PetValue): Action {
-        const { worker, key: methodKey } = this.invocation;
-        if (this.stage === CallMethodStage.Init) {
-            const nextAction = new CallMethodTask(this.invocation, CallMethodStage.Invoke);
-            return new AdvanceAction(nextAction);
-        } else if (this.stage === CallMethodStage.Invoke) {
-            if (methodKey === symbols.PREP) {
-                worker.setMember(symbols.PHASE, symbols.WORK_PHASE);
-                this.context.preppingWorkers.delete(worker);
-            }
-            let nextReturnValue: PetValue;
-            if (methodKey === symbols.EVAL) {
-                nextReturnValue = returnValue;
-            } else {
-                nextReturnValue = null;
-            }
-            return this.createReturnAction(nextReturnValue);
-        }
-    }
-}
+            return task.callFunction(
+                method, [worker, ...task.params.args],
+                (returnValue) => {
+                    if (methodKey === symbols.PREP) {
+                        worker.setMember(symbols.PHASE, symbols.WORK_PHASE);
+                        task.context.preppingWorkers.delete(worker);
+                    }
+                    let nextReturnValue: PetValue;
+                    if (methodKey === symbols.EVAL) {
+                        nextReturnValue = returnValue;
+                    } else {
+                        nextReturnValue = null;
+                    }
+                    return task.returnValue(nextReturnValue);
+                },
+            );
+        },
+    ],
+};
 
-export class DetermineInvocTask extends Task {
-    worker: PetMap;
-    
-    constructor(parent: Task | null, worker: PetMap) {
-        super(parent);
-        this.worker = worker;
-    }
-    
-    advance(): Action {
-        const comps = this.worker.getMember(symbols.COMPS) as PetList;
-        const firstComp = comps.getMember(0) as PetMap;
-        const compType = firstComp.getMember(symbols.COMP_TYPE);
-        if (compType === symbols.IDENT_COMP) {
-            // TODO: Read value of variable.
-            throw new Error("Not yet implemented");
-            const invocable = null;
-            
-            this.worker.setMember(symbols.INVOC, invocable);
-            return this.createReturnAction(null);
-        } else if (compType === symbols.EXPRS_COMP) {
-            // TODO: Create frame.
-            throw new Error("Not yet implemented");
-            const frame = null;
-            
-            return this.callWorkerMethod(firstComp, symbols.EVAL, [frame]);
-        } else {
-            throw new Error("First component in invocation is invalid");
-        }
-    }
-    
-    acceptReturnValue(returnValue: PetValue): Action {
-        this.worker.setMember(symbols.INVOC, returnValue);
-        return this.createReturnAction(null);
-    }
-}
+const determineInvocTask: TaskDef<{ worker: PetMap }, null> = {
+    getInitState: (params) => null,
+    stages: [
+        (task) => {
+            const { worker } = task.params;
+            const comps = worker.getMember(symbols.COMPS) as PetList;
+            const firstComp = comps.getMember(0) as PetMap;
+            const compType = firstComp.getMember(symbols.COMP_TYPE);
+            if (compType === symbols.IDENT_COMP) {
+                // TODO: Read value of variable.
+                throw new Error("Not yet implemented");
+                const invocable = null;
+                
+                worker.setMember(symbols.INVOC, invocable);
+                return task.returnValue(null);
+            } else if (compType === symbols.EXPRS_COMP) {
+                // TODO: Create frame.
+                throw new Error("Not yet implemented");
+                const frame = null;
+                
+                return task.callWorkerMethod(
+                    firstComp, symbols.EVAL, [frame],
+                    (returnValue) => {
+                        worker.setMember(symbols.INVOC, returnValue);
+                        return task.returnValue(null);
+                    },
+                );
+            } else {
+                throw new Error("First component in invocation is invalid");
+            }
+        },
+    ],
+};
 
 

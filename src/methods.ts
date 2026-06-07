@@ -2,21 +2,20 @@
 import "./builtInFunc.js";
 
 import { symbols } from "./symbol.js";
-import { PetValue, PetMap } from "./value.js";
+import { PetValue, PetMap, FuncCaller } from "./value.js";
 import { BuiltInFunc } from "./builtInFunc.js";
-import { Task } from "./task.js";
-import { Action } from "./action.js";
+import { ActionResult, Task } from "./task.js";
 
 class FuncPrepMethod extends BuiltInFunc {
     
-    call(parentTask: Task, args: PetValue[]): Action {
+    call(caller: FuncCaller, args: PetValue[]): ActionResult {
         throw new Error("Not yet implemented");
     }
 }
 
 class FuncEvalMethod extends BuiltInFunc {
     
-    call(parentTask: Task, args: PetValue[]): Action {
+    call(caller: FuncCaller, args: PetValue[]): ActionResult {
         throw new Error("Not yet implemented");
     }
 }

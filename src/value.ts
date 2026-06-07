@@ -3,8 +3,7 @@ import "./symbol.js";
 
 import { PetSymbol } from "./symbol.js";
 import { DeferralError, PetTypeError } from "./error.js";
-import { Task, AwaitCondTask } from "./task.js";
-import { Action } from "./action.js";
+import { Action, ActionResult, Task, awaitCondTask } from "./task.js";
 import { Scheduler } from "./scheduler.js";
 
 // PetValueAndKey contains types which can be used as both values and Map keys.
@@ -122,10 +121,10 @@ export const valueMayHaveChanged = (oldValue: PetValue, newValue: PetValue): boo
     if (oldValueIsDeferred && newValueIsDeferred) {
         const oldDeferredValue = oldValue as DeferredValue;
         const newDeferredValue = newValue as DeferredValue;
-        return (valuesAreEqual(oldDeferredValue.bunch, newDeferredValue.bunch)
+        return !(valuesAreEqual(oldDeferredValue.bunch, newDeferredValue.bunch)
             && valuesAreEqual(oldDeferredValue.location, newDeferredValue.location));
     } else if (oldValueIsDeferred || newValueIsDeferred) {
-        return (oldValue !== newValue);
+        return true;
     } else {
         return !valuesAreEqual(oldValue, newValue);
     }
@@ -203,8 +202,7 @@ class MemberObservatory {
         }
         this.observers.delete(mapKey);
         for (const observer of observers) {
-            const condTask = new AwaitCondTask(observer);
-            this.scheduler.scheduleTask(condTask);
+            this.scheduler.scheduleTask(awaitCondTask, { observer });
         }
     }
 }
@@ -346,23 +344,29 @@ export class PetMap implements ObservableBunchIface {
 export type PetException = PetMap;
 export const PetException = PetMap;
 
+export interface FuncCaller {
+    task: Task;
+    acceptReturnValue: (value: PetValue) => ActionResult;
+    handleException: (exception: PetException) => ActionResult;
+}
+
 export abstract class PetFunc {
     
     constructor() {
         // Do nothing.
     }
     
-    abstract call(parentTask: Task, args: PetValue[]): Action;
+    abstract call(caller: FuncCaller, args: PetValue[]): ActionResult;
     
     abstract toString(): string;
 }
 
 export class EvalState {
-    currentAction: Action;
+    currentTask: Task;
     actionToResume: Action;
     
-    constructor(currentAction: Action, actionToResume: Action) {
-        this.currentAction = currentAction;
+    constructor(currentTask: Task, actionToResume: Action) {
+        this.currentTask = currentTask;
         this.actionToResume = actionToResume;
     }
     
