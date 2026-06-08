@@ -2,7 +2,7 @@
 import "./package.js";
 
 import { symbols } from "./symbol.js";
-import { PetValue, PetList, PetMap, PetException, MemberObserver, ObservableBunch, FuncCaller, PetFunc, EvalState, unwrapValue, valueMayHaveChanged } from "./value.js";
+import { PetValue, PetList, PetMap, PetException, MemberObserver, ObservableBunch, PetFunc, EvalState, unwrapValue, valueMayHaveChanged } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
 import { funcInvocationMethods } from "./methods.js";
 import { ModuleParser } from "./moduleParser.js";
@@ -172,12 +172,10 @@ export class Task<ParamsT = any, StateT = any> {
         args: PetValue[],
         acceptReturnValue: (value: PetValue) => Action,
     ): Action {
-        const { handleException } = this.members;
-        const caller: FuncCaller = { task: this, acceptReturnValue, handleException };
-        return {
-            task: this,
-            run: () => func.call(caller, args),
-        };
+        return this.runTask(
+            callFuncTask, { func, args },
+            acceptReturnValue,
+        );
     }
     
     callWorkerMethod(
@@ -339,6 +337,15 @@ const dummyEvalTask: TaskDef<{ stmt: PetMap }, null> = {
             console.log("Wow! I am the dummy eval task");
             console.log(task.params.stmt);
             return task.returnValue(null);
+        },
+    ],
+};
+
+const callFuncTask: TaskDef<{ func: PetFunc, args: PetValue[] }, null> = {
+    getInitState: (params) => null,
+    stages: [
+        (task) => {
+            return task.params.func.call(task, task.params.args);
         },
     ],
 };

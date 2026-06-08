@@ -344,19 +344,13 @@ export class PetMap implements ObservableBunchIface {
 export type PetException = PetMap;
 export const PetException = PetMap;
 
-export interface FuncCaller {
-    task: Task;
-    acceptReturnValue: (value: PetValue) => Action;
-    handleException: (exception: PetException) => Action;
-}
-
 export abstract class PetFunc {
     
     constructor() {
         // Do nothing.
     }
     
-    abstract call(caller: FuncCaller, args: PetValue[]): Action;
+    abstract call(task: Task, args: PetValue[]): Action;
     
     abstract toString(): string;
 }
