@@ -2,7 +2,7 @@
 import "./task.js";
 
 import { symbols } from "./symbol.js";
-import { PetException, PetFunc, EvalState, ObservableBunch } from "./value.js";
+import { PetException, EvalState } from "./value.js";
 import { ConstantFunc } from "./builtInFunc.js";
 import { DeferralError, CoroEndError } from "./error.js";
 import { Action, TaskDef, TaskMembers, Task } from "./task.js";
@@ -28,7 +28,7 @@ export class Coroutine {
                 if (error instanceof CoroEndError) {
                     return error.unhandledExcep;
                 } else if (error instanceof DeferralError) {
-                    const { deferredValue } = error;
+                    const { value: deferredValue } = error;
                     const { task } = this.action;
                     result = task.throwAwaitExcep(
                         deferredValue.bunch,
@@ -134,14 +134,14 @@ export class Scheduler {
         if (uncaughtExcep === null) {
             return;
         }
-        const excepType = uncaughtExcep.getMember(symbols.EXCEP_TYPE);
-        const evalState = uncaughtExcep.getMember(symbols.EVAL_STATE) as EvalState;
+        const excepType = uncaughtExcep.getMember(symbols.EXCEP_TYPE).getKnownValue();
+        const evalState = uncaughtExcep.getMember(symbols.EVAL_STATE).getEvalState();
         if (excepType === symbols.PASS_EXCEP) {
             this.scheduleAction(evalState.actionToResume, false);
         } else if (excepType === symbols.AWAIT_EXCEP) {
-            const bunch = uncaughtExcep.getMember(symbols.BUNCH) as ObservableBunch;
+            const bunch = uncaughtExcep.getMember(symbols.BUNCH).getObservableBunch();
             const location = uncaughtExcep.getMember(symbols.LOC);
-            const condition = uncaughtExcep.getMember(symbols.COND) as PetFunc;
+            const condition = uncaughtExcep.getMember(symbols.COND).getFunc();
             bunch.observatory.addObserver(this, location, condition, evalState);
         } else {
             // TODO: Handle unexpected exception.

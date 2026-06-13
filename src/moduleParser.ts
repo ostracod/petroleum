@@ -3,7 +3,7 @@ import "./error.js";
 
 import * as fs from "fs";
 import { symbols } from "./symbol.js";
-import { escapeChars, PetValue, PetString, PetList, PetMap } from "./value.js";
+import { KnownValue, escapeChars, PetString, PetList, PetMap } from "./value.js";
 
 interface ContentPos {
     lineNumber: bigint;
@@ -34,32 +34,32 @@ const isIdentChar = (character: string): boolean => (
 );
 
 const getCompPos = (component: PetMap): ContentPos => ({
-    lineNumber: component.getMember(symbols.LINE_NUM) as bigint,
-    columnNumber: component.getMember(symbols.COL_NUM) as bigint,
+    lineNumber: component.getMember(symbols.LINE_NUM).getInt(),
+    columnNumber: component.getMember(symbols.COL_NUM).getInt(),
 });
 
-const posToFields = (pos: ContentPos): [PetValue, PetValue][] => ([
+const posToFields = (pos: ContentPos): [KnownValue, KnownValue][] => ([
     [symbols.LINE_NUM, pos.lineNumber],
     [symbols.COL_NUM, pos.columnNumber],
 ]);
 
-const getCompPosFields = (component: PetMap): [PetValue, PetValue][] => (
+const getCompPosFields = (component: PetMap): [KnownValue, KnownValue][] => (
     posToFields(getCompPos(component))
 );
 
 const invocCompIsValid = (component: PetMap): boolean => {
-    const compType = component.getMember(symbols.COMP_TYPE);
+    const compType = component.getMember(symbols.COMP_TYPE).getSymbol();
     if (compType === symbols.IDENT_COMP) {
         return true;
     }
     if (compType !== symbols.EXPRS_COMP) {
         return false;
     }
-    const expressions = component.getMember(symbols.EXPRS) as PetList;
+    const expressions = component.getMember(symbols.EXPRS).getList();
     return (expressions.getLength() === 1);
 };
 
-const setParents = (maps: PetMap[], parent: PetValue): void => {
+const setParents = (maps: PetMap[], parent: KnownValue): void => {
     for (const map of maps) {
         map.setMember(symbols.PARENT, parent);
     }
@@ -170,7 +170,7 @@ export class ModuleParser {
         };
     }
     
-    getPosFields(): [PetValue, PetValue][] {
+    getPosFields(): [KnownValue, KnownValue][] {
         return posToFields(this.getPos());
     }
     
@@ -244,7 +244,7 @@ export class ModuleParser {
             [symbols.IDENT, identifier],
             [symbols.SCOPE, this.scope],
         ]);
-        const varMap = this.scope.getMember(symbols.VARS) as PetMap;
+        const varMap = this.scope.getMember(symbols.VARS).getMap();
         varMap.setMember(identifier, variable);
         return new PetMap([
             [symbols.COMP_TYPE, symbols.DECL_COMP],
@@ -362,14 +362,14 @@ export class ModuleParser {
     compsToExpression(components: PetMap[]): PetMap {
         const firstComp = components[0];
         const pos = getCompPos(firstComp);
-        const commonFields: [PetValue, PetValue][] = [
+        const commonFields: [KnownValue, KnownValue][] = [
             [symbols.NODE_TYPE, symbols.EXPR],
             [symbols.COMPS, new PetList(components)],
             [symbols.PHASE, symbols.PREP_PHASE],
             ...posToFields(pos),
         ];
         let expression: PetMap;
-        const firstCompType = firstComp.getMember(symbols.COMP_TYPE);
+        const firstCompType = firstComp.getMember(symbols.COMP_TYPE).getSymbol();
         if (components.length > 1) {
             if (!invocCompIsValid(firstComp)) {
                 this.throwError("Invalid invocable component", pos);
@@ -429,9 +429,9 @@ export class ModuleParser {
         let attributes: PetMap[] = [];
         if (firstComps.length === 1) {
             const firstComp = firstComps[0];
-            if (firstComp.getMember(symbols.COMP_TYPE) === symbols.ATTRS_COMP) {
-                const attrsList = firstComp.getMember(symbols.ATTRS) as PetList;
-                attributes = attrsList.elements as PetMap[];
+            if (firstComp.getMember(symbols.COMP_TYPE).getSymbol() === symbols.ATTRS_COMP) {
+                const attrsList = firstComp.getMember(symbols.ATTRS).getList();
+                attributes = attrsList.elements.map((element) => element.getMap());
                 statementIndex += 1;
             }
         }

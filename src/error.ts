@@ -1,14 +1,14 @@
 
 import "./methods.js";
 
-import { DeferredValue, PetException } from "./value.js";
+import { PetValue, PetException } from "./value.js";
 
 export class DeferralError extends Error {
-    deferredValue: DeferredValue;
+    value: PetValue;
     
-    constructor(deferredValue: DeferredValue) {
+    constructor(value: PetValue) {
         super();
-        this.deferredValue = deferredValue;
+        this.value = value;
     }
 }
 
