@@ -28,11 +28,10 @@ export class Coroutine {
                 if (error instanceof CoroEndError) {
                     return error.unhandledExcep;
                 } else if (error instanceof DeferralError) {
-                    const { value: deferredValue } = error;
                     const { task } = this.action;
                     result = task.throwAwaitExcep(
-                        deferredValue.bunch,
-                        deferredValue.location,
+                        error.bunch,
+                        error.location,
                         new ConstantFunc(1n),
                         new EvalState(task, this.action),
                     );

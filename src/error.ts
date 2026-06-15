@@ -1,14 +1,16 @@
 
 import "./methods.js";
 
-import { PetValue, PetException } from "./value.js";
+import { KnownValue, ObservableBunch, PetException } from "./value.js";
 
 export class DeferralError extends Error {
-    value: PetValue;
+    bunch: ObservableBunch;
+    location: KnownValue;
     
-    constructor(value: PetValue) {
+    constructor(bunch: ObservableBunch, location: KnownValue) {
         super();
-        this.value = value;
+        this.bunch = bunch;
+        this.location = location;
     }
 }
 

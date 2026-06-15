@@ -24,7 +24,7 @@ export class PetValue {
         if (typeof this.knownValue === "undefined") {
             const value = this.bunch.getMember(this.location);
             if (typeof value === "undefined") {
-                throw new DeferralError(this);
+                throw new DeferralError(this.bunch, this.location);
             }
             this.knownValue = value.getKnownValue();
             delete this.bunch;
