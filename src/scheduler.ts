@@ -1,11 +1,10 @@
 
 import "./task.js";
 
-import { symbols } from "./symbol.js";
-import { PetException, EvalState } from "./value.js";
+import { EvalState } from "./value.js";
 import { ConstantFunc } from "./builtInFunc.js";
 import { DeferralError, CoroEndError } from "./error.js";
-import { Action, TaskDef, TaskMembers, Task } from "./task.js";
+import { Action, TaskDef, handleExcepTask } from "./task.js";
 import { PetContext } from "./context.js";
 
 export class Coroutine {
@@ -19,17 +18,22 @@ export class Coroutine {
         this.nextCoro = null;
     }
     
-    run(): PetException | null {
+    run(): void {
         while (true) {
-            let result: Action;
+            let nextAction: Action;
             try {
-                result = this.action.run();
+                nextAction = this.action.run();
             } catch (error) {
                 if (error instanceof CoroEndError) {
-                    return error.unhandledExcep;
+                    const exception = error.unhandledExcep;
+                    if (exception === null) {
+                        break;
+                    } else {
+                        nextAction = this.context.runTask(handleExcepTask, { exception });
+                    }
                 } else if (error instanceof DeferralError) {
                     const { task } = this.action;
-                    result = task.throwAwaitExcep(
+                    nextAction = task.throwAwaitExcep(
                         error.bunch,
                         error.location,
                         new ConstantFunc(1n),
@@ -39,7 +43,7 @@ export class Coroutine {
                     throw error;
                 }
             }
-            this.action = result;
+            this.action = nextAction;
         }
     }
 }
@@ -101,55 +105,20 @@ export class Scheduler {
         params: ParamsT,
         highPriority: boolean = true,
     ): void {
-        const members: TaskMembers<ParamsT, StateT> = {
-            parentTask: null,
-            stages: taskDef.stages,
-            acceptReturnValue: (value) => {
-                throw new CoroEndError(null);
-            },
-            handleException: (exception) => {
-                throw new CoroEndError(exception);
-            },
-        };
-        const task = new Task<ParamsT, StateT>(
-            this.context,
-            members,
-            params,
-            taskDef.getInitState(params),
-            0,
-        );
-        this.scheduleAction(task.getStageAction());
+        const action = this.context.runTask(taskDef, params);
+        this.scheduleAction(action, highPriority);
     }
     
-    runNextCoro(): void {
+    runNextCoro(): boolean {
         let coroutine = this.highPrioCoros.popLeft();
         if (coroutine === null) {
             coroutine = this.lowPrioCoros.popLeft();
         }
         if (coroutine === null) {
-            return;
+            return false;
         }
-        const uncaughtExcep = coroutine.run();
-        if (uncaughtExcep === null) {
-            return;
-        }
-        const excepType = uncaughtExcep.getMember(symbols.EXCEP_TYPE).getKnownValue();
-        const evalState = uncaughtExcep.getMember(symbols.EVAL_STATE).getEvalState();
-        if (excepType === symbols.PASS_EXCEP) {
-            this.scheduleAction(evalState.actionToResume, false);
-        } else if (excepType === symbols.AWAIT_EXCEP) {
-            const bunch = uncaughtExcep.getMember(symbols.BUNCH).getObservableBunch();
-            const location = uncaughtExcep.getMember(symbols.LOC);
-            const condition = uncaughtExcep.getMember(symbols.COND).getFunc();
-            bunch.observatory.addObserver(this, location, condition, evalState);
-        } else {
-            // TODO: Handle unexpected exception.
-            
-        }
-    }
-    
-    hasFinished(): boolean {
-        return (this.highPrioCoros.isEmpty() && this.lowPrioCoros.isEmpty());
+        coroutine.run();
+        return true;
     }
 }
 

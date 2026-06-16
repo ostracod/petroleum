@@ -2,7 +2,7 @@
 import "./package.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { KnownValue, PetValue, toPetValue, toKnownValue, PetMap, PetException, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged } from "./value.js";
+import { KnownValue, PetValue, toPetValue, toKnownValue, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
 import { funcInvocationMethods } from "./methods.js";
 import { ModuleParser } from "./moduleParser.js";
@@ -24,7 +24,7 @@ export interface TaskMembers<ParamsT, StateT> {
     parentTask: Task | null;
     stages: Stage<ParamsT, StateT>[];
     acceptReturnValue: (value: PetValue) => Action;
-    handleException: (exception: PetException) => Action;
+    handleException: (exception: PetValue) => Action;
 }
 
 interface MethodInvocation {
@@ -96,10 +96,10 @@ export class Task<ParamsT = any, StateT = any> {
     }
     
     // `exception` must be populated with evaluation state.
-    throwException(exception: PetException): Action {
+    throwException(exception: PetMap | PetValue): Action {
         return {
             task: this.members.parentTask,
-            run: () => this.members.handleException(exception),
+            run: () => this.members.handleException(toPetValue(exception)),
         };
     }
     
@@ -107,7 +107,7 @@ export class Task<ParamsT = any, StateT = any> {
         taskDef: TaskDef<T1, T2>,
         params: T1,
         acceptReturnValue: (value: PetValue) => Action,
-        handleException?: (exception: PetException) => Action,
+        handleException?: (exception: PetValue) => Action,
     ): Action {
         if (typeof handleException === "undefined") {
             handleException = (exception) => this.throwException(exception);
@@ -181,10 +181,14 @@ export class Task<ParamsT = any, StateT = any> {
     callWorkerMethod(
         worker: PetMap,
         key: PetSymbol | PetValue,
-        args: PetValue[],
+        args: (KnownValue | PetValue)[],
         acceptReturnValue: (value: PetValue) => Action,
     ): Action {
-        const invocation: MethodInvocation = { worker, key: toKnownValue(key), args };
+        const invocation: MethodInvocation = {
+            worker,
+            key: toKnownValue(key),
+            args: args.map((arg) => toPetValue(arg)),
+        };
         return this.runTask(callMethodTask, invocation, acceptReturnValue);
     }
 }
@@ -490,6 +494,30 @@ const determineInvocTask: TaskDef<{ worker: PetMap }, null> = {
             } else {
                 throw new Error("First component in invocation is invalid");
             }
+        },
+    ],
+};
+
+export const handleExcepTask: TaskDef<{ exception: PetValue }, null> = {
+    getInitState: (params) => null,
+    stages: [
+        (task) => {
+            const { scheduler } = task.context;
+            const exception = task.params.exception.getMap();
+            const excepType = exception.getMember(symbols.EXCEP_TYPE).getKnownValue();
+            const evalState = exception.getMember(symbols.EVAL_STATE).getEvalState();
+            if (excepType === symbols.PASS_EXCEP) {
+                scheduler.scheduleAction(evalState.actionToResume, false);
+            } else if (excepType === symbols.AWAIT_EXCEP) {
+                const bunch = exception.getMember(symbols.BUNCH).getObservableBunch();
+                const location = exception.getMember(symbols.LOC);
+                const condition = exception.getMember(symbols.COND).getFunc();
+                bunch.observatory.addObserver(scheduler, location, condition, evalState);
+            } else {
+                // TODO: Handle unexpected exception.
+                
+            }
+            return task.returnValue(null);
         },
     ],
 };

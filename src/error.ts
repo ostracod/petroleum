@@ -1,7 +1,7 @@
 
 import "./methods.js";
 
-import { KnownValue, ObservableBunch, PetException } from "./value.js";
+import { KnownValue, PetValue, ObservableBunch } from "./value.js";
 
 export class DeferralError extends Error {
     bunch: ObservableBunch;
@@ -15,9 +15,9 @@ export class DeferralError extends Error {
 }
 
 export class CoroEndError extends Error {
-    unhandledExcep: PetException | null;
+    unhandledExcep: PetValue | null;
     
-    constructor(unhandledExcep: PetException | null = null) {
+    constructor(unhandledExcep: PetValue | null = null) {
         super();
         this.unhandledExcep = unhandledExcep;
     }

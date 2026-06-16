@@ -2,8 +2,9 @@
 import "./scheduler.js";
 
 import { PetString, PetList, PetMap } from "./value.js";
+import { CoroEndError } from "./error.js";
 import { UserPackage } from "./package.js";
-import { mainTask, loadModuleTask } from "./task.js";
+import { Action, TaskDef, TaskMembers, Task, mainTask, loadModuleTask } from "./task.js";
 import { Scheduler } from "./scheduler.js";
 
 export class PetContext {
@@ -27,9 +28,33 @@ export class PetContext {
     
     run(): void {
         this.scheduler.scheduleTask(mainTask, null);
-        while (!this.scheduler.hasFinished()) {
-            this.scheduler.runNextCoro();
+        while (true) {
+            const hasRun = this.scheduler.runNextCoro();
+            if (!hasRun) {
+                break;
+            }
         }
+    }
+    
+    runTask<ParamsT, StateT>(taskDef: TaskDef<ParamsT, StateT>, params: ParamsT): Action {
+        const members: TaskMembers<ParamsT, StateT> = {
+            parentTask: null,
+            stages: taskDef.stages,
+            acceptReturnValue: (value) => {
+                throw new CoroEndError(null);
+            },
+            handleException: (exception) => {
+                throw new CoroEndError(exception);
+            },
+        };
+        const task = new Task<ParamsT, StateT>(
+            this,
+            members,
+            params,
+            taskDef.getInitState(params),
+            0,
+        );
+        return task.getStageAction();
     }
     
     loadUserModule(modulePath: string): void {

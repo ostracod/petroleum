@@ -457,10 +457,6 @@ export class PetMap implements ObservableBunchIface {
     }
 }
 
-// PetExceptions have #EXCEP_TYPE and #EVAL_STATE fields.
-export type PetException = PetMap;
-export const PetException = PetMap;
-
 export abstract class PetFunc {
     
     constructor() {
