@@ -1,7 +1,8 @@
 
 import "./scheduler.js";
 
-import { PetString, PetList, PetMap } from "./value.js";
+import { symbols } from "./symbol.js";
+import { KnownValue, PetString, PetList, PetMap } from "./value.js";
 import { CoroEndError } from "./error.js";
 import { UserPackage } from "./package.js";
 import { Action, TaskDef, TaskMembers, Task, mainTask, loadModuleTask } from "./task.js";
@@ -9,21 +10,36 @@ import { Scheduler } from "./scheduler.js";
 
 export class PetContext {
     entryPackage: UserPackage;
-    applicationArgs: PetList;
     scheduler: Scheduler;
     // This needs to be a PetList so that mainTask can await each element.
     userModules: PetList;
     // Map from absolute module path to index in `userModules`.
     userModuleIndexes: Map<string, number>;
     preppingWorkers: Set<PetMap>;
+    globalScope: PetMap;
     
     constructor(entryPackagePath: string, applicationArgs: string[]) {
         this.entryPackage = new UserPackage(entryPackagePath);
-        this.applicationArgs = new PetList(applicationArgs.map((arg) => new PetString(arg)));
         this.scheduler = new Scheduler(this);
         this.userModules = new PetList();
         this.userModuleIndexes = new Map();
         this.preppingWorkers = new Set();
+        const globalVars: { [name: string]: KnownValue } = {
+            NULL: null,
+            TRUE: 1n,
+            FALSE: 0n,
+            CMD_LINE_ARGS: new PetList(applicationArgs.map((arg) => new PetString(arg))),
+        };
+        for (const symbol of Object.values(symbols)) {
+            globalVars[symbol.displayName] = symbol;
+        }
+        const globalVarEntries = Object.entries(globalVars).map(
+            ([name, value]) => [new PetString(name), value] as [KnownValue, KnownValue],
+        );
+        this.globalScope = new PetMap([
+            [symbols.IS_SCOPE, 1n],
+            [symbols.VARS, new PetMap(globalVarEntries)],
+        ]);
     }
     
     run(): void {

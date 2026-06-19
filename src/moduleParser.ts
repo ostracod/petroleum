@@ -84,6 +84,7 @@ const createStmtsComp = (stmtSeqResult: StmtSeqResult, pos: ContentPos): PetMap 
 
 export class ModuleParser {
     modulePath: string;
+    globalScope: PetMap;
     moduleContent: string;
     contentIndex: number;
     lineNumber: number;
@@ -91,8 +92,9 @@ export class ModuleParser {
     scope: PetMap | null;
     
     // `modulePath` must be an absolute path.
-    constructor(modulePath: string) {
+    constructor(modulePath: string, globalScope: PetMap) {
         this.modulePath = modulePath;
+        this.globalScope = globalScope;
     }
     
     peekText(length: number): string | null {
@@ -464,7 +466,7 @@ export class ModuleParser {
         this.contentIndex = 0;
         this.lineNumber = 1;
         this.columnNumber = 1;
-        this.scope = null;
+        this.scope = this.globalScope;
         const stmtSeqResult = this.parseStmtSequence();
         const character = this.peekText(1);
         if (character !== null) {

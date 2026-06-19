@@ -2,7 +2,7 @@
 import "./package.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { KnownValue, PetValue, toPetValue, toKnownValue, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged } from "./value.js";
+import { KnownValue, PetValue, toPetValue, toKnownValue, PetString, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
 import { funcInvocationMethods, stmtsCompMethods } from "./methods.js";
 import { ModuleParser } from "./moduleParser.js";
@@ -262,7 +262,7 @@ export const loadModuleTask: TaskDef<{ modulePath: string }, null> = {
         (task) => {
             // TODO: Pass if file is missing.
             const { modulePath } = task.params;
-            const moduleParser = new ModuleParser(modulePath);
+            const moduleParser = new ModuleParser(modulePath, task.context.globalScope);
             const module = moduleParser.parseModule();
             task.context.setUserModule(modulePath, module);
             const stmtsComp = module.getMember(symbols.STMTS_COMP).getMap();
@@ -492,6 +492,80 @@ const callMethodTask: TaskDef<MethodInvocation, null> = {
     ],
 };
 
+// varSpace is either a frame or a scope.
+// Returns a variable or frame entry.
+const findVariable = (varSpace: PetMap, name: PetString): PetMap | null => {
+    let scope: PetMap;
+    let frame: PetMap | null;
+    const isScope = varSpace.getMember(symbols.IS_SCOPE);
+    if (typeof isScope !== "undefined" && isScope.getInt() !== 0n) {
+        scope = varSpace;
+        frame = null;
+    } else {
+        const isFrame = varSpace.getMember(symbols.IS_FRAME);
+        if (typeof isFrame !== "undefined" && isFrame.getInt() !== 0n) {
+            frame = varSpace;
+            scope = frame.getMember(symbols.SCOPE).getMap();
+        } else {
+            throw new Error("Invalid variable space.");
+        }
+    }
+    while (true) {
+        if (frame !== null) {
+            const frameEntries = frame.getMember(symbols.FRAME_ENTRIES).getMap();
+            const frameEntry = frameEntries.getMember(name);
+            if (typeof frameEntry !== "undefined") {
+                return frameEntry.getMap();
+            }
+        }
+        const variables = scope.getMember(symbols.VARS).getMap();
+        const variable = variables.getMember(name);
+        if (typeof variable !== "undefined") {
+            return variable.getMap();
+        }
+        let parentFrame: PetValue | undefined;
+        if (frame !== null) {
+            parentFrame = frame.getMember(symbols.PARENT);
+        }
+        if (typeof parentFrame !== "undefined") {
+            frame = parentFrame.getMap();
+            scope = frame.getMember(symbols.SCOPE).getMap();
+        } else {
+            const parentScope = scope.getMember(symbols.PARENT);
+            if (typeof parentScope === "undefined") {
+                break;
+            }
+            scope = parentScope.getMap();
+            frame = null;
+        }
+    }
+    return null;
+};
+
+// varSpace is either a frame or a scope.
+const getVarValue = (varSpace: PetMap, name: PetString): PetValue => {
+    const result = findVariable(varSpace, name);
+    if (result === null) {
+        throw new Error(`Could not find variable "name.toString()".`);
+    }
+    return result.getMember(symbols.VALUE);
+};
+
+// `entity` is a node or a component.
+const getScope = (entity: PetMap): PetMap => {
+    while (true) {
+        const scope = entity.getMember(symbols.SCOPE);
+        if (typeof scope !== "undefined") {
+            return scope.getMap();
+        }
+        const parent = entity.getMember(symbols.PARENT);
+        if (typeof parent === "undefined") {
+            throw new Error("Could not get scope.");
+        }
+        entity = parent.getMap();
+    }
+};
+
 const determineInvocTask: TaskDef<{ worker: PetMap }, null> = {
     getInitState: (params) => null,
     stages: [
@@ -501,10 +575,9 @@ const determineInvocTask: TaskDef<{ worker: PetMap }, null> = {
             const firstComp = comps.getMember(0).getMap();
             const compType = firstComp.getMember(symbols.COMP_TYPE).getSymbol();
             if (compType === symbols.IDENT_COMP) {
-                // TODO: Read value of variable.
-                throw new Error("Not yet implemented");
-                const invocable = null;
-                
+                const scope = getScope(worker);
+                const identifier = firstComp.getMember(symbols.IDENT).getPetString();
+                const invocable = getVarValue(scope, identifier);
                 worker.setMember(symbols.INVOC, invocable);
                 return task.returnValue(null);
             } else if (compType === symbols.EXPRS_COMP) {

@@ -64,6 +64,10 @@ export class PetValue {
         return this.getInstance(PetSymbol, "symbol");
     }
     
+    getPetString(): PetString {
+        return this.getInstance(PetString, "string");
+    }
+    
     getList(): PetList {
         return this.getInstance(PetList, "list");
     }
