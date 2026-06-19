@@ -4,7 +4,7 @@ import "./package.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { KnownValue, PetValue, toPetValue, toKnownValue, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
-import { funcInvocationMethods } from "./methods.js";
+import { funcInvocationMethods, stmtsCompMethods } from "./methods.js";
 import { ModuleParser } from "./moduleParser.js";
 import { PetContext } from "./context.js";
 
@@ -218,8 +218,10 @@ export const mainTask: TaskDef<null, { moduleIndex: number }> = {
             if (moduleIndex >= 0) {
                 const module = task.context.userModules.getMember(moduleIndex).getMap();
                 const stmtsComp = module.getMember(symbols.STMTS_COMP).getMap();
-                return task.runTask(
-                    evalStmtsTask, { stmtsComp },
+                return task.callWorkerMethod(
+                    stmtsComp,
+                    symbols.EVAL,
+                    [],
                     (value) => task.repeatStage({ moduleIndex: moduleIndex - 1 }),
                 );
             } else {
@@ -264,15 +266,17 @@ export const loadModuleTask: TaskDef<{ modulePath: string }, null> = {
             const module = moduleParser.parseModule();
             task.context.setUserModule(modulePath, module);
             const stmtsComp = module.getMember(symbols.STMTS_COMP).getMap();
-            return task.runTask(
-                prepStmtsTask, { stmtsComp },
+            return task.callWorkerMethod(
+                stmtsComp,
+                symbols.PREP,
+                [],
                 (value) => task.returnValue(null),
             );
         },
     ],
 };
 
-const prepStmtsTask: TaskDef<{ stmtsComp: PetMap }, { stmtIndex: number }> = {
+export const prepStmtsTask: TaskDef<{ stmtsComp: PetMap }, { stmtIndex: number }> = {
     getInitState: (params) => ({ stmtIndex: 0 }),
     stages: [
         (task) => {
@@ -314,7 +318,7 @@ const dummyPrepTask: TaskDef<{ stmt: PetMap }, null> = {
     ],
 };
 
-const evalStmtsTask: TaskDef<{ stmtsComp: PetMap }, { stmtIndex: number }> = {
+export const evalStmtsTask: TaskDef<{ stmtsComp: PetMap }, { stmtIndex: number }> = {
     getInitState: (params) => ({ stmtIndex: 0 }),
     stages: [
         (task) => {
@@ -382,16 +386,52 @@ export const awaitCondTask: TaskDef<{ observer: MemberObserver }, null> = {
     ],
 };
 
-const workerIsInvocation = (worker: PetMap): boolean => {
-    const nodeType = worker.getMember(symbols.NODE_TYPE).getSymbol();
+const nodeIsInvocation = (node: PetMap, nodeType: PetSymbol): boolean => {
     if (nodeType === symbols.STMT) {
-        const stmtType = worker.getMember(symbols.STMT_TYPE).getSymbol();
+        const stmtType = node.getMember(symbols.STMT_TYPE).getSymbol();
         return (stmtType === symbols.INVOC_STMT);
     } else if (nodeType === symbols.EXPR) {
-        const exprType = worker.getMember(symbols.EXPR_TYPE).getSymbol();
+        const exprType = node.getMember(symbols.EXPR_TYPE).getSymbol();
         return (exprType === symbols.INVOC_EXPR);
     }
     return false;
+};
+
+const workerIsInvocation = (worker: PetMap): boolean => {
+    const nodeTypeValue = worker.getMember(symbols.NODE_TYPE);
+    if (typeof nodeTypeValue === "undefined") {
+        return false;
+    }
+    const nodeType = nodeTypeValue.getSymbol();
+    return nodeIsInvocation(worker, nodeType);
+};
+
+const getWorkerMethodMap = (worker: PetMap): PetMap => {
+    const nodeTypeValue = worker.getMember(symbols.NODE_TYPE);
+    if (typeof nodeTypeValue !== "undefined") {
+        const nodeType = nodeTypeValue.getSymbol();
+        if (nodeIsInvocation(worker, nodeType)) {
+            const invocable = worker.getMember(symbols.INVOC).getKnownValue();
+            if (invocable instanceof PetFunc) {
+                return funcInvocationMethods;
+            } else {
+                const procedure = invocable as PetMap;
+                return procedure.getMember(symbols.METHODS).getMap();
+            }
+        }
+        // TODO: Support calling methods on more types of nodes.
+        throw new Error("Not yet implemented");
+    }
+    const compTypeValue = worker.getMember(symbols.COMP_TYPE);
+    if (typeof compTypeValue !== "undefined") {
+        const compType = compTypeValue.getSymbol();
+        if (compType === symbols.STMTS_COMP) {
+            return stmtsCompMethods;
+        }
+        // TODO: Support calling methods on more types of components.
+        throw new Error("Not yet implemented");
+    }
+    throw new Error("Expected worker.");
 };
 
 const callMethodTask: TaskDef<MethodInvocation, null> = {
@@ -430,19 +470,7 @@ const callMethodTask: TaskDef<MethodInvocation, null> = {
         },
         (task) => {
             const { worker, key: methodKey } = task.params;
-            let methodMap: PetMap;
-            if (workerIsInvocation(worker)) {
-                const invocable = worker.getMember(symbols.INVOC).getKnownValue();
-                if (invocable instanceof PetFunc) {
-                    methodMap = funcInvocationMethods;
-                } else {
-                    const procedure = invocable as PetMap;
-                    methodMap = procedure.getMember(symbols.METHODS).getMap();
-                }
-            } else {
-                // TODO: Support calling methods on more types of workers.
-                throw new Error("Not yet implemented");
-            }
+            const methodMap = getWorkerMethodMap(worker);
             const method = methodMap.getMember(methodKey).getFunc();
             return task.callFunction(
                 method, [worker, ...task.params.args],
