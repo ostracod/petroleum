@@ -33,6 +33,16 @@ interface MethodInvocation {
     args: PetValue[];
 }
 
+const createMethodInvocation = (
+    worker: PetMap,
+    key: PetSymbol | PetValue,
+    args: (KnownValue | PetValue)[],
+): MethodInvocation => ({
+    worker,
+    key: toKnownValue(key),
+    args: args.map((arg) => toPetValue(arg)),
+});
+
 export class Task<ParamsT = any, StateT = any> {
     context: PetContext;
     members: TaskMembers<ParamsT, StateT>;
@@ -178,18 +188,23 @@ export class Task<ParamsT = any, StateT = any> {
         );
     }
     
-    callWorkerMethod(
+    callMethod(
         worker: PetMap,
         key: PetSymbol | PetValue,
         args: (KnownValue | PetValue)[],
         acceptReturnValue: (value: PetValue) => Action,
     ): Action {
-        const invocation: MethodInvocation = {
-            worker,
-            key: toKnownValue(key),
-            args: args.map((arg) => toPetValue(arg)),
-        };
+        const invocation = createMethodInvocation(worker, key, args);
         return this.runTask(callMethodTask, invocation, acceptReturnValue);
+    }
+    
+    scheduleMethod(
+        worker: PetMap,
+        key: PetSymbol | PetValue,
+        args: (KnownValue | PetValue)[],
+    ): void {
+        const invocation = createMethodInvocation(worker, key, args);
+        this.context.scheduler.scheduleTask(callMethodTask, invocation);
     }
 }
 
@@ -218,10 +233,9 @@ export const mainTask: TaskDef<null, { moduleIndex: number }> = {
             if (moduleIndex >= 0) {
                 const module = task.context.userModules.getMember(moduleIndex).getMap();
                 const stmtsComp = module.getMember(symbols.STMTS_COMP).getMap();
-                return task.callWorkerMethod(
-                    stmtsComp,
-                    symbols.EVAL,
-                    [],
+                // TODO: Pass frame to EVAL method.
+                return task.callMethod(
+                    stmtsComp, symbols.EVAL, [],
                     (value) => task.repeatStage({ moduleIndex: moduleIndex - 1 }),
                 );
             } else {
@@ -266,10 +280,8 @@ export const loadModuleTask: TaskDef<{ modulePath: string }, null> = {
             const module = moduleParser.parseModule();
             task.context.setUserModule(modulePath, module);
             const stmtsComp = module.getMember(symbols.STMTS_COMP).getMap();
-            return task.callWorkerMethod(
-                stmtsComp,
-                symbols.PREP,
-                [],
+            return task.callMethod(
+                stmtsComp, symbols.PREP, [],
                 (value) => task.returnValue(null),
             );
         },
@@ -283,8 +295,7 @@ export const prepStmtsTask: TaskDef<{ stmtsComp: PetMap }, { stmtIndex: number }
             const stmts = task.params.stmtsComp.getMember(symbols.STMTS).getList();
             for (let index = 0; index < stmts.getLength(); index++) {
                 const stmt = stmts.getMember(index).getMap();
-                // TODO: Invoke #PREP method on `stmt`.
-                task.context.scheduler.scheduleTask(dummyPrepTask, { stmt });
+                task.scheduleMethod(stmt, symbols.PREP, []);
             }
             return task.advanceStage({ stmtIndex: 0 });
         },
@@ -308,16 +319,6 @@ export const prepStmtsTask: TaskDef<{ stmtsComp: PetMap }, { stmtIndex: number }
     ],
 };
 
-const dummyPrepTask: TaskDef<{ stmt: PetMap }, null> = {
-    getInitState: (params) => null,
-    stages: [
-        (task) => {
-            task.params.stmt.setMember(symbols.PHASE, symbols.WORK_PHASE);
-            return task.returnValue(null);
-        },
-    ],
-};
-
 export const evalStmtsTask: TaskDef<{ stmtsComp: PetMap }, { stmtIndex: number }> = {
     getInitState: (params) => ({ stmtIndex: 0 }),
     stages: [
@@ -326,25 +327,14 @@ export const evalStmtsTask: TaskDef<{ stmtsComp: PetMap }, { stmtIndex: number }
             const { stmtIndex } = task.state;
             if (stmtIndex < stmts.getLength()) {
                 const stmt = stmts.getMember(stmtIndex).getMap();
-                // TODO: Invoke #EVAL method on `stmt`.
-                return task.runTask(
-                    dummyEvalTask, { stmt },
+                // TODO: Pass frame to EVAL method.
+                return task.callMethod(
+                    stmt, symbols.EVAL, [],
                     (value) => task.repeatStage({ stmtIndex: stmtIndex + 1 }),
                 );
             } else {
                 return task.returnValue(null);
             }
-        },
-    ],
-};
-
-const dummyEvalTask: TaskDef<{ stmt: PetMap }, null> = {
-    getInitState: (params) => null,
-    stages: [
-        (task) => {
-            console.log("Wow! I am the dummy eval task");
-            console.log(task.params.stmt);
-            return task.returnValue(null);
         },
     ],
 };
@@ -461,7 +451,7 @@ const callMethodTask: TaskDef<MethodInvocation, null> = {
                 }
             }
             if (methodKey === symbols.EVAL) {
-                return task.callWorkerMethod(
+                return task.callMethod(
                     worker, symbols.PREP, [],
                     (value) => task.advanceStage(null),
                 );
@@ -546,7 +536,7 @@ const findVariable = (varSpace: PetMap, name: PetString): PetMap | null => {
 const getVarValue = (varSpace: PetMap, name: PetString): PetValue => {
     const result = findVariable(varSpace, name);
     if (result === null) {
-        throw new Error(`Could not find variable "name.toString()".`);
+        throw new Error(`Could not find variable "${name.toString()}".`);
     }
     return result.getMember(symbols.VALUE);
 };
@@ -581,12 +571,9 @@ const determineInvocTask: TaskDef<{ worker: PetMap }, null> = {
                 worker.setMember(symbols.INVOC, invocable);
                 return task.returnValue(null);
             } else if (compType === symbols.EXPRS_COMP) {
-                // TODO: Create frame.
-                throw new Error("Not yet implemented");
-                const frame = null;
-                
-                return task.callWorkerMethod(
-                    firstComp, symbols.EVAL, [frame],
+                // TODO: Pass frame to EVAL method.
+                return task.callMethod(
+                    firstComp, symbols.EVAL, [],
                     (returnValue) => {
                         worker.setMember(symbols.INVOC, returnValue);
                         return task.returnValue(null);

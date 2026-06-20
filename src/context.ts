@@ -3,6 +3,7 @@ import "./scheduler.js";
 
 import { symbols } from "./symbol.js";
 import { KnownValue, PetString, PetList, PetMap } from "./value.js";
+import { BuiltInFunc, PrintFunc } from "./builtInFunc.js";
 import { CoroEndError } from "./error.js";
 import { UserPackage } from "./package.js";
 import { Action, TaskDef, TaskMembers, Task, mainTask, loadModuleTask } from "./task.js";
@@ -24,22 +25,40 @@ export class PetContext {
         this.userModules = new PetList();
         this.userModuleIndexes = new Map();
         this.preppingWorkers = new Set();
-        const globalVars: { [name: string]: KnownValue } = {
+        const globalVarDict: { [name: string]: KnownValue } = {
             NULL: null,
             TRUE: 1n,
             FALSE: 0n,
             CMD_LINE_ARGS: new PetList(applicationArgs.map((arg) => new PetString(arg))),
         };
         for (const symbol of Object.values(symbols)) {
-            globalVars[symbol.displayName] = symbol;
+            globalVarDict[symbol.displayName] = symbol;
         }
-        const globalVarEntries = Object.entries(globalVars).map(
-            ([name, value]) => [new PetString(name), value] as [KnownValue, KnownValue],
-        );
+        const funcConstructors: (new () => BuiltInFunc)[] = [PrintFunc];
+        for (const funcConstructor of funcConstructors) {
+            const func = new funcConstructor();
+            const name = func.toString();
+            globalVarDict[name] = func;
+        }
+        const globalVars: PetMap[] = [];
+        const globalVarEntries: [PetString, PetMap][] = [];
+        for (const [name, value] of Object.entries(globalVarDict)) {
+            const nameString = new PetString(name);
+            const globalVar = new PetMap([
+                [symbols.VAR_TYPE, symbols.PREP_VAR],
+                [symbols.IDENT, nameString],
+                [symbols.VALUE, value],
+            ]);
+            globalVars.push(globalVar);
+            globalVarEntries.push([nameString, globalVar]);
+        }
         this.globalScope = new PetMap([
             [symbols.IS_SCOPE, 1n],
             [symbols.VARS, new PetMap(globalVarEntries)],
         ]);
+        for (const globalVar of globalVars) {
+            globalVar.setMember(symbols.SCOPE, this.globalScope);
+        }
     }
     
     run(): void {

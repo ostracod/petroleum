@@ -39,4 +39,16 @@ export class NotEqualFunc extends BuiltInFunc {
     }
 }
 
+export class PrintFunc extends BuiltInFunc {
+    
+    call(task: Task, args: PetValue[]): Action {
+        console.log(args[0].toString());
+        return task.returnValue(null);
+    }
+    
+    toString(): string {
+        return "PRINT";
+    }
+}
+
 
