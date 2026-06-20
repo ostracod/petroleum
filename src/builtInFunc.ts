@@ -19,6 +19,10 @@ export class ConstantFunc extends BuiltInFunc {
         this.constantValue = constantValue;
     }
     
+    getArgAmount(): number | null {
+        return 0;
+    }
+    
     call(task: Task, args: PetValue[]): Action {
         return task.returnValue(this.constantValue);
     }
@@ -32,6 +36,10 @@ export class NotEqualFunc extends BuiltInFunc {
         this.comparisonValue = comparisonValue;
     }
     
+    getArgAmount(): number | null {
+        return 1;
+    }
+    
     call(task: Task, args: PetValue[]): Action {
         const value = args[0].getKnownValue()
         const result = valuesAreEqual(value, this.comparisonValue) ? 0n : 1n;
@@ -40,6 +48,10 @@ export class NotEqualFunc extends BuiltInFunc {
 }
 
 export class PrintFunc extends BuiltInFunc {
+    
+    getArgAmount(): number | null {
+        return 1;
+    }
     
     call(task: Task, args: PetValue[]): Action {
         console.log(args[0].toString());

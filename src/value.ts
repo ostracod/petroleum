@@ -467,6 +467,9 @@ export abstract class PetFunc {
         // Do nothing.
     }
     
+    // Should return null if the function can accept any number of arguments.
+    abstract getArgAmount(): number | null;
+    
     abstract call(task: Task, args: PetValue[]): Action;
     
     abstract toString(): string;
