@@ -4,7 +4,7 @@ import "./builtInFunc.js";
 import { symbols } from "./symbol.js";
 import { PetValue, PetMap } from "./value.js";
 import { BuiltInFunc } from "./builtInFunc.js";
-import { Action, Task, prepStmtsTask, evalStmtsTask, prepExprsTask, evalExprsTask } from "./task.js";
+import { Action, Task, prepStmtsTask, evalStmtsTask, prepExprsTask, evalExprsTask, getFuncArgsComp, evalFuncTask } from "./task.js";
 
 abstract class PrepMethod extends BuiltInFunc {
     
@@ -14,7 +14,7 @@ abstract class PrepMethod extends BuiltInFunc {
     
     abstract callMethod(task: Task, worker: PetMap): Action;
     
-    call(task: Task, args: PetValue[]): Action {
+    callBuiltIn(task: Task, args: PetValue[]): Action {
         const worker = args[0].getMap();
         return this.callMethod(task, worker);
     }
@@ -28,7 +28,7 @@ abstract class EvalMethod extends BuiltInFunc {
     
     abstract callMethod(task: Task, worker: PetMap, frame: PetMap): Action;
     
-    call(task: Task, args: PetValue[]): Action {
+    callBuiltIn(task: Task, args: PetValue[]): Action {
         const worker = args[0].getMap();
         // TODO: Get the argument frame.
         //const frame = args[1].getMap();
@@ -36,11 +36,6 @@ abstract class EvalMethod extends BuiltInFunc {
         return this.callMethod(task, worker, frame);
     }
 }
-
-const getFuncArgsComp = (invocNode: PetMap): PetMap => {
-    const comps = invocNode.getMember(symbols.COMPS).getList();
-    return comps.getMember(1).getMap();
-};
 
 class FuncPrepMethod extends PrepMethod {
     
@@ -64,8 +59,11 @@ class FuncPrepMethod extends PrepMethod {
 
 class FuncEvalMethod extends EvalMethod {
     
-    callMethod(task: Task, worker: PetMap, frame: PetMap): Action {
-        throw new Error("Not yet implemented");
+    callMethod(task: Task, invocNode: PetMap, frame: PetMap): Action {
+        return task.runTask(
+            evalFuncTask, { invocNode },
+            (value) => task.returnValue(value),
+        );
     }
 }
 
@@ -109,6 +107,21 @@ class ExprsEvalMethod extends EvalMethod {
     }
 }
 
+class NopPrepMethod extends PrepMethod {
+    
+    callMethod(task: Task, worker: PetMap): Action {
+        return task.returnValue(null);
+    }
+}
+
+class StringEvalMethod extends EvalMethod {
+    
+    callMethod(task: Task, expr: PetMap, frame: PetMap): Action {
+        const stringValue = expr.getMember(symbols.STR).getPetString();
+        return task.returnValue(stringValue);
+    }
+}
+
 export const funcInvocationMethods = new PetMap([
     [symbols.PREP, new FuncPrepMethod()],
     [symbols.EVAL, new FuncEvalMethod()],
@@ -123,6 +136,11 @@ export const stmtsCompMethods = new PetMap([
 export const exprsCompMethods = new PetMap([
     [symbols.PREP, new ExprsPrepMethod()],
     [symbols.EVAL, new ExprsEvalMethod()],
+]);
+
+export const stringExprMethods = new PetMap([
+    [symbols.PREP, new NopPrepMethod()],
+    [symbols.EVAL, new StringEvalMethod()],
 ]);
 
 

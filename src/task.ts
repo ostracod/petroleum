@@ -2,9 +2,9 @@
 import "./package.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { KnownValue, PetValue, toPetValue, toKnownValue, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged } from "./value.js";
+import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
-import { funcInvocationMethods, stmtsCompMethods, exprsCompMethods } from "./methods.js";
+import { funcInvocationMethods, stmtsCompMethods, exprsCompMethods, stringExprMethods } from "./methods.js";
 import { ModuleParser } from "./moduleParser.js";
 import { PetContext } from "./context.js";
 
@@ -179,11 +179,11 @@ export class Task<ParamsT = any, StateT = any> {
     
     callFunction(
         func: PetFunc,
-        args: (KnownValue | PetValue)[],
+        args: (KnownValue | PetValue)[] | PetList,
         acceptReturnValue: (value: PetValue) => Action,
     ): Action {
         return this.runTask(
-            callFuncTask, { func, args: args.map((arg) => toPetValue(arg)) },
+            callFuncTask, { func, args: toPetList(args) },
             acceptReturnValue,
         );
     }
@@ -397,7 +397,7 @@ export const evalExprsTask: TaskDef<{ exprsComp: PetMap }, EvalExprsState> = {
     ],
 };
 
-const callFuncTask: TaskDef<{ func: PetFunc, args: PetValue[] }, null> = {
+const callFuncTask: TaskDef<{ func: PetFunc, args: PetList }, null> = {
     getInitState: (params) => null,
     stages: [
         (task) => {
@@ -466,8 +466,13 @@ const getWorkerMethodMap = (worker: PetMap): PetMap => {
                 const procedure = invocable as PetMap;
                 return procedure.getMember(symbols.METHODS).getMap();
             }
+        } else if (nodeType === symbols.EXPR) {
+            const exprType = worker.getMember(symbols.EXPR_TYPE).getSymbol();
+            if (exprType === symbols.STR_EXPR) {
+                return stringExprMethods;
+            }
+            // TODO: Support calling methods on more types of expressions.
         }
-        // TODO: Support calling methods on more types of nodes.
         throw new Error("Not yet implemented");
     }
     const compTypeValue = worker.getMember(symbols.COMP_TYPE);
@@ -642,6 +647,32 @@ const determineInvocTask: TaskDef<{ worker: PetMap }, null> = {
             } else {
                 throw new Error("First component in invocation is invalid");
             }
+        },
+    ],
+};
+
+export const getFuncArgsComp = (invocNode: PetMap): PetMap => {
+    const comps = invocNode.getMember(symbols.COMPS).getList();
+    return comps.getMember(1).getMap();
+};
+
+export const evalFuncTask: TaskDef<{ invocNode: PetMap }, { args: PetValue[] | null }> = {
+    getInitState: (params) => ({ args: null }),
+    stages: [
+        (task) => {
+            const argsComp = getFuncArgsComp(task.params.invocNode);
+            // TODO: Pass frame to EVAL method.
+            return task.callMethod(
+                argsComp, symbols.EVAL, [],
+                (value) => task.advanceStage({ args: value.getList().elements }),
+            );
+        },
+        (task) => {
+            const func = task.params.invocNode.getMember(symbols.INVOC).getFunc();
+            return task.callFunction(
+                func, task.state.args,
+                (value) => task.returnValue(value),
+            );
         },
     ],
 };

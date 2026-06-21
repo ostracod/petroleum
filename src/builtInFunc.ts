@@ -1,13 +1,19 @@
 
 import "./value.js";
 
-import { KnownValue, PetValue, PetFunc, valuesAreEqual } from "./value.js";
+import { KnownValue, PetValue, PetList, PetFunc, valuesAreEqual } from "./value.js";
 import { Action, Task } from "./task.js";
 
 export abstract class BuiltInFunc extends PetFunc {
     
     toString(): string {
         return "<builtInFunc>";
+    }
+    
+    abstract callBuiltIn(task: Task, args: PetValue[]): Action;
+    
+    call(task: Task, args: PetList): Action {
+        return this.callBuiltIn(task, args.elements);
     }
 }
 
@@ -23,7 +29,7 @@ export class ConstantFunc extends BuiltInFunc {
         return 0;
     }
     
-    call(task: Task, args: PetValue[]): Action {
+    callBuiltIn(task: Task, args: PetValue[]): Action {
         return task.returnValue(this.constantValue);
     }
 }
@@ -40,7 +46,7 @@ export class NotEqualFunc extends BuiltInFunc {
         return 1;
     }
     
-    call(task: Task, args: PetValue[]): Action {
+    callBuiltIn(task: Task, args: PetValue[]): Action {
         const value = args[0].getKnownValue()
         const result = valuesAreEqual(value, this.comparisonValue) ? 0n : 1n;
         return task.returnValue(result);
@@ -53,7 +59,7 @@ export class PrintFunc extends BuiltInFunc {
         return 1;
     }
     
-    call(task: Task, args: PetValue[]): Action {
+    callBuiltIn(task: Task, args: PetValue[]): Action {
         console.log(args[0].toString());
         return task.returnValue(null);
     }

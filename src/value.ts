@@ -132,6 +132,10 @@ const toMapKey = (value: KnownValue | PetValue): MapKey => (
     (value instanceof PetValue) ? value.toMapKey() : valueToMapKey(value)
 );
 
+export const toPetList = (values: (KnownValue | PetValue)[] | PetList): PetList => (
+    (values instanceof PetList) ? values : new PetList(values)
+);
+
 export const nullValue = wrapKnownValue(null);
 
 export const escapeChars: { [escape: string]: string } = {
@@ -470,7 +474,7 @@ export abstract class PetFunc {
     // Should return null if the function can accept any number of arguments.
     abstract getArgAmount(): number | null;
     
-    abstract call(task: Task, args: PetValue[]): Action;
+    abstract call(task: Task, args: PetList): Action;
     
     abstract toString(): string;
 }
