@@ -2,9 +2,9 @@
 import "./package.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { KnownValue, PetValue, toPetValue, toKnownValue, PetString, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged } from "./value.js";
+import { KnownValue, PetValue, toPetValue, toKnownValue, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
-import { funcInvocationMethods, stmtsCompMethods } from "./methods.js";
+import { funcInvocationMethods, stmtsCompMethods, exprsCompMethods } from "./methods.js";
 import { ModuleParser } from "./moduleParser.js";
 import { PetContext } from "./context.js";
 
@@ -312,7 +312,36 @@ export const prepStmtsTask: TaskDef<{ stmtsComp: PetMap }, { stmtIndex: number }
                     task.repeatStage({ stmtIndex: stmtIndex + 1 }),
                 );
             } else {
-                stmtsComp.setMember(symbols.PHASE, symbols.WORK_PHASE);
+                return task.returnValue(null);
+            }
+        },
+    ],
+};
+
+export const prepExprsTask: TaskDef<{ exprsComp: PetMap }, { exprIndex: number }> = {
+    getInitState: (params) => ({ exprIndex: 0 }),
+    stages: [
+        (task) => {
+            const exprs = task.params.exprsComp.getMember(symbols.EXPRS).getList();
+            for (let index = 0; index < exprs.getLength(); index++) {
+                const expr = exprs.getMember(index).getMap();
+                task.scheduleMethod(expr, symbols.PREP, []);
+            }
+            return task.advanceStage({ exprIndex: 0 });
+        },
+        (task) => {
+            const { exprsComp } = task.params;
+            const { exprIndex } = task.state;
+            const exprs = exprsComp.getMember(symbols.EXPRS).getList();
+            if (exprIndex < exprs.getLength()) {
+                const expr = exprs.getMember(exprIndex).getMap();
+                return task.awaitMember(
+                    expr,
+                    symbols.PHASE,
+                    new NotEqualFunc(symbols.PREP_PHASE),
+                    task.repeatStage({ exprIndex: exprIndex + 1 }),
+                );
+            } else {
                 return task.returnValue(null);
             }
         },
@@ -334,6 +363,35 @@ export const evalStmtsTask: TaskDef<{ stmtsComp: PetMap }, { stmtIndex: number }
                 );
             } else {
                 return task.returnValue(null);
+            }
+        },
+    ],
+};
+
+interface EvalExprsState {
+    exprIndex: number;
+    returnValues: PetValue[];
+}
+
+export const evalExprsTask: TaskDef<{ exprsComp: PetMap }, EvalExprsState> = {
+    getInitState: (params) => ({ exprIndex: 0, returnValues: [] }),
+    stages: [
+        (task) => {
+            const exprs = task.params.exprsComp.getMember(symbols.EXPRS).getList();
+            const { exprIndex, returnValues } = task.state;
+            if (exprIndex < exprs.getLength()) {
+                const expr = exprs.getMember(exprIndex).getMap();
+                // TODO: Pass frame to EVAL method.
+                return task.callMethod(
+                    expr, symbols.EVAL, [],
+                    (value) => task.repeatStage({
+                        exprIndex: exprIndex + 1,
+                        returnValues: [...returnValues, value],
+                    }),
+                );
+            } else {
+                const valueList = new PetList(returnValues);
+                return task.returnValue(valueList);
             }
         },
     ],
@@ -417,6 +475,8 @@ const getWorkerMethodMap = (worker: PetMap): PetMap => {
         const compType = compTypeValue.getSymbol();
         if (compType === symbols.STMTS_COMP) {
             return stmtsCompMethods;
+        } else if (compType === symbols.EXPRS_COMP) {
+            return exprsCompMethods;
         }
         // TODO: Support calling methods on more types of components.
         throw new Error("Not yet implemented");
