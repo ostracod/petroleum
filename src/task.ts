@@ -208,6 +208,34 @@ export class Task<ParamsT = any, StateT = any> {
     }
 }
 
+// parentVarSpace is either a scope or a frame.
+const createFrame = (scope: PetMap, parentFrame: PetMap | null): PetMap => {
+    const variables = scope.getMember(symbols.VARS).getMap();
+    const frameEntries: [PetValue, PetMap][] = [];
+    for (const field of variables.fields.values()) {
+        const variable = field.value.getMap();
+        const varType = variable.getMember(symbols.VAR_TYPE).getSymbol();
+        if (varType === symbols.WORK_VAR) {
+            const identifier = variable.getMember(symbols.IDENT);
+            const frameEntry = new PetMap([
+                [symbols.IS_FRAME_ENTRY, 1n],
+                [symbols.VAR, variable],
+                [symbols.VALUE, null],
+            ]);
+            frameEntries.push([identifier, frameEntry]);
+        }
+    }
+    const output = new PetMap([
+        [symbols.IS_FRAME, 1n],
+        [symbols.SCOPE, scope],
+        [symbols.FRAME_ENTRIES, new PetMap(frameEntries)],
+    ]);
+    if (parentFrame !== null) {
+        output.setMember(symbols.PARENT, parentFrame);
+    }
+    return output;
+};
+
 export const mainTask: TaskDef<null, { moduleIndex: number }> = {
     getInitState: (params) => ({ moduleIndex: 0 }),
     stages: [
@@ -218,13 +246,20 @@ export const mainTask: TaskDef<null, { moduleIndex: number }> = {
         },
         (task) => {
             const { moduleIndex } = task.state;
-            const moduleAmount = task.context.userModules.getLength();
+            const { userModules } = task.context;
+            const moduleAmount = userModules.getLength();
             if (moduleIndex < moduleAmount) {
                 return task.runTask(
                     awaitModulePrepTask, { moduleIndex },
                     (value) => task.repeatStage({ moduleIndex: moduleIndex + 1 }),
                 );
             } else {
+                for (const element of userModules.elements) {
+                    const module = element.getMap();
+                    const scope = module.getMember(symbols.SCOPE).getMap();
+                    const frame = createFrame(scope, null);
+                    module.setMember(symbols.FRAME, frame);
+                }
                 return task.advanceStage({ moduleIndex: moduleAmount - 1 });
             }
         },
@@ -233,9 +268,10 @@ export const mainTask: TaskDef<null, { moduleIndex: number }> = {
             if (moduleIndex >= 0) {
                 const module = task.context.userModules.getMember(moduleIndex).getMap();
                 const stmtsComp = module.getMember(symbols.STMTS_COMP).getMap();
-                // TODO: Pass frame to EVAL method.
+                const scope = module.getMember(symbols.SCOPE).getMap();
+                const parentScope = scope.getMember(symbols.PARENT);
                 return task.callMethod(
-                    stmtsComp, symbols.EVAL, [],
+                    stmtsComp, symbols.EVAL, [parentScope],
                     (value) => task.repeatStage({ moduleIndex: moduleIndex - 1 }),
                 );
             } else {
@@ -348,18 +384,42 @@ export const prepExprsTask: TaskDef<{ exprsComp: PetMap }, { exprIndex: number }
     ],
 };
 
-export const evalStmtsTask: TaskDef<{ stmtsComp: PetMap }, { stmtIndex: number }> = {
-    getInitState: (params) => ({ stmtIndex: 0 }),
+interface EvalStmtsParams {
+    stmtsComp: PetMap;
+    varSpace: PetMap;
+}
+
+interface EvalStmtsState {
+    stmtIndex: number;
+    frame: PetMap | null;
+}
+
+export const evalStmtsTask: TaskDef<EvalStmtsParams, EvalStmtsState> = {
+    getInitState: (params) => ({ stmtIndex: 0, frame: null }),
     stages: [
         (task) => {
+            const { stmtsComp, varSpace } = task.params;
+            const scope = stmtsComp.getMember(symbols.SCOPE).getMap();
+            const parent = stmtsComp.getMember(symbols.PARENT).getMap();
+            const moduleType = parent.getMember(symbols.MODULE_TYPE);
+            let frame: PetMap;
+            if (typeof moduleType === "undefined") {
+                const parentIsFrame = varSpace.getMember(symbols.IS_FRAME);
+                const parentFrame = (typeof parentIsFrame === "undefined") ? null : varSpace;
+                frame = createFrame(scope, parentFrame);
+            } else {
+                frame = parent.getMember(symbols.FRAME).getMap();
+            }
+            return task.advanceStage({ stmtIndex: 0, frame });
+        },
+        (task) => {
             const stmts = task.params.stmtsComp.getMember(symbols.STMTS).getList();
-            const { stmtIndex } = task.state;
+            const { stmtIndex, frame } = task.state;
             if (stmtIndex < stmts.getLength()) {
                 const stmt = stmts.getMember(stmtIndex).getMap();
-                // TODO: Pass frame to EVAL method.
                 return task.callMethod(
-                    stmt, symbols.EVAL, [],
-                    (value) => task.repeatStage({ stmtIndex: stmtIndex + 1 }),
+                    stmt, symbols.EVAL, [frame],
+                    (value) => task.repeatStage({ stmtIndex: stmtIndex + 1, frame }),
                 );
             } else {
                 return task.returnValue(null);
@@ -368,12 +428,17 @@ export const evalStmtsTask: TaskDef<{ stmtsComp: PetMap }, { stmtIndex: number }
     ],
 };
 
+interface EvalExprsParams {
+    exprsComp: PetMap;
+    varSpace: PetMap;
+}
+
 interface EvalExprsState {
     exprIndex: number;
     returnValues: PetValue[];
 }
 
-export const evalExprsTask: TaskDef<{ exprsComp: PetMap }, EvalExprsState> = {
+export const evalExprsTask: TaskDef<EvalExprsParams, EvalExprsState> = {
     getInitState: (params) => ({ exprIndex: 0, returnValues: [] }),
     stages: [
         (task) => {
@@ -381,9 +446,8 @@ export const evalExprsTask: TaskDef<{ exprsComp: PetMap }, EvalExprsState> = {
             const { exprIndex, returnValues } = task.state;
             if (exprIndex < exprs.getLength()) {
                 const expr = exprs.getMember(exprIndex).getMap();
-                // TODO: Pass frame to EVAL method.
                 return task.callMethod(
-                    expr, symbols.EVAL, [],
+                    expr, symbols.EVAL, [task.params.varSpace],
                     (value) => task.repeatStage({
                         exprIndex: exprIndex + 1,
                         returnValues: [...returnValues, value],
@@ -603,6 +667,7 @@ const getVarValue = (varSpace: PetMap, name: PetString): PetValue => {
     if (result === null) {
         throw new Error(`Could not find variable "${name.toString()}".`);
     }
+    // TODO: Handle imported variables.
     return result.getMember(symbols.VALUE);
 };
 
@@ -626,19 +691,18 @@ const determineInvocTask: TaskDef<{ worker: PetMap }, null> = {
     stages: [
         (task) => {
             const { worker } = task.params;
+            const scope = getScope(worker);
             const comps = worker.getMember(symbols.COMPS).getList();
             const firstComp = comps.getMember(0).getMap();
             const compType = firstComp.getMember(symbols.COMP_TYPE).getSymbol();
             if (compType === symbols.IDENT_COMP) {
-                const scope = getScope(worker);
                 const identifier = firstComp.getMember(symbols.IDENT).getPetString();
                 const invocable = getVarValue(scope, identifier);
                 worker.setMember(symbols.INVOC, invocable);
                 return task.returnValue(null);
             } else if (compType === symbols.EXPRS_COMP) {
-                // TODO: Pass frame to EVAL method.
                 return task.callMethod(
-                    firstComp, symbols.EVAL, [],
+                    firstComp, symbols.EVAL, [scope],
                     (returnValue) => {
                         worker.setMember(symbols.INVOC, returnValue);
                         return task.returnValue(null);
@@ -656,14 +720,18 @@ export const getFuncArgsComp = (invocNode: PetMap): PetMap => {
     return comps.getMember(1).getMap();
 };
 
-export const evalFuncTask: TaskDef<{ invocNode: PetMap }, { args: PetValue[] | null }> = {
+interface EvalFuncParams {
+    invocNode: PetMap;
+    varSpace: PetMap;
+}
+
+export const evalFuncTask: TaskDef<EvalFuncParams, { args: PetValue[] | null }> = {
     getInitState: (params) => ({ args: null }),
     stages: [
         (task) => {
             const argsComp = getFuncArgsComp(task.params.invocNode);
-            // TODO: Pass frame to EVAL method.
             return task.callMethod(
-                argsComp, symbols.EVAL, [],
+                argsComp, symbols.EVAL, [task.params.varSpace],
                 (value) => task.advanceStage({ args: value.getList().elements }),
             );
         },

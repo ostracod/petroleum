@@ -26,14 +26,12 @@ abstract class EvalMethod extends BuiltInFunc {
         return 2;
     }
     
-    abstract callMethod(task: Task, worker: PetMap, frame: PetMap): Action;
+    abstract callMethod(task: Task, worker: PetMap, varSpace: PetMap): Action;
     
     callBuiltIn(task: Task, args: PetValue[]): Action {
         const worker = args[0].getMap();
-        // TODO: Get the argument frame.
-        //const frame = args[1].getMap();
-        const frame = null
-        return this.callMethod(task, worker, frame);
+        const varSpace = args[1].getMap();
+        return this.callMethod(task, worker, varSpace);
     }
 }
 
@@ -59,9 +57,9 @@ class FuncPrepMethod extends PrepMethod {
 
 class FuncEvalMethod extends EvalMethod {
     
-    callMethod(task: Task, invocNode: PetMap, frame: PetMap): Action {
+    callMethod(task: Task, invocNode: PetMap, varSpace: PetMap): Action {
         return task.runTask(
-            evalFuncTask, { invocNode },
+            evalFuncTask, { invocNode, varSpace },
             (value) => task.returnValue(value),
         );
     }
@@ -79,9 +77,9 @@ class StmtsPrepMethod extends PrepMethod {
 
 class StmtsEvalMethod extends EvalMethod {
     
-    callMethod(task: Task, stmtsComp: PetMap, frame: PetMap): Action {
+    callMethod(task: Task, stmtsComp: PetMap, varSpace: PetMap): Action {
         return task.runTask(
-            evalStmtsTask, { stmtsComp },
+            evalStmtsTask, { stmtsComp, varSpace },
             (value) => task.returnValue(null),
         );
     }
@@ -99,9 +97,9 @@ class ExprsPrepMethod extends PrepMethod {
 
 class ExprsEvalMethod extends EvalMethod {
     
-    callMethod(task: Task, exprsComp: PetMap, frame: PetMap): Action {
+    callMethod(task: Task, exprsComp: PetMap, varSpace: PetMap): Action {
         return task.runTask(
-            evalExprsTask, { exprsComp },
+            evalExprsTask, { exprsComp, varSpace },
             (value) => task.returnValue(value),
         );
     }
@@ -116,7 +114,7 @@ class NopPrepMethod extends PrepMethod {
 
 class StringEvalMethod extends EvalMethod {
     
-    callMethod(task: Task, expr: PetMap, frame: PetMap): Action {
+    callMethod(task: Task, expr: PetMap, varSpace: PetMap): Action {
         const stringValue = expr.getMember(symbols.STR).getPetString();
         return task.returnValue(stringValue);
     }
