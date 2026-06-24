@@ -4,6 +4,12 @@ import "./value.js";
 import { KnownValue, PetValue, PetList, PetFunc, valuesAreEqual } from "./value.js";
 import { Action, Task } from "./task.js";
 
+interface FuncDef {
+    name: string | null;
+    argAmount: number | null;
+    call: (task: Task, args: PetValue[]) => Action;
+}
+
 export abstract class BuiltInFunc extends PetFunc {
     
     toString(): string {
@@ -53,20 +59,36 @@ export class NotEqualFunc extends BuiltInFunc {
     }
 }
 
-export class PrintFunc extends BuiltInFunc {
+export class DefFunc extends BuiltInFunc {
+    def: FuncDef;
+    
+    constructor(def: FuncDef) {
+        super();
+        this.def = def;
+    }
     
     getArgAmount(): number | null {
-        return 1;
+        return this.def.argAmount;
     }
     
     callBuiltIn(task: Task, args: PetValue[]): Action {
-        console.log(args[0].toString());
-        return task.returnValue(null);
+        return this.def.call(task, args);
     }
     
     toString(): string {
-        return "PRINT";
+        return this.def.name ?? super.toString();
     }
 }
+
+export const globalFuncDefs: FuncDef[] = [
+    {
+        name: "PRINT",
+        argAmount: 1,
+        call: (task, args) => {
+            console.log(args[0].toString());
+            return task.returnValue(null);
+        },
+    },
+];
 
 

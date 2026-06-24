@@ -1,5 +1,5 @@
 
-import "./methods.js";
+import "./method.js";
 
 import { KnownValue, PetValue, ObservableBunch } from "./value.js";
 

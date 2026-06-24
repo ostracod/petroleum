@@ -3,7 +3,7 @@ import "./scheduler.js";
 
 import { symbols } from "./symbol.js";
 import { KnownValue, PetString, PetList, PetMap } from "./value.js";
-import { BuiltInFunc, PrintFunc } from "./builtInFunc.js";
+import { BuiltInFunc, DefFunc, globalFuncDefs } from "./builtInFunc.js";
 import { CoroEndError } from "./error.js";
 import { UserPackage } from "./package.js";
 import { Action, TaskDef, TaskMembers, Task, mainTask, loadModuleTask } from "./task.js";
@@ -34,10 +34,12 @@ export class PetContext {
         for (const symbol of Object.values(symbols)) {
             globalVarDict[symbol.displayName] = symbol;
         }
-        const funcConstructors: (new () => BuiltInFunc)[] = [PrintFunc];
-        for (const funcConstructor of funcConstructors) {
-            const func = new funcConstructor();
-            const name = func.toString();
+        for (const funcDef of globalFuncDefs) {
+            const { name } = funcDef;
+            if (name === null) {
+                throw new Error("All global functions must have names.");
+            }
+            const func = new DefFunc(funcDef);
             globalVarDict[name] = func;
         }
         const globalVars: PetMap[] = [];

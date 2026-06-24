@@ -4,7 +4,7 @@ import "./package.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
-import { funcInvocationMethods, stmtsCompMethods, exprsCompMethods, stringExprMethods } from "./methods.js";
+import { funcInvocationMethods, stmtsCompMethods, exprsCompMethods, stringExprMethods } from "./method.js";
 import { ModuleParser } from "./moduleParser.js";
 import { PetContext } from "./context.js";
 
