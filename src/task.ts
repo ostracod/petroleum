@@ -4,7 +4,7 @@ import "./package.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
-import { funcInvocationMethods, stmtsCompMethods, exprsCompMethods, stringExprMethods } from "./method.js";
+import { funcInvocationMethods, stmtsCompMethods, exprsCompMethods, stringExprMethods, identExprMethods } from "./method.js";
 import { ModuleParser } from "./moduleParser.js";
 import { PetContext } from "./context.js";
 
@@ -534,6 +534,8 @@ const getWorkerMethodMap = (worker: PetMap): PetMap => {
             const exprType = worker.getMember(symbols.EXPR_TYPE).getSymbol();
             if (exprType === symbols.STR_EXPR) {
                 return stringExprMethods;
+            } else if (exprType === symbols.IDENT_EXPR) {
+                return identExprMethods;
             }
             // TODO: Support calling methods on more types of expressions.
         }
@@ -613,7 +615,7 @@ const callMethodTask: TaskDef<MethodInvocation, null> = {
 
 // varSpace is either a frame or a scope.
 // Returns a variable or frame entry.
-const findVariable = (varSpace: PetMap, name: PetString): PetMap | null => {
+export const findVariable = (varSpace: PetMap, name: PetString): PetMap | null => {
     let scope: PetMap;
     let frame: PetMap | null;
     const isScope = varSpace.getMember(symbols.IS_SCOPE);
@@ -662,7 +664,7 @@ const findVariable = (varSpace: PetMap, name: PetString): PetMap | null => {
 };
 
 // varSpace is either a frame or a scope.
-const getVarValue = (varSpace: PetMap, name: PetString): PetValue => {
+export const getVarValue = (varSpace: PetMap, name: PetString): PetValue => {
     const result = findVariable(varSpace, name);
     if (result === null) {
         throw new Error(`Could not find variable "${name.toString()}".`);

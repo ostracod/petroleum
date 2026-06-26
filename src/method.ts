@@ -4,7 +4,7 @@ import "./builtInFunc.js";
 import { symbols } from "./symbol.js";
 import { PetValue, PetMap } from "./value.js";
 import { DefFunc } from "./builtInFunc.js";
-import { Action, Task, prepStmtsTask, evalStmtsTask, prepExprsTask, evalExprsTask, getFuncArgsComp, evalFuncTask } from "./task.js";
+import { Action, Task, prepStmtsTask, evalStmtsTask, prepExprsTask, evalExprsTask, getFuncArgsComp, evalFuncTask, getScope, findVariable, getVarValue } from "./task.js";
 
 export type CallPrepMethod = (task: Task, worker: PetMap) => Action;
 export type CallEvalMethod = (task: Task, worker: PetMap, varSpace: PetMap) => Action;
@@ -38,54 +38,7 @@ class EvalMethod extends DefFunc {
     }
 }
 
-const callFuncPrep: CallPrepMethod = (task, invocNode) => {
-    const func = invocNode.getMember(symbols.INVOC).getFunc();
-    const argsComp = getFuncArgsComp(invocNode);
-    const argAmount = func.getArgAmount();
-    if (argAmount !== null) {
-        const argExprs = argsComp.getMember(symbols.EXPRS).getList();
-        if (argExprs.getLength() !== argAmount) {
-            // TODO: Throw a better type of error.
-            throw new Error("Incorrect number of function arguments.");
-        }
-    }
-    return task.callMethod(
-        argsComp, symbols.PREP, [],
-        (value) => task.returnValue(null),
-    );
-}
-
-const callFuncEval: CallEvalMethod = (task, invocNode, varSpace) => task.runTask(
-    evalFuncTask, { invocNode, varSpace },
-    (value) => task.returnValue(value),
-);
-
-const callStmtsPrep: CallPrepMethod = (task, stmtsComp) => task.runTask(
-    prepStmtsTask, { stmtsComp },
-    (value) => task.returnValue(null),
-);
-
-const callStmtsEval: CallEvalMethod = (task, stmtsComp, varSpace) => task.runTask(
-    evalStmtsTask, { stmtsComp, varSpace },
-    (value) => task.returnValue(null),
-);
-
-const callExprsPrep: CallPrepMethod = (task, exprsComp) => task.runTask(
-    prepExprsTask, { exprsComp },
-    (value) => task.returnValue(null),
-);
-
-const callExprsEval: CallEvalMethod = (task, exprsComp, varSpace) => task.runTask(
-    evalExprsTask, { exprsComp, varSpace },
-    (value) => task.returnValue(value),
-);
-
 const callNopPrep: CallPrepMethod = (task, worker) => task.returnValue(null);
-
-const callStringEval: CallEvalMethod = (task, expr, varSpace) => {
-    const stringValue = expr.getMember(symbols.STR).getPetString();
-    return task.returnValue(stringValue);
-};
 
 export const createMethodMap = (
     callPrepMethod: CallPrepMethod,
@@ -96,9 +49,72 @@ export const createMethodMap = (
     // TODO: Add #ACCESSED_VARS method.
 ]);
 
-export const funcInvocationMethods = createMethodMap(callFuncPrep, callFuncEval);
-export const stmtsCompMethods = createMethodMap(callStmtsPrep, callStmtsEval);
-export const exprsCompMethods = createMethodMap(callExprsPrep, callExprsEval);
-export const stringExprMethods = createMethodMap(callNopPrep, callStringEval);
+export const funcInvocationMethods = createMethodMap(
+    (task, invocNode) => {
+        const func = invocNode.getMember(symbols.INVOC).getFunc();
+        const argsComp = getFuncArgsComp(invocNode);
+        const argAmount = func.getArgAmount();
+        if (argAmount !== null) {
+            const argExprs = argsComp.getMember(symbols.EXPRS).getList();
+            if (argExprs.getLength() !== argAmount) {
+                // TODO: Throw a better type of error.
+                throw new Error("Incorrect number of function arguments.");
+            }
+        }
+        return task.callMethod(
+            argsComp, symbols.PREP, [],
+            (value) => task.returnValue(null),
+        );
+    },
+    (task, invocNode, varSpace) => task.runTask(
+        evalFuncTask, { invocNode, varSpace },
+        (value) => task.returnValue(value),
+    ),
+);
+
+export const stmtsCompMethods = createMethodMap(
+    (task, stmtsComp) => task.runTask(
+        prepStmtsTask, { stmtsComp },
+        (value) => task.returnValue(null),
+    ),
+    (task, stmtsComp, varSpace) => task.runTask(
+        evalStmtsTask, { stmtsComp, varSpace },
+        (value) => task.returnValue(null),
+    ),
+);
+
+export const exprsCompMethods = createMethodMap(
+    (task, exprsComp) => task.runTask(
+        prepExprsTask, { exprsComp },
+        (value) => task.returnValue(null),
+    ),
+    (task, exprsComp, varSpace) => task.runTask(
+        evalExprsTask, { exprsComp, varSpace },
+        (value) => task.returnValue(value),
+    ),
+);
+
+export const stringExprMethods = createMethodMap(
+    callNopPrep,
+    (task, expr, varSpace) => {
+        const stringValue = expr.getMember(symbols.STR).getPetString();
+        return task.returnValue(stringValue);
+    },
+);
+
+export const identExprMethods = createMethodMap(
+    (task, expr) => {
+        const scope = getScope(expr);
+        const varName = expr.getMember(symbols.IDENT).getPetString();
+        const variable = findVariable(scope, varName);
+        expr.setMember(symbols.VAR, variable);
+        return task.returnValue(null);
+    },
+    (task, expr, varSpace) => {
+        const varName = expr.getMember(symbols.IDENT).getPetString();
+        const value = getVarValue(varSpace, varName);
+        return task.returnValue(value);
+    },
+);
 
 
