@@ -4,6 +4,7 @@ import "./scheduler.js";
 import { symbols } from "./symbol.js";
 import { KnownValue, PetString, PetList, PetMap } from "./value.js";
 import { BuiltInFunc, DefFunc, globalFuncDefs } from "./builtInFunc.js";
+import { createProcedure, globalProcDefs } from "./procedure.js";
 import { CoroEndError } from "./error.js";
 import { UserPackage } from "./package.js";
 import { Action, TaskDef, TaskMembers, Task, mainTask, loadModuleTask } from "./task.js";
@@ -11,6 +12,7 @@ import { Scheduler } from "./scheduler.js";
 
 export class PetContext {
     entryPackage: UserPackage;
+    applicationArgs: string[];
     scheduler: Scheduler;
     // This needs to be a PetList so that mainTask can await each element.
     userModules: PetList;
@@ -21,15 +23,20 @@ export class PetContext {
     
     constructor(entryPackagePath: string, applicationArgs: string[]) {
         this.entryPackage = new UserPackage(entryPackagePath);
+        this.applicationArgs = applicationArgs;
         this.scheduler = new Scheduler(this);
         this.userModules = new PetList();
         this.userModuleIndexes = new Map();
         this.preppingWorkers = new Set();
+        this.globalScope = this.createGlobalScope();
+    }
+    
+    createGlobalScope(): PetMap {
         const globalVarDict: { [name: string]: KnownValue } = {
             NULL: null,
             TRUE: 1n,
             FALSE: 0n,
-            CMD_LINE_ARGS: new PetList(applicationArgs.map((arg) => new PetString(arg))),
+            CMD_LINE_ARGS: new PetList(this.applicationArgs.map((arg) => new PetString(arg))),
         };
         for (const symbol of Object.values(symbols)) {
             globalVarDict[symbol.displayName] = symbol;
@@ -41,6 +48,10 @@ export class PetContext {
             }
             const func = new DefFunc(funcDef);
             globalVarDict[name] = func;
+        }
+        for (const procDef of globalProcDefs) {
+            const proc = createProcedure(procDef);
+            globalVarDict[procDef.name] = proc;
         }
         const globalVars: PetMap[] = [];
         const globalVarEntries: [PetString, PetMap][] = [];
@@ -54,14 +65,15 @@ export class PetContext {
             globalVars.push(globalVar);
             globalVarEntries.push([nameString, globalVar]);
         }
-        this.globalScope = new PetMap([
+        const globalScope = new PetMap([
             [symbols.IS_SCOPE, 1n],
             [symbols.VARS, new PetMap(globalVarEntries)],
         ]);
         for (const globalVar of globalVars) {
-            globalVar.setMember(symbols.SCOPE, this.globalScope);
+            globalVar.setMember(symbols.SCOPE, globalScope);
         }
-    }
+        return globalScope;
+    };
     
     run(): void {
         this.scheduler.scheduleTask(mainTask, null);

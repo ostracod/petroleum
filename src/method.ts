@@ -6,8 +6,8 @@ import { PetValue, PetMap } from "./value.js";
 import { DefFunc } from "./builtInFunc.js";
 import { Action, Task, prepStmtsTask, evalStmtsTask, prepExprsTask, evalExprsTask, getFuncArgsComp, evalFuncTask } from "./task.js";
 
-type CallPrepMethod = (task: Task, worker: PetMap) => Action;
-type CallEvalMethod = (task: Task, worker: PetMap, varSpace: PetMap) => Action;
+export type CallPrepMethod = (task: Task, worker: PetMap) => Action;
+export type CallEvalMethod = (task: Task, worker: PetMap, varSpace: PetMap) => Action;
 
 class PrepMethod extends DefFunc {
     
@@ -87,7 +87,7 @@ const callStringEval: CallEvalMethod = (task, expr, varSpace) => {
     return task.returnValue(stringValue);
 };
 
-const createMethodMap = (
+export const createMethodMap = (
     callPrepMethod: CallPrepMethod,
     callEvalMethod: CallEvalMethod,
 ): PetMap => new PetMap([

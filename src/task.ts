@@ -672,7 +672,7 @@ const getVarValue = (varSpace: PetMap, name: PetString): PetValue => {
 };
 
 // `entity` is a node or a component.
-const getScope = (entity: PetMap): PetMap => {
+export const getScope = (entity: PetMap): PetMap => {
     while (true) {
         const scope = entity.getMember(symbols.SCOPE);
         if (typeof scope !== "undefined") {
