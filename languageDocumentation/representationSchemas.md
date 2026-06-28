@@ -223,16 +223,18 @@ Invocables are either functions or procedures. Procedures are represented as map
 
 Methods are defined as functions. Petroleum recognizes methods with the following keys:
 
-* The `#PREP` method prepares the parent worker for work-phase.
-    * This method accepts the parent worker as an argument.
-* The `#EVAL` method evaluates the parent worker.
-    * This method accepts the following arguments:
-        * The parent worker
-        * The current frame or scope
-    * When the parent statement sequence is in prep-phase, the second argument should be a scope. Otherwise, the argument should be a frame.
-    * When the parent worker is an expression, the return value of the method is the return value of the expression.
+* The `#PREP` method prepares a worker for work-phase.
+    * This method accepts the worker as an argument.
+* The `#EVAL` method evaluates a worker.
+    * This method accepts two arguments: `$worker` and `$varSpace`.
+        * `$varSpace` may be a frame or scope.
+    * `$worker` will use `$varSpace` as the current frame or scope.
+    * When `$worker` is a statement sequence component:
+        * If `$varSpace` is a scope, `$worker` will create a new frame with no parent frame.
+        * If `$varSpace` is a frame which does not share the same scope as `$worker`, `$worker` will create a new frame whose parent frame is `$varSpace`.
+    * When `$worker` is an expression, the return value of the method is the return value of the expression.
 * The `#ACCESSED_VARS` method returns the list of variables which the `#EVAL` method may access.
-    * This method accepts the parent worker as an argument.
+    * This method accepts the worker as an argument.
     * Function closures use this method to determine which frame entries to store.
 
 The user may define methods with other keys if desired. The user is responsible for deciding when to invoke such methods.

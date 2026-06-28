@@ -239,6 +239,12 @@ FIND_VAR($varSpace, $name)
 Searches through frames and scopes for a variable with `$name` starting at `$varSpace`. `$varSpace` may be a frame or a scope. Returns a frame entry, prep-var, or null.
 
 ```
+NEW_FRAME($scope, $parentFrame)
+```
+
+Creates a frame with `$scope` and `$parentFrame`. If `$parentFrame` is null, the new frame has no parent. The new frame stores a frame entry for each variable in `$scope`, and the value in each frame entry is null.
+
+```
 PRINT($value)
 ```
 
