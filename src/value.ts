@@ -492,9 +492,9 @@ export class UserFunc extends PetFunc {
     // Statement sequence component which contains the function body.
     stmtsComp: PetMap;
     // `parentFrame` and its parents are pruned to only contain necessary frame entries.
-    parentFrame: PetMap;
+    parentFrame: PetMap | null;
     // `bottomFrame` will be modified so its parent is the module frame.
-    bottomFrame: PetMap;
+    bottomFrame: PetMap | null;
     // `argNames` and `argsName` are mutually exclusive.
     argNames?: PetString[];
     argsName?: PetString;
@@ -503,19 +503,21 @@ export class UserFunc extends PetFunc {
     
     constructor(
         stmtsComp: PetMap,
-        parentFrame: PetMap,
+        parentFrame: PetMap | null,
         signature: { argNames?: PetString[], argsName?: PetString },
     ) {
         super();
         this.stmtsComp = stmtsComp;
         this.parentFrame = parentFrame;
-        this.bottomFrame = this.parentFrame;
-        while (true) {
-            const nextFrame = this.bottomFrame.getMember(symbols.PARENT);
-            if (typeof nextFrame === "undefined") {
-                break;
+        if (this.parentFrame !== null) {
+            this.bottomFrame = this.parentFrame;
+            while (true) {
+                const nextFrame = this.bottomFrame.getMember(symbols.PARENT);
+                if (typeof nextFrame === "undefined") {
+                    break;
+                }
+                this.bottomFrame = nextFrame.getMap();
             }
-            this.bottomFrame = nextFrame.getMap();
         }
         const { argNames, argsName } = signature;
         if (typeof argNames === "undefined") {
@@ -545,7 +547,8 @@ export class UserFunc extends PetFunc {
             }
         }
         const moduleFrame = this.module.getMember(symbols.FRAME).getMap();
-        this.bottomFrame.setMember(symbols.PARENT, moduleFrame);
+        const bottomFrame = this.bottomFrame ?? topFrame;
+        bottomFrame.setMember(symbols.PARENT, moduleFrame);
         return task.callMethod(
             this.stmtsComp, symbols.EVAL, [topFrame],
             (value) => task.returnValue(null),
