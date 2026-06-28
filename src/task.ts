@@ -193,9 +193,10 @@ export class Task<ParamsT = any, StateT = any> {
         key: PetSymbol | PetValue,
         args: (KnownValue | PetValue)[],
         acceptReturnValue: (value: PetValue) => Action,
+        handleException?: (exception: PetValue) => Action,
     ): Action {
         const invocation = createMethodInvocation(worker, key, args);
-        return this.runTask(callMethodTask, invocation, acceptReturnValue);
+        return this.runTask(callMethodTask, invocation, acceptReturnValue, handleException);
     }
     
     scheduleMethod(
@@ -209,7 +210,7 @@ export class Task<ParamsT = any, StateT = any> {
 }
 
 // parentVarSpace is either a scope or a frame.
-const createFrame = (scope: PetMap, parentFrame: PetMap | null): PetMap => {
+export const createFrame = (scope: PetMap, parentFrame: PetMap | null): PetMap => {
     const variables = scope.getMember(symbols.VARS).getMap();
     const frameEntries: [PetValue, PetMap][] = [];
     for (const field of variables.fields.values()) {
@@ -685,6 +686,21 @@ export const getScope = (entity: PetMap): PetMap => {
             throw new Error("Could not get scope.");
         }
         entity = parent.getMap();
+    }
+};
+
+// `entity` is a node or a component.
+export const getModule = (entity: PetMap): PetMap => {
+    while (true) {
+        const parent = entity.getMember(symbols.PARENT);
+        if (typeof parent === "undefined") {
+            throw new Error("Could not get module.");
+        }
+        entity = parent.getMap();
+        const moduleType = entity.getMember(symbols.MODULE_TYPE);
+        if (typeof moduleType !== "undefined") {
+            return entity;
+        }
     }
 };
 

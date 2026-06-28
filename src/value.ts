@@ -1,9 +1,9 @@
 
 import "./symbol.js";
 
-import { PetSymbol } from "./symbol.js";
+import { PetSymbol, symbols } from "./symbol.js";
 import { DeferralError, PetTypeError } from "./error.js";
-import { Action, Task, awaitCondTask } from "./task.js";
+import { Action, Task, awaitCondTask, getModule, createFrame, findVariable } from "./task.js";
 import { Scheduler } from "./scheduler.js";
 
 // PetValueAndKey contains types which can be used as both values and Map keys.
@@ -400,6 +400,10 @@ export class PetList implements ObservableBunchIface {
         const elementsText = textList.join(", ");
         return `LIST (${elementsText})`;
     }
+    
+    shallowCopy(): PetList {
+        return new PetList(this.elements.slice());
+    }
 }
 
 class PetField {
@@ -463,6 +467,11 @@ export class PetMap implements ObservableBunchIface {
         const fieldsText = textList.join(", ");
         return `MAP [FIELDS [${fieldsText}]]`;
     }
+    
+    shallowCopy(): PetMap {
+        const fields = Array.from(this.fields.values());
+        return new PetMap(fields.map((field) => [field.key, field.value]));
+    }
 }
 
 export abstract class PetFunc {
@@ -477,6 +486,92 @@ export abstract class PetFunc {
     abstract call(task: Task, args: PetList): Action;
     
     abstract toString(): string;
+}
+
+export class UserFunc extends PetFunc {
+    // Statement sequence component which contains the function body.
+    stmtsComp: PetMap;
+    // `parentFrame` and its parents are pruned to only contain necessary frame entries.
+    parentFrame: PetMap;
+    // `bottomFrame` will be modified so its parent is the module frame.
+    bottomFrame: PetMap;
+    // `argNames` and `argsName` are mutually exclusive.
+    argNames?: PetString[];
+    argsName?: PetString;
+    // Parent module of `stmtsComp`.
+    module: PetMap;
+    
+    constructor(
+        stmtsComp: PetMap,
+        parentFrame: PetMap,
+        signature: { argNames?: PetString[], argsName?: PetString },
+    ) {
+        super();
+        this.stmtsComp = stmtsComp;
+        this.parentFrame = parentFrame;
+        this.bottomFrame = this.parentFrame;
+        while (true) {
+            const nextFrame = this.bottomFrame.getMember(symbols.PARENT);
+            if (typeof nextFrame === "undefined") {
+                break;
+            }
+            this.bottomFrame = nextFrame.getMap();
+        }
+        const { argNames, argsName } = signature;
+        if (typeof argNames === "undefined") {
+            this.argsName = argsName;
+        } else {
+            this.argNames = argNames;
+        }
+        this.module = getModule(this.stmtsComp);
+    }
+    
+    getArgAmount(): number | null {
+        return (typeof this.argNames === "undefined") ? null : this.argNames.length;
+    }
+    
+    call(task: Task, args: PetList): Action {
+        const scope = this.stmtsComp.getMember(symbols.SCOPE).getMap();
+        const topFrame = createFrame(scope, this.parentFrame);
+        if (typeof this.argNames === "undefined") {
+            const frameEntry = findVariable(topFrame, this.argsName);
+            frameEntry.setMember(symbols.VALUE, args);
+        } else {
+            for (let index = 0; index < this.argNames.length; index++) {
+                const argName = this.argNames[index];
+                const arg = args.getMember(index);
+                const frameEntry = findVariable(topFrame, argName);
+                frameEntry.setMember(symbols.VALUE, arg);
+            }
+        }
+        const moduleFrame = this.module.getMember(symbols.FRAME).getMap();
+        this.bottomFrame.setMember(symbols.PARENT, moduleFrame);
+        return task.callMethod(
+            this.stmtsComp, symbols.EVAL, [topFrame],
+            (value) => task.returnValue(null),
+            (excepValue) => {
+                const exception = excepValue.getMap();
+                const excepType = exception.getMember(symbols.EXCEP_TYPE).getSymbol();
+                if (excepType === symbols.RET_EXCEP) {
+                    const retLevel = exception.getMember(symbols.RET_LEVEL).getInt();
+                    if (retLevel <= 0n) {
+                        const value = exception.getMember(symbols.VALUE);
+                        task.returnValue(value);
+                    } else {
+                        const excepCopy = exception.shallowCopy();
+                        excepCopy.setMember(symbols.RET_LEVEL, retLevel - 1n);
+                        return task.throwException(excepCopy);
+                    }
+                }
+                return task.throwException(exception);
+            },
+        );
+    }
+    
+    toString(): string {
+        // TODO: Use a better string representation.
+        return "<userFunc>";
+    }
 }
 
 export class EvalState {
