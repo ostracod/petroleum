@@ -2,7 +2,7 @@
 import "./method.js";
 
 import { symbols } from "./symbol.js";
-import { PetMap } from "./value.js";
+import { PetMap, FuncSignature } from "./value.js";
 import { CallPrepMethod, CallEvalMethod, createMethodMap } from "./method.js";
 import { getScope, findVariable } from "./task.js";
 
@@ -20,11 +20,59 @@ export const createProcedure = (procDef: ProcDef): PetMap => {
     ]);
 };
 
+const getSignature = (stmtsComp: PetMap): FuncSignature => {
+    const attrs = stmtsComp.getMember(symbols.ATTRS).getList();
+    if (attrs.getLength() <= 0) {
+        return { argNames: [] };
+    }
+    const attr = attrs.getMember(0).getMap();
+    const comps = attr.getMember(symbols.COMPS).getList();
+    const comp = comps.getMember(1).getMap();
+    const compType = comp.getMember(symbols.COMP_TYPE).getSymbol();
+    if (compType === symbols.ATTRS_COMP) {
+        const argAttrs = comp.getMember(symbols.ATTRS).getList();
+        const argNames = argAttrs.elements.map((attrValue) => {
+            const argAttr = attrValue.getMap();
+            const argComps = argAttr.getMember(symbols.COMPS).getList();
+            const declComp = argComps.getMember(0).getMap();
+            const variable = declComp.getMember(symbols.VAR).getMap();
+            return variable.getMember(symbols.IDENT).getPetString();
+        });
+        return { argNames };
+    } else if (compType === symbols.DECL_COMP) {
+        const variable = comp.getMember(symbols.VAR).getMap();
+        const argsName = variable.getMember(symbols.IDENT).getPetString();
+        return { argsName };
+    } else {
+        throw new Error("Invalid function arguments.");
+    }
+};
+
+// TODO: Validate node structure.
 export const globalProcDefs: ProcDef[] = [
+    {
+        name: "FUNC",
+        prepMethod: (task, stmt) => {
+            const comps = stmt.getMember(symbols.COMPS).getList();
+            const stmtsComp = comps.getMember(1).getMap();
+            return task.callMethod(
+                stmtsComp, symbols.PREP, [],
+                (value) => task.returnValue(null),
+            );
+        },
+        evalMethod: (task, stmt, varSpace) => {
+            const comps = stmt.getMember(symbols.COMPS).getList();
+            const stmtsComp = comps.getMember(1).getMap();
+            const signature = getSignature(stmtsComp);
+            // TODO: Create a user function.
+            console.log(signature);
+            
+            return task.returnValue(null);
+        },
+    },
     {
         name: "PREP_VAR",
         prepMethod: (task, stmt) => {
-            // TODO: Validate statement structure.
             const comps = stmt.getMember(symbols.COMPS).getList();
             const declComp = comps.getMember(1).getMap();
             const variable = declComp.getMember(symbols.VAR).getMap();

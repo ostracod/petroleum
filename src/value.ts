@@ -488,6 +488,11 @@ export abstract class PetFunc {
     abstract toString(): string;
 }
 
+export interface FuncSignature {
+    argNames?: PetString[];
+    argsName?: PetString;
+}
+
 export class UserFunc extends PetFunc {
     // Statement sequence component which contains the function body.
     stmtsComp: PetMap;
@@ -501,11 +506,7 @@ export class UserFunc extends PetFunc {
     // Parent module of `stmtsComp`.
     module: PetMap;
     
-    constructor(
-        stmtsComp: PetMap,
-        parentFrame: PetMap | null,
-        signature: { argNames?: PetString[], argsName?: PetString },
-    ) {
+    constructor(stmtsComp: PetMap, parentFrame: PetMap | null, signature: FuncSignature) {
         super();
         this.stmtsComp = stmtsComp;
         this.parentFrame = parentFrame;

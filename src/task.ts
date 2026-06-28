@@ -671,7 +671,7 @@ export const getVarValue = (varSpace: PetMap, name: PetString): PetValue => {
         throw new Error(`Could not find variable "${name.toString()}".`);
     }
     // TODO: Handle imported variables.
-    return result.getMember(symbols.VALUE);
+    return result.deferMember(symbols.VALUE);
 };
 
 // `entity` is a node or a component.
