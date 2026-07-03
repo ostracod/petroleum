@@ -3,7 +3,7 @@ import "./symbol.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
 import { DeferralError, PetTypeError } from "./error.js";
-import { Action, Task, awaitCondTask, getModule, createFrame, findVariable } from "./task.js";
+import { Action, Task, awaitCondTask, createFrame, findVariable, getVarSpaceType, VarSpaceType } from "./task.js";
 import { Scheduler } from "./scheduler.js";
 
 // PetValueAndKey contains types which can be used as both values and Map keys.
@@ -493,40 +493,88 @@ export interface FuncSignature {
     argsName?: PetString;
 }
 
+// TODO: Add argument for accessed variable names.
+const pruneFrames = (varSpace: PetMap): {
+    topFrame: PetMap | null,
+    bottomFrame: PetMap | null,
+    module: PetMap,
+} => {
+    let varSpaceIsFrame = (getVarSpaceType(varSpace) === VarSpaceType.Frame);
+    let topFrame: PetMap | null = null;
+    let bottomFrame: PetMap | null = null;
+    let module: PetMap;
+    while (true) {
+        let frame: PetMap | null;
+        let scope: PetMap;
+        if (varSpaceIsFrame) {
+            frame = varSpace;
+            scope = frame.getMember(symbols.SCOPE).getMap();
+        } else {
+            frame = null;
+            scope = varSpace;
+        }
+        const moduleValue = scope.getMember(symbols.MODULE);
+        if (typeof moduleValue !== "undefined") {
+            module = moduleValue.getMap();
+            break;
+        }
+        let prunedEntries: PetMap;
+        if (frame === null) {
+            prunedEntries = new PetMap();
+        } else {
+            // TODO: Actually prune the frame.
+            prunedEntries = frame.getMember(symbols.FRAME_ENTRIES).getMap().shallowCopy();
+        }
+        const prunedFrame = new PetMap([
+            [symbols.IS_FRAME, 1n],
+            [symbols.SCOPE, scope],
+            [symbols.FRAME_ENTRIES, prunedEntries],
+        ]);
+        if (topFrame === null) {
+            topFrame = prunedFrame;
+            bottomFrame = prunedFrame;
+        } else {
+            bottomFrame.setMember(symbols.PARENT, prunedFrame);
+            bottomFrame = prunedFrame;
+        }
+        const parentFrame = frame?.getMember(symbols.PARENT);
+        if (typeof parentFrame === "undefined") {
+            varSpace = scope.getMember(symbols.PARENT).getMap();
+            varSpaceIsFrame = false;
+        } else {
+            varSpace = parentFrame.getMap();
+            varSpaceIsFrame = true;
+        }
+    }
+    return { topFrame, bottomFrame, module };
+};
+
 export class UserFunc extends PetFunc {
     // Statement sequence component which contains the function body.
     stmtsComp: PetMap;
-    // `parentFrame` and its parents are pruned to only contain necessary frame entries.
-    parentFrame: PetMap | null;
-    // `bottomFrame` will be modified so its parent is the module frame.
+    // Following the parents of `topFrame` leads to `bottomFrame`. All of the frames
+    // from `topFrame` to `bottomFrame` are pruned to only contain necessary entries.
+    topFrame: PetMap | null;
     bottomFrame: PetMap | null;
+    // `bottomFrame` will be modified so its parent is the module frame.
+    module: PetMap;
     // `argNames` and `argsName` are mutually exclusive.
     argNames?: PetString[];
     argsName?: PetString;
-    // Parent module of `stmtsComp`.
-    module: PetMap;
     
-    constructor(stmtsComp: PetMap, parentFrame: PetMap | null, signature: FuncSignature) {
+    constructor(stmtsComp: PetMap, varSpace: PetMap, signature: FuncSignature) {
         super();
         this.stmtsComp = stmtsComp;
-        this.parentFrame = parentFrame;
-        if (this.parentFrame !== null) {
-            this.bottomFrame = this.parentFrame;
-            while (true) {
-                const nextFrame = this.bottomFrame.getMember(symbols.PARENT);
-                if (typeof nextFrame === "undefined") {
-                    break;
-                }
-                this.bottomFrame = nextFrame.getMap();
-            }
-        }
+        const { topFrame, bottomFrame, module } = pruneFrames(varSpace);
+        this.topFrame = topFrame;
+        this.bottomFrame = bottomFrame;
+        this.module = module;
         const { argNames, argsName } = signature;
         if (typeof argNames === "undefined") {
             this.argsName = argsName;
         } else {
             this.argNames = argNames;
         }
-        this.module = getModule(this.stmtsComp);
     }
     
     getArgAmount(): number | null {
@@ -535,23 +583,23 @@ export class UserFunc extends PetFunc {
     
     call(task: Task, args: PetList): Action {
         const scope = this.stmtsComp.getMember(symbols.SCOPE).getMap();
-        const topFrame = createFrame(scope, this.parentFrame);
+        const bodyFrame = createFrame(scope, this.topFrame);
         if (typeof this.argNames === "undefined") {
-            const frameEntry = findVariable(topFrame, this.argsName);
+            const frameEntry = findVariable(bodyFrame, this.argsName);
             frameEntry.setMember(symbols.VALUE, args);
         } else {
             for (let index = 0; index < this.argNames.length; index++) {
                 const argName = this.argNames[index];
                 const arg = args.getMember(index);
-                const frameEntry = findVariable(topFrame, argName);
+                const frameEntry = findVariable(bodyFrame, argName);
                 frameEntry.setMember(symbols.VALUE, arg);
             }
         }
         const moduleFrame = this.module.getMember(symbols.FRAME).getMap();
-        const bottomFrame = this.bottomFrame ?? topFrame;
+        const bottomFrame = this.bottomFrame ?? bodyFrame;
         bottomFrame.setMember(symbols.PARENT, moduleFrame);
         return task.callMethod(
-            this.stmtsComp, symbols.EVAL, [topFrame],
+            this.stmtsComp, symbols.EVAL, [this.topFrame],
             (value) => task.returnValue(null),
             (excepValue) => {
                 const exception = excepValue.getMap();

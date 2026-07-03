@@ -2,7 +2,7 @@
 import "./method.js";
 
 import { symbols } from "./symbol.js";
-import { PetMap, FuncSignature } from "./value.js";
+import { PetMap, FuncSignature, UserFunc } from "./value.js";
 import { CallPrepMethod, CallEvalMethod, createMethodMap } from "./method.js";
 import { getScope, findVariable } from "./task.js";
 
@@ -55,6 +55,7 @@ export const globalProcDefs: ProcDef[] = [
         prepMethod: (task, stmt) => {
             const comps = stmt.getMember(symbols.COMPS).getList();
             const stmtsComp = comps.getMember(1).getMap();
+            // TODO: Set type of argument variables.
             return task.callMethod(
                 stmtsComp, symbols.PREP, [],
                 (value) => task.returnValue(null),
@@ -64,10 +65,8 @@ export const globalProcDefs: ProcDef[] = [
             const comps = stmt.getMember(symbols.COMPS).getList();
             const stmtsComp = comps.getMember(1).getMap();
             const signature = getSignature(stmtsComp);
-            // TODO: Create a user function.
-            console.log(signature);
-            
-            return task.returnValue(null);
+            const userFunc = new UserFunc(stmtsComp, varSpace, signature);
+            return task.returnValue(userFunc);
         },
     },
     {

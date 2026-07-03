@@ -614,25 +614,34 @@ const callMethodTask: TaskDef<MethodInvocation, null> = {
     ],
 };
 
+export enum VarSpaceType { Scope, Frame };
+
+export const getVarSpaceType = (varSpace: PetMap): VarSpaceType => {
+    const isScope = varSpace.getMember(symbols.IS_SCOPE);
+    if (typeof isScope !== "undefined" && isScope.getInt() !== 0n) {
+        return VarSpaceType.Scope;
+    }
+    const isFrame = varSpace.getMember(symbols.IS_FRAME);
+    if (typeof isFrame !== "undefined" && isFrame.getInt() !== 0n) {
+        return VarSpaceType.Frame;
+    }
+    throw new Error("Invalid variable space.");
+};
+
 // varSpace is either a frame or a scope.
 // Returns a variable or frame entry.
 export const findVariable = (varSpace: PetMap, name: PetString): PetMap | null => {
-    let scope: PetMap;
-    let frame: PetMap | null;
-    const isScope = varSpace.getMember(symbols.IS_SCOPE);
-    if (typeof isScope !== "undefined" && isScope.getInt() !== 0n) {
-        scope = varSpace;
-        frame = null;
-    } else {
-        const isFrame = varSpace.getMember(symbols.IS_FRAME);
-        if (typeof isFrame !== "undefined" && isFrame.getInt() !== 0n) {
+    let varSpaceIsFrame = (getVarSpaceType(varSpace) === VarSpaceType.Frame);
+    while (true) {
+        let frame: PetMap | null;
+        let scope: PetMap;
+        if (varSpaceIsFrame) {
             frame = varSpace;
             scope = frame.getMember(symbols.SCOPE).getMap();
         } else {
-            throw new Error("Invalid variable space.");
+            frame = null;
+            scope = varSpace;
         }
-    }
-    while (true) {
         if (frame !== null) {
             const frameEntries = frame.getMember(symbols.FRAME_ENTRIES).getMap();
             const frameEntry = frameEntries.getMember(name);
@@ -645,20 +654,17 @@ export const findVariable = (varSpace: PetMap, name: PetString): PetMap | null =
         if (typeof variable !== "undefined") {
             return variable.getMap();
         }
-        let parentFrame: PetValue | undefined;
-        if (frame !== null) {
-            parentFrame = frame.getMember(symbols.PARENT);
-        }
-        if (typeof parentFrame !== "undefined") {
-            frame = parentFrame.getMap();
-            scope = frame.getMember(symbols.SCOPE).getMap();
-        } else {
+        const parentFrame = frame?.getMember(symbols.PARENT);
+        if (typeof parentFrame === "undefined") {
             const parentScope = scope.getMember(symbols.PARENT);
             if (typeof parentScope === "undefined") {
                 break;
             }
-            scope = parentScope.getMap();
-            frame = null;
+            varSpace = parentScope.getMap();
+            varSpaceIsFrame = false;
+        } else {
+            varSpace = parentFrame.getMap();
+            varSpaceIsFrame = true;
         }
     }
     return null;
