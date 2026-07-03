@@ -215,8 +215,8 @@ Invokes the method in `$worker` identified by `$methodKey`. `$args` is a list of
 * If `$methodKey` is `#PREP`:
     * After invoking the method, `CALL_METHOD` will set the phase of `$worker` to be work-phase.
     * If `$worker` is already in work-phase, `CALL_METHOD` will not invoke the method.
-* If `$methodKey` is `#EVAL`:
-    * If `$worker` is in prep-phase, `CALL_METHOD` will first invoke the `#PREP` method and set the phase of `$worker` to be work-phase. Then `CALL_METHOD` will invoke the `#EVAL` method.
+* If `$methodKey` is `#EVAL` or `#ACCESSED_VARS`:
+    * If `$worker` is in prep-phase, `CALL_METHOD` will first invoke the `#PREP` method and set the phase of `$worker` to be work-phase. Then `CALL_METHOD` will invoke the method identified by `$methodKey`.
 
 If `$worker` is a procedure invocation, `CALL_METHOD` looks up methods to call in the `#METHODS` field of the procedure.
 

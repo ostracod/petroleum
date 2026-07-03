@@ -51,7 +51,7 @@ COMMENT "This statement will not throw an error."
 WORK_VAR @myVar6 = (myVar1)
 ```
 
-When a function is created, the function stores a "closure" over all visible work-vars which the function body may access. The closure holds a pruned copy of visible frames which only contain the necessary frame entries. When the function is invoked, the pruned frames becomes accessible to the function body. To determine which variables the body may access, the function invokes the `#ACCESSED_VARS` method on the body statements. The `#ACCESSED_VARS` method returns the list of variables which a worker may access when evaluated.
+When a function is created, the function stores a "closure" over all visible work-vars which the function body may access. The closure holds a pruned copy of visible frames which only contain the necessary frame entries. When the function is invoked, the pruned frames becomes accessible to the function body. To determine which variables the body may access, the function invokes the `#ACCESSED_VARS` method on the body statements. The `#ACCESSED_VARS` method returns the set of variables which a worker may access when evaluated.
 
 Note that a function may create a closure on top-level work-vars even when the top-level statement sequence is in prep-phase. This is possible because the pruned frames in the closure do not include the module frame. Instead, the closure holds a reference to the module which will acquire a frame during work-phase. However, during invocation the function body cannot access work-vars whose parent statement sequences are in prep-phase, including top-level work-vars.
 

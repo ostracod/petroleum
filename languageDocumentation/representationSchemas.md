@@ -233,9 +233,10 @@ Methods are defined as functions. Petroleum recognizes methods with the followin
         * If `$varSpace` is a scope, `$worker` will create a new frame with no parent frame.
         * If `$varSpace` is a frame which does not share the same scope as `$worker`, `$worker` will create a new frame whose parent frame is `$varSpace`.
     * When `$worker` is an expression, the return value of the method is the return value of the expression.
-* The `#ACCESSED_VARS` method returns the list of variables which the `#EVAL` method may access.
-    * This method accepts the worker as an argument.
-    * Function closures use this method to determine which frame entries to store.
+* The `#ACCESSED_VARS` method determines the frame entries which a function closure will store.
+    * This method accepts two arguments: `$worker` and `$scope`.
+    * This method returns a map from variable name to variable visible in `$scope`.
+        * The `#EVAL` method of `$worker` may access these variables.
 
 The user may define methods with other keys if desired. The user is responsible for deciding when to invoke such methods.
 

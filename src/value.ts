@@ -493,7 +493,7 @@ export interface FuncSignature {
     argsName?: PetString;
 }
 
-// TODO: Add argument for accessed variable names.
+// TODO: Add argument for accessed variables.
 const pruneFrames = (varSpace: PetMap): {
     topFrame: PetMap | null,
     bottomFrame: PetMap | null,
