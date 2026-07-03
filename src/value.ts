@@ -599,7 +599,7 @@ export class UserFunc extends PetFunc {
         const bottomFrame = this.bottomFrame ?? bodyFrame;
         bottomFrame.setMember(symbols.PARENT, moduleFrame);
         return task.callMethod(
-            this.stmtsComp, symbols.EVAL, [this.topFrame],
+            this.stmtsComp, symbols.EVAL, [bodyFrame],
             (value) => task.returnValue(null),
             (excepValue) => {
                 const exception = excepValue.getMap();

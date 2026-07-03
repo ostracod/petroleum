@@ -20,10 +20,15 @@ export const createProcedure = (procDef: ProcDef): PetMap => {
     ]);
 };
 
-const getSignature = (stmtsComp: PetMap): FuncSignature => {
+interface SignatureVars {
+    argVars?: PetMap[];
+    argsVar?: PetMap;
+}
+
+const getSignatureVars = (stmtsComp: PetMap): SignatureVars => {
     const attrs = stmtsComp.getMember(symbols.ATTRS).getList();
     if (attrs.getLength() <= 0) {
-        return { argNames: [] };
+        return { argVars: [] };
     }
     const attr = attrs.getMember(0).getMap();
     const comps = attr.getMember(symbols.COMPS).getList();
@@ -31,20 +36,31 @@ const getSignature = (stmtsComp: PetMap): FuncSignature => {
     const compType = comp.getMember(symbols.COMP_TYPE).getSymbol();
     if (compType === symbols.ATTRS_COMP) {
         const argAttrs = comp.getMember(symbols.ATTRS).getList();
-        const argNames = argAttrs.elements.map((attrValue) => {
+        const argVars = argAttrs.elements.map((attrValue) => {
             const argAttr = attrValue.getMap();
             const argComps = argAttr.getMember(symbols.COMPS).getList();
             const declComp = argComps.getMember(0).getMap();
-            const variable = declComp.getMember(symbols.VAR).getMap();
-            return variable.getMember(symbols.IDENT).getPetString();
+            return declComp.getMember(symbols.VAR).getMap();
         });
-        return { argNames };
+        return { argVars };
     } else if (compType === symbols.DECL_COMP) {
-        const variable = comp.getMember(symbols.VAR).getMap();
-        const argsName = variable.getMember(symbols.IDENT).getPetString();
-        return { argsName };
+        const argsVar = comp.getMember(symbols.VAR).getMap();
+        return { argsVar };
     } else {
         throw new Error("Invalid function arguments.");
+    }
+};
+
+const getFuncSignature = (stmtsComp: PetMap): FuncSignature => {
+    const { argVars, argsVar } = getSignatureVars(stmtsComp);
+    if (typeof argVars === "undefined") {
+        const argsName = argsVar.getMember(symbols.IDENT).getPetString();
+        return { argsName };
+    } else {
+        const argNames = argVars.map((argVar) => (
+            argVar.getMember(symbols.IDENT).getPetString()
+        ));
+        return { argNames };
     }
 };
 
@@ -55,7 +71,14 @@ export const globalProcDefs: ProcDef[] = [
         prepMethod: (task, stmt) => {
             const comps = stmt.getMember(symbols.COMPS).getList();
             const stmtsComp = comps.getMember(1).getMap();
-            // TODO: Set type of argument variables.
+            const { argVars, argsVar } = getSignatureVars(stmtsComp);
+            if (typeof argVars === "undefined") {
+                argsVar.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
+            } else {
+                for (const argVar of argVars) {
+                    argVar.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
+                }
+            }
             return task.callMethod(
                 stmtsComp, symbols.PREP, [],
                 (value) => task.returnValue(null),
@@ -64,7 +87,7 @@ export const globalProcDefs: ProcDef[] = [
         evalMethod: (task, stmt, varSpace) => {
             const comps = stmt.getMember(symbols.COMPS).getList();
             const stmtsComp = comps.getMember(1).getMap();
-            const signature = getSignature(stmtsComp);
+            const signature = getFuncSignature(stmtsComp);
             const userFunc = new UserFunc(stmtsComp, varSpace, signature);
             return task.returnValue(userFunc);
         },

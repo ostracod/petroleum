@@ -405,9 +405,17 @@ export const evalStmtsTask: TaskDef<EvalStmtsParams, EvalStmtsState> = {
             const moduleType = parent.getMember(symbols.MODULE_TYPE);
             let frame: PetMap;
             if (typeof moduleType === "undefined") {
-                const parentIsFrame = varSpace.getMember(symbols.IS_FRAME);
-                const parentFrame = (typeof parentIsFrame === "undefined") ? null : varSpace;
-                frame = createFrame(scope, parentFrame);
+                const varSpaceType = getVarSpaceType(varSpace);
+                if (varSpaceType === VarSpaceType.Frame) {
+                    const frameScope = varSpace.getMember(symbols.SCOPE).getMap();
+                    if (frameScope === scope) {
+                        frame = varSpace;
+                    } else {
+                        frame = createFrame(scope, varSpace);
+                    }
+                } else {
+                    frame = createFrame(scope, null);
+                }
             } else {
                 frame = parent.getMember(symbols.FRAME).getMap();
             }
