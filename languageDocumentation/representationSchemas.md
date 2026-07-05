@@ -219,6 +219,12 @@ Invocables are either functions or procedures. Procedures are represented as map
 * The `#IS_PROC` field stores `TRUE`.
 * The `#METHODS` field stores a map from method key to method.
 
+If a method is missing in the `#METHODS` field of a procedure, Petroleum uses the following default implementations:
+
+* The default `#PREP` method calls the `#PREP` method on all child worker components.
+* The default `#EVAL` method does nothing.
+* The default `#ACCESSED_VARS` method returns variables accessed by all child worker components.
+
 ### Method Schema
 
 Methods are defined as functions. Petroleum recognizes methods with the following keys:

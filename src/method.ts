@@ -4,7 +4,7 @@ import "./builtInFunc.js";
 import { symbols } from "./symbol.js";
 import { PetValue, PetMap } from "./value.js";
 import { DefFunc } from "./builtInFunc.js";
-import { Action, Task, prepStmtsTask, evalStmtsTask, prepExprsTask, evalExprsTask, getFuncArgsComp, evalFuncTask, getScope, findVariable, getVarValue } from "./task.js";
+import { Action, Task, prepStmtsTask, evalStmtsTask, prepExprsTask, evalExprsTask, prepWorkersTask, getFuncArgsComp, evalFuncTask, getScope, findVariable, getVarValue } from "./task.js";
 
 export type CallPrepMethod = (task: Task, worker: PetMap) => Action;
 export type CallEvalMethod = (task: Task, worker: PetMap, varSpace: PetMap) => Action;
@@ -40,14 +40,52 @@ class EvalMethod extends DefFunc {
 
 const callNopPrep: CallPrepMethod = (task, worker) => task.returnValue(null);
 
+const getChildWorkers = (node: PetMap): PetMap[] => {
+    const output: PetMap[] = [];
+    const comps = node.getMember(symbols.COMPS).getList();
+    for (const compValue of comps.elements) {
+        const comp = compValue.getMap();
+        const compType = comp.getMember(symbols.COMP_TYPE).getSymbol();
+        if (compType === symbols.STMTS_COMP || compType === symbols.EXPRS_COMP) {
+            output.push(comp);
+        } else if (compType === symbols.ATTRS_COMP) {
+            const attrs = comp.getMember(symbols.ATTRS).getList();
+            for (const attrValue of attrs.elements) {
+                const attr = attrValue.getMap();
+                const workers = getChildWorkers(attr);
+                output.push(...workers);
+            }
+        }
+    }
+    return output;
+};
+
+export const defaultPrepMethod = new PrepMethod((task, worker) => {
+    const childWorkers = getChildWorkers(worker);
+    return task.runTask(
+        prepWorkersTask, { workers: childWorkers },
+        (value) => task.returnValue(null),
+    );
+});
+
+export const defaultEvalMethod = new EvalMethod(
+    (task, worker, varSpace) => task.returnValue(null),
+);
+
 export const createMethodMap = (
-    callPrepMethod: CallPrepMethod,
+    callPrepMethod: CallPrepMethod | null,
     callEvalMethod: CallEvalMethod,
-): PetMap => new PetMap([
-    [symbols.PREP, new PrepMethod(callPrepMethod)],
-    [symbols.EVAL, new EvalMethod(callEvalMethod)],
+): PetMap => {
+    const output = new PetMap([
+        [symbols.EVAL, new EvalMethod(callEvalMethod)],
+    ]);
+    if (callPrepMethod !== null) {
+        output.setMember(symbols.PREP, new PrepMethod(callPrepMethod));
+    }
     // TODO: Add #ACCESSED_VARS method.
-]);
+    
+    return output;
+}
 
 export const funcInvocationMethods = createMethodMap(
     (task, invocNode) => {

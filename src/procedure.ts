@@ -2,18 +2,18 @@
 import "./method.js";
 
 import { symbols } from "./symbol.js";
-import { PetMap, FuncSignature, UserFunc } from "./value.js";
+import { PetMap, FuncSignature, UserFunc, handleRetExcep } from "./value.js";
 import { CallPrepMethod, CallEvalMethod, createMethodMap } from "./method.js";
 import { getScope, findVariable } from "./task.js";
 
 interface ProcDef {
     name: string;
-    prepMethod: CallPrepMethod;
+    prepMethod?: CallPrepMethod;
     evalMethod: CallEvalMethod;
 }
 
 export const createProcedure = (procDef: ProcDef): PetMap => {
-    const methodMap = createMethodMap(procDef.prepMethod, procDef.evalMethod);
+    const methodMap = createMethodMap(procDef.prepMethod ?? null, procDef.evalMethod);
     return new PetMap([
         [symbols.IS_PROC, 1n],
         [symbols.METHODS, methodMap],
@@ -67,9 +67,21 @@ const getFuncSignature = (stmtsComp: PetMap): FuncSignature => {
 // TODO: Validate node structure.
 export const globalProcDefs: ProcDef[] = [
     {
+        name: "RUN",
+        evalMethod: (task, worker, varSpace) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            const stmtsComp = comps.getMember(1).getMap();
+            return task.callMethod(
+                stmtsComp, symbols.EVAL, [varSpace],
+                (value) => task.returnValue(null),
+                handleRetExcep(task),
+            );
+        },
+    },
+    {
         name: "FUNC",
-        prepMethod: (task, stmt) => {
-            const comps = stmt.getMember(symbols.COMPS).getList();
+        prepMethod: (task, expr) => {
+            const comps = expr.getMember(symbols.COMPS).getList();
             const stmtsComp = comps.getMember(1).getMap();
             const { argVars, argsVar } = getSignatureVars(stmtsComp);
             if (typeof argVars === "undefined") {
@@ -84,8 +96,8 @@ export const globalProcDefs: ProcDef[] = [
                 (value) => task.returnValue(null),
             );
         },
-        evalMethod: (task, stmt, varSpace) => {
-            const comps = stmt.getMember(symbols.COMPS).getList();
+        evalMethod: (task, expr, varSpace) => {
+            const comps = expr.getMember(symbols.COMPS).getList();
             const stmtsComp = comps.getMember(1).getMap();
             const signature = getFuncSignature(stmtsComp);
             const userFunc = new UserFunc(stmtsComp, varSpace, signature);
@@ -151,14 +163,6 @@ export const globalProcDefs: ProcDef[] = [
     {
         name: "SET",
         // TODO: Allow specifying module of variable.
-        prepMethod: (task, stmt) => {
-            const comps = stmt.getMember(symbols.COMPS).getList();
-            const exprsComp = comps.getMember(3).getMap();
-            return task.callMethod(
-                exprsComp, symbols.PREP, [],
-                (value) => task.returnValue(null),
-            );
-        },
         evalMethod: (task, stmt, varSpace) => {
             const comps = stmt.getMember(symbols.COMPS).getList();
             const identComp = comps.getMember(1).getMap();

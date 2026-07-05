@@ -2,9 +2,9 @@
 import "./package.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged } from "./value.js";
+import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged, valueToString } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
-import { funcInvocationMethods, stmtsCompMethods, exprsCompMethods, stringExprMethods, identExprMethods } from "./method.js";
+import { funcInvocationMethods, stmtsCompMethods, exprsCompMethods, stringExprMethods, identExprMethods, defaultPrepMethod, defaultEvalMethod } from "./method.js";
 import { ModuleParser } from "./moduleParser.js";
 import { PetContext } from "./context.js";
 
@@ -385,6 +385,33 @@ export const prepExprsTask: TaskDef<{ exprsComp: PetMap }, { exprIndex: number }
     ],
 };
 
+export const prepWorkersTask: TaskDef<{ workers: PetMap[] }, { workerIndex: number }> = {
+    getInitState: (params) => ({ workerIndex: 0 }),
+    stages: [
+        (task) => {
+            for (const worker of task.params.workers) {
+                task.scheduleMethod(worker, symbols.PREP, []);
+            }
+            return task.advanceStage({ workerIndex: 0 });
+        },
+        (task) => {
+            const { workers } = task.params;
+            const { workerIndex } = task.state;
+            if (workerIndex < workers.length) {
+                const worker = workers[workerIndex];
+                return task.awaitMember(
+                    worker,
+                    symbols.PHASE,
+                    new NotEqualFunc(symbols.PREP_PHASE),
+                    task.repeatStage({ workerIndex: workerIndex + 1 }),
+                );
+            } else {
+                return task.returnValue(null);
+            }
+        },
+    ],
+};
+
 interface EvalStmtsParams {
     stmtsComp: PetMap;
     varSpace: PetMap;
@@ -564,6 +591,24 @@ const getWorkerMethodMap = (worker: PetMap): PetMap => {
     throw new Error("Expected worker.");
 };
 
+const getMethodWithDefault = (methodMap: PetMap, methodKey: KnownValue): PetFunc => {
+    const method = methodMap.getMember(methodKey);
+    if (typeof method !== "undefined") {
+        return method.getFunc();
+    }
+    if (methodKey === symbols.PREP) {
+        return defaultPrepMethod;
+    }
+    if (methodKey === symbols.EVAL) {
+        return defaultEvalMethod;
+    }
+    if (methodKey === symbols.ACCESSED_VARS) {
+        // TODO: Return default ACCESSED_VARS method.
+        
+    }
+    throw new Error("Missing method key: " + valueToString(methodKey));
+};
+
 const callMethodTask: TaskDef<MethodInvocation, null> = {
     getInitState: (params) => null,
     stages: [
@@ -590,7 +635,7 @@ const callMethodTask: TaskDef<MethodInvocation, null> = {
                     );
                 }
             }
-            if (methodKey === symbols.EVAL) {
+            if (methodKey === symbols.EVAL || methodKey === symbols.ACCESSED_VARS) {
                 return task.callMethod(
                     worker, symbols.PREP, [],
                     (value) => task.advanceStage(null),
@@ -601,7 +646,7 @@ const callMethodTask: TaskDef<MethodInvocation, null> = {
         (task) => {
             const { worker, key: methodKey } = task.params;
             const methodMap = getWorkerMethodMap(worker);
-            const method = methodMap.getMember(methodKey).getFunc();
+            const method = getMethodWithDefault(methodMap, methodKey);
             return task.callFunction(
                 method, [worker, ...task.params.args],
                 (returnValue) => {
@@ -610,10 +655,10 @@ const callMethodTask: TaskDef<MethodInvocation, null> = {
                         task.context.preppingWorkers.delete(worker);
                     }
                     let nextReturnValue: PetValue;
-                    if (methodKey === symbols.EVAL) {
-                        nextReturnValue = returnValue;
-                    } else {
+                    if (methodKey === symbols.PREP) {
                         nextReturnValue = null;
+                    } else {
+                        nextReturnValue = returnValue;
                     }
                     return task.returnValue(nextReturnValue);
                 },

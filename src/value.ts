@@ -549,6 +549,25 @@ const pruneFrames = (varSpace: PetMap): {
     return { topFrame, bottomFrame, module };
 };
 
+export const handleRetExcep = (task: Task): ((excepValue: PetValue) => Action) => (
+    (excepValue) => {
+        const exception = excepValue.getMap();
+        const excepType = exception.getMember(symbols.EXCEP_TYPE).getSymbol();
+        if (excepType === symbols.RET_EXCEP) {
+            const retLevel = exception.getMember(symbols.RET_LEVEL).getInt();
+            if (retLevel <= 0n) {
+                const value = exception.getMember(symbols.VALUE);
+                task.returnValue(value);
+            } else {
+                const excepCopy = exception.shallowCopy();
+                excepCopy.setMember(symbols.RET_LEVEL, retLevel - 1n);
+                return task.throwException(excepCopy);
+            }
+        }
+        return task.throwException(exception);
+    }
+);
+
 export class UserFunc extends PetFunc {
     // Statement sequence component which contains the function body.
     stmtsComp: PetMap;
@@ -601,22 +620,7 @@ export class UserFunc extends PetFunc {
         return task.callMethod(
             this.stmtsComp, symbols.EVAL, [bodyFrame],
             (value) => task.returnValue(null),
-            (excepValue) => {
-                const exception = excepValue.getMap();
-                const excepType = exception.getMember(symbols.EXCEP_TYPE).getSymbol();
-                if (excepType === symbols.RET_EXCEP) {
-                    const retLevel = exception.getMember(symbols.RET_LEVEL).getInt();
-                    if (retLevel <= 0n) {
-                        const value = exception.getMember(symbols.VALUE);
-                        task.returnValue(value);
-                    } else {
-                        const excepCopy = exception.shallowCopy();
-                        excepCopy.setMember(symbols.RET_LEVEL, retLevel - 1n);
-                        return task.throwException(excepCopy);
-                    }
-                }
-                return task.throwException(exception);
-            },
+            handleRetExcep(task),
         );
     }
     
