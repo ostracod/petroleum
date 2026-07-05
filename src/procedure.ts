@@ -2,9 +2,9 @@
 import "./method.js";
 
 import { symbols } from "./symbol.js";
-import { PetMap, FuncSignature, UserFunc, handleRetExcep } from "./value.js";
+import { PetValue, nullValue, PetMap, FuncSignature, UserFunc, handleRetExcep, EvalState } from "./value.js";
 import { CallPrepMethod, CallEvalMethod, createMethodMap } from "./method.js";
-import { getScope, findVariable } from "./task.js";
+import { Action, getScope, findVariable } from "./task.js";
 
 interface ProcDef {
     name: string;
@@ -175,6 +175,40 @@ export const globalProcDefs: ProcDef[] = [
                     const value = values.getList().getMember(0);
                     frameEntry.setMember(symbols.VALUE, value);
                     return task.returnValue(null);
+                },
+            );
+        },
+    },
+    {
+        name: "RET",
+        evalMethod: (task, stmt, varSpace) => {
+            const comps = stmt.getMember(symbols.COMPS).getList();
+            let retValue: PetValue;
+            let retLevel = 0n;
+            const throwRetExcep = (): Action => {
+                const evalState = new EvalState(task, task.returnValue(null));
+                const exception = new PetMap([
+                    [symbols.EXCEP_TYPE, symbols.RET_EXCEP],
+                    [symbols.VALUE, retValue],
+                    [symbols.RET_LEVEL, retLevel],
+                    [symbols.EVAL_STATE, evalState],
+                ]);
+                return task.throwException(exception);
+            };
+            if (comps.getLength() <= 1) {
+                retValue = nullValue;
+                return throwRetExcep();
+            }
+            const exprsComp = comps.getMember(1).getMap();
+            return task.callMethod(
+                exprsComp, symbols.EVAL, [varSpace],
+                (listValue) => {
+                    const values = listValue.getList();
+                    retValue = values.getMember(0);
+                    if (values.getLength() > 1) {
+                        retLevel = values.getMember(1).getInt();
+                    }
+                    return throwRetExcep();
                 },
             );
         },

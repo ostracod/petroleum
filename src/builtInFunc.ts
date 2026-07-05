@@ -82,6 +82,18 @@ export class DefFunc extends BuiltInFunc {
 
 export const globalFuncDefs: FuncDef[] = [
     {
+        name: "CALL",
+        argAmount: null,
+        call: (task, args) => {
+            const func = args[0].getFunc();
+            const funcArgs = (args.length > 1) ? args[1].getList() : ([] as PetValue[]);
+            return task.callFunction(
+                func, funcArgs,
+                (value) => task.returnValue(value),
+            );
+        },
+    },
+    {
         name: "PRINT",
         argAmount: 1,
         call: (task, args) => {

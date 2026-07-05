@@ -557,7 +557,7 @@ export const handleRetExcep = (task: Task): ((excepValue: PetValue) => Action) =
             const retLevel = exception.getMember(symbols.RET_LEVEL).getInt();
             if (retLevel <= 0n) {
                 const value = exception.getMember(symbols.VALUE);
-                task.returnValue(value);
+                return task.returnValue(value);
             } else {
                 const excepCopy = exception.shallowCopy();
                 excepCopy.setMember(symbols.RET_LEVEL, retLevel - 1n);
