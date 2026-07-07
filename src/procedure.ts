@@ -3,17 +3,22 @@ import "./method.js";
 
 import { symbols } from "./symbol.js";
 import { PetValue, nullValue, PetMap, FuncSignature, UserFunc, handleRetExcep, EvalState } from "./value.js";
-import { CallPrepMethod, CallEvalMethod, createMethodMap } from "./method.js";
+import { CallPrepMethod, CallEvalMethod, CallVarsMethod, createMethodMap } from "./method.js";
 import { Action, getScope, findVariable } from "./task.js";
 
 interface ProcDef {
     name: string;
     prepMethod?: CallPrepMethod;
     evalMethod: CallEvalMethod;
+    accessedVarsMethod?: CallVarsMethod;
 }
 
 export const createProcedure = (procDef: ProcDef): PetMap => {
-    const methodMap = createMethodMap(procDef.prepMethod ?? null, procDef.evalMethod);
+    const methodMap = createMethodMap(
+        procDef.prepMethod ?? null,
+        procDef.evalMethod,
+        procDef.accessedVarsMethod ?? null,
+    );
     return new PetMap([
         [symbols.IS_PROC, 1n],
         [symbols.METHODS, methodMap],
@@ -100,8 +105,17 @@ export const globalProcDefs: ProcDef[] = [
             const comps = expr.getMember(symbols.COMPS).getList();
             const stmtsComp = comps.getMember(1).getMap();
             const signature = getFuncSignature(stmtsComp);
-            const userFunc = new UserFunc(stmtsComp, varSpace, signature);
-            return task.returnValue(userFunc);
+            const scope = getScope(expr);
+            return task.callMethod(
+                stmtsComp, symbols.ACCESSED_VARS, [scope],
+                (resultValue) => {
+                    const accessedVars = resultValue.getMap();
+                    // TODO: Use accessedVars.
+                    
+                    const userFunc = new UserFunc(stmtsComp, varSpace, signature);
+                    return task.returnValue(userFunc);
+                }
+            );
         },
     },
     {

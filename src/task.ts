@@ -4,7 +4,7 @@ import "./package.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged, valueToString } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
-import { funcInvocationMethods, stmtsCompMethods, exprsCompMethods, stringExprMethods, identExprMethods, defaultPrepMethod, defaultEvalMethod } from "./method.js";
+import { funcInvocationMethods, stmtsCompMethods, exprsCompMethods, stringExprMethods, identExprMethods, defaultPrepMethod, defaultEvalMethod, defaultVarsMethod } from "./method.js";
 import { ModuleParser } from "./moduleParser.js";
 import { PetContext } from "./context.js";
 
@@ -412,6 +412,51 @@ export const prepWorkersTask: TaskDef<{ workers: PetMap[] }, { workerIndex: numb
     ],
 };
 
+interface WorkersVarsParams {
+    workers: PetMap[];
+    scope: PetMap;
+}
+
+interface WorkersVarsState {
+    workerIndex: number;
+    varMap: PetMap;
+}
+
+export const workersVarsTask: TaskDef<WorkersVarsParams, WorkersVarsState> = {
+    getInitState: (params) => ({ workerIndex: 0, varMap: new PetMap() }),
+    stages: [
+        (task) => {
+            const { workers, scope } = task.params;
+            const { workerIndex, varMap } = task.state;
+            if (workerIndex >= workers.length) {
+                return task.returnValue(varMap);
+            }
+            const worker = workers[workerIndex];
+            return task.callMethod(
+                worker, symbols.ACCESSED_VARS, [scope],
+                (resultValue) => {
+                    const resultMap = resultValue.getMap();
+                    const names = resultMap.getKeys();
+                    let nextVarMap: PetMap;
+                    if (names.length > 0) {
+                        nextVarMap = varMap.shallowCopy();
+                        for (const name of names) {
+                            const variable = resultMap.getMember(name);
+                            nextVarMap.setMember(name, variable);
+                        }
+                    } else {
+                        nextVarMap = varMap;
+                    }
+                    return task.repeatStage({
+                        workerIndex: workerIndex + 1,
+                        varMap: nextVarMap,
+                    });
+                },
+            );
+        },
+    ],
+};
+
 interface EvalStmtsParams {
     stmtsComp: PetMap;
     varSpace: PetMap;
@@ -603,8 +648,7 @@ const getMethodWithDefault = (methodMap: PetMap, methodKey: KnownValue): PetFunc
         return defaultEvalMethod;
     }
     if (methodKey === symbols.ACCESSED_VARS) {
-        // TODO: Return default ACCESSED_VARS method.
-        
+        return defaultVarsMethod;
     }
     throw new Error("Missing method key: " + valueToString(methodKey));
 };

@@ -4,10 +4,11 @@ import "./builtInFunc.js";
 import { symbols } from "./symbol.js";
 import { PetValue, PetMap } from "./value.js";
 import { DefFunc } from "./builtInFunc.js";
-import { Action, Task, prepStmtsTask, evalStmtsTask, prepExprsTask, evalExprsTask, prepWorkersTask, getFuncArgsComp, evalFuncTask, getScope, findVariable, getVarValue } from "./task.js";
+import { Action, Task, prepStmtsTask, evalStmtsTask, prepExprsTask, evalExprsTask, prepWorkersTask, workersVarsTask, getFuncArgsComp, evalFuncTask, getScope, findVariable, getVarValue } from "./task.js";
 
 export type CallPrepMethod = (task: Task, worker: PetMap) => Action;
 export type CallEvalMethod = (task: Task, worker: PetMap, varSpace: PetMap) => Action;
+export type CallVarsMethod = (task: Task, worker: PetMap, scope: PetMap) => Action;
 
 class PrepMethod extends DefFunc {
     
@@ -33,6 +34,21 @@ class EvalMethod extends DefFunc {
                 const worker = args[0].getMap();
                 const varSpace = args[1].getMap();
                 return callMethod(task, worker, varSpace);
+            },
+        });
+    }
+}
+
+class AccessedVarsMethod extends DefFunc {
+    
+    constructor(callMethod: CallVarsMethod) {
+        super({
+            name: null,
+            argAmount: 2,
+            call: (task, args) => {
+                const worker = args[0].getMap();
+                const scope = args[1].getMap();
+                return callMethod(task, worker, scope);
             },
         });
     }
@@ -72,9 +88,18 @@ export const defaultEvalMethod = new EvalMethod(
     (task, worker, varSpace) => task.returnValue(null),
 );
 
+export const defaultVarsMethod = new AccessedVarsMethod((task, worker, scope) => {
+    const childWorkers = getChildWorkers(worker);
+    return task.runTask(
+        workersVarsTask, { workers: childWorkers, scope },
+        (value) => task.returnValue(value),
+    );
+});
+
 export const createMethodMap = (
     callPrepMethod: CallPrepMethod | null,
     callEvalMethod: CallEvalMethod,
+    callVarsMethod: CallVarsMethod | null = null,
 ): PetMap => {
     const output = new PetMap([
         [symbols.EVAL, new EvalMethod(callEvalMethod)],
@@ -82,8 +107,9 @@ export const createMethodMap = (
     if (callPrepMethod !== null) {
         output.setMember(symbols.PREP, new PrepMethod(callPrepMethod));
     }
-    // TODO: Add #ACCESSED_VARS method.
-    
+    if (callVarsMethod !== null) {
+        output.setMember(symbols.ACCESSED_VARS, new AccessedVarsMethod(callVarsMethod));
+    }
     return output;
 }
 
@@ -119,6 +145,14 @@ export const stmtsCompMethods = createMethodMap(
         evalStmtsTask, { stmtsComp, varSpace },
         (value) => task.returnValue(null),
     ),
+    (task, stmtsComp, scope) => {
+        const stmtList = stmtsComp.getMember(symbols.STMTS).getList();
+        const stmts = stmtList.elements.map((value) => value.getMap());
+        return task.runTask(
+            workersVarsTask, { workers: stmts, scope },
+            (value) => task.returnValue(value),
+        );
+    },
 );
 
 export const exprsCompMethods = createMethodMap(
@@ -130,6 +164,14 @@ export const exprsCompMethods = createMethodMap(
         evalExprsTask, { exprsComp, varSpace },
         (value) => task.returnValue(value),
     ),
+    (task, exprsComp, scope) => {
+        const exprList = exprsComp.getMember(symbols.EXPRS).getList();
+        const exprs = exprList.elements.map((value) => value.getMap());
+        return task.runTask(
+            workersVarsTask, { workers: exprs, scope },
+            (value) => task.returnValue(value),
+        );
+    },
 );
 
 export const stringExprMethods = createMethodMap(

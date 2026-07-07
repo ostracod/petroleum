@@ -472,6 +472,10 @@ export class PetMap implements ObservableBunchIface {
         const fields = Array.from(this.fields.values());
         return new PetMap(fields.map((field) => [field.key, field.value]));
     }
+    
+    getKeys(): KnownValue[] {
+        return Array.from(this.fields.values()).map((field) => field.key);
+    }
 }
 
 export abstract class PetFunc {
