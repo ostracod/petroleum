@@ -121,13 +121,22 @@ export const funcInvocationMethods = createMethodMap({
     prep: (task, invocNode) => {
         const func = invocNode.getMember(symbols.INVOC).getFunc();
         const argsComp = getFuncArgsComp(invocNode);
-        const argAmount = func.getArgAmount();
-        if (argAmount !== null) {
-            const argExprs = argsComp.getMember(symbols.EXPRS).getList();
-            if (argExprs.getLength() !== argAmount) {
+        const expectedArgAmount = func.getArgAmount();
+        if (expectedArgAmount !== null) {
+            let actualArgAmount: number;
+            if (argsComp === null) {
+                actualArgAmount = 0;
+            } else {
+                const argExprs = argsComp.getMember(symbols.EXPRS).getList();
+                actualArgAmount = argExprs.getLength();
+            }
+            if (actualArgAmount !== expectedArgAmount) {
                 // TODO: Throw a better type of error.
                 throw new Error("Incorrect number of function arguments.");
             }
+        }
+        if (argsComp === null) {
+            return task.returnValue(null);
         }
         return task.callMethod(
             argsComp, symbols.PREP, [],
@@ -138,6 +147,16 @@ export const funcInvocationMethods = createMethodMap({
         evalFuncTask, { invocNode, varSpace },
         (value) => task.returnValue(value),
     ),
+    accessedVars: (task, invocNode, scope) => {
+        const argsComp = getFuncArgsComp(invocNode);
+        if (argsComp === null) {
+            return task.returnValue(new PetMap());
+        }
+        return task.callMethod(
+            argsComp, symbols.ACCESSED_VARS, [scope],
+            (value) => task.returnValue(value),
+        );
+    },
 });
 
 export const stmtsCompMethods = createMethodMap({
@@ -198,6 +217,22 @@ export const identExprMethods = createMethodMap({
         const varName = expr.getMember(symbols.IDENT).getPetString();
         const value = getVarValue(varSpace, varName);
         return task.returnValue(value);
+    },
+    accessedVars: (task, expr, scope) => {
+        const variable = expr.getMember(symbols.VAR).getMap();
+        const varScope = variable.getMember(symbols.SCOPE).getMap();
+        while (true) {
+            if (scope === varScope) {
+                const varName = variable.getMember(symbols.IDENT).getPetString();
+                return task.returnValue(new PetMap([[varName, variable]]));
+            }
+            const parentScope = scope.getMember(symbols.PARENT);
+            if (typeof parentScope === "undefined") {
+                break
+            }
+            scope = parentScope.getMap();
+        }
+        return task.returnValue(new PetMap());
     },
 });
 

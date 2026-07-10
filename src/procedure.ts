@@ -129,6 +129,7 @@ export const globalProcDefs: ProcDef[] = [
                 }
             );
         },
+        accessedVars: (task, expr, scope) => task.returnValue(new PetMap()),
     },
     {
         name: "WORK_VAR",

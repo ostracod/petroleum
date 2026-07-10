@@ -836,9 +836,9 @@ const determineInvocTask: TaskDef<{ worker: PetMap }, null> = {
     ],
 };
 
-export const getFuncArgsComp = (invocNode: PetMap): PetMap => {
+export const getFuncArgsComp = (invocNode: PetMap): PetMap | null => {
     const comps = invocNode.getMember(symbols.COMPS).getList();
-    return comps.getMember(1).getMap();
+    return (comps.getLength() > 1) ? comps.getMember(1).getMap() : null;
 };
 
 interface EvalFuncParams {
@@ -851,6 +851,9 @@ export const evalFuncTask: TaskDef<EvalFuncParams, { args: PetValue[] | null }> 
     stages: [
         (task) => {
             const argsComp = getFuncArgsComp(task.params.invocNode);
+            if (argsComp === null) {
+                return task.advanceStage({ args: [] });
+            }
             return task.callMethod(
                 argsComp, symbols.EVAL, [task.params.varSpace],
                 (value) => task.advanceStage({ args: value.getList().elements }),
