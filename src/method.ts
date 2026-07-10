@@ -10,6 +10,12 @@ export type CallPrepMethod = (task: Task, worker: PetMap) => Action;
 export type CallEvalMethod = (task: Task, worker: PetMap, varSpace: PetMap) => Action;
 export type CallVarsMethod = (task: Task, worker: PetMap, scope: PetMap) => Action;
 
+export interface MethodDict {
+    prep?: CallPrepMethod;
+    eval?: CallEvalMethod;
+    accessedVars?: CallVarsMethod;
+}
+
 class PrepMethod extends DefFunc {
     
     constructor(callMethod: CallPrepMethod) {
@@ -96,25 +102,23 @@ export const defaultVarsMethod = new AccessedVarsMethod((task, worker, scope) =>
     );
 });
 
-export const createMethodMap = (
-    callPrepMethod: CallPrepMethod | null,
-    callEvalMethod: CallEvalMethod,
-    callVarsMethod: CallVarsMethod | null = null,
-): PetMap => {
-    const output = new PetMap([
-        [symbols.EVAL, new EvalMethod(callEvalMethod)],
-    ]);
-    if (callPrepMethod !== null) {
-        output.setMember(symbols.PREP, new PrepMethod(callPrepMethod));
+export const createMethodMap = (methodDict: MethodDict): PetMap => {
+    const output = new PetMap([]);
+    const { prep: callPrep, eval: callEval, accessedVars: callAccessedVars } = methodDict;
+    if (typeof callPrep !== "undefined") {
+        output.setMember(symbols.PREP, new PrepMethod(callPrep));
     }
-    if (callVarsMethod !== null) {
-        output.setMember(symbols.ACCESSED_VARS, new AccessedVarsMethod(callVarsMethod));
+    if (typeof callEval !== "undefined") {
+        output.setMember(symbols.EVAL, new EvalMethod(callEval));
+    }
+    if (typeof callAccessedVars !== "undefined") {
+        output.setMember(symbols.ACCESSED_VARS, new AccessedVarsMethod(callAccessedVars));
     }
     return output;
 }
 
-export const funcInvocationMethods = createMethodMap(
-    (task, invocNode) => {
+export const funcInvocationMethods = createMethodMap({
+    prep: (task, invocNode) => {
         const func = invocNode.getMember(symbols.INVOC).getFunc();
         const argsComp = getFuncArgsComp(invocNode);
         const argAmount = func.getArgAmount();
@@ -130,22 +134,22 @@ export const funcInvocationMethods = createMethodMap(
             (value) => task.returnValue(null),
         );
     },
-    (task, invocNode, varSpace) => task.runTask(
+    eval: (task, invocNode, varSpace) => task.runTask(
         evalFuncTask, { invocNode, varSpace },
         (value) => task.returnValue(value),
     ),
-);
+});
 
-export const stmtsCompMethods = createMethodMap(
-    (task, stmtsComp) => task.runTask(
+export const stmtsCompMethods = createMethodMap({
+    prep: (task, stmtsComp) => task.runTask(
         prepStmtsTask, { stmtsComp },
         (value) => task.returnValue(null),
     ),
-    (task, stmtsComp, varSpace) => task.runTask(
+    eval: (task, stmtsComp, varSpace) => task.runTask(
         evalStmtsTask, { stmtsComp, varSpace },
         (value) => task.returnValue(null),
     ),
-    (task, stmtsComp, scope) => {
+    accessedVars: (task, stmtsComp, scope) => {
         const stmtList = stmtsComp.getMember(symbols.STMTS).getList();
         const stmts = stmtList.elements.map((value) => value.getMap());
         return task.runTask(
@@ -153,18 +157,18 @@ export const stmtsCompMethods = createMethodMap(
             (value) => task.returnValue(value),
         );
     },
-);
+});
 
-export const exprsCompMethods = createMethodMap(
-    (task, exprsComp) => task.runTask(
+export const exprsCompMethods = createMethodMap({
+    prep: (task, exprsComp) => task.runTask(
         prepExprsTask, { exprsComp },
         (value) => task.returnValue(null),
     ),
-    (task, exprsComp, varSpace) => task.runTask(
+    eval: (task, exprsComp, varSpace) => task.runTask(
         evalExprsTask, { exprsComp, varSpace },
         (value) => task.returnValue(value),
     ),
-    (task, exprsComp, scope) => {
+    accessedVars: (task, exprsComp, scope) => {
         const exprList = exprsComp.getMember(symbols.EXPRS).getList();
         const exprs = exprList.elements.map((value) => value.getMap());
         return task.runTask(
@@ -172,29 +176,29 @@ export const exprsCompMethods = createMethodMap(
             (value) => task.returnValue(value),
         );
     },
-);
+});
 
-export const stringExprMethods = createMethodMap(
-    callNopPrep,
-    (task, expr, varSpace) => {
+export const stringExprMethods = createMethodMap({
+    prep: callNopPrep,
+    eval: (task, expr, varSpace) => {
         const stringValue = expr.getMember(symbols.STR).getPetString();
         return task.returnValue(stringValue);
     },
-);
+});
 
-export const identExprMethods = createMethodMap(
-    (task, expr) => {
+export const identExprMethods = createMethodMap({
+    prep: (task, expr) => {
         const scope = getScope(expr);
         const varName = expr.getMember(symbols.IDENT).getPetString();
         const variable = findVariable(scope, varName);
         expr.setMember(symbols.VAR, variable);
         return task.returnValue(null);
     },
-    (task, expr, varSpace) => {
+    eval: (task, expr, varSpace) => {
         const varName = expr.getMember(symbols.IDENT).getPetString();
         const value = getVarValue(varSpace, varName);
         return task.returnValue(value);
     },
-);
+});
 
 

@@ -3,22 +3,15 @@ import "./method.js";
 
 import { symbols } from "./symbol.js";
 import { PetValue, nullValue, PetMap, FuncSignature, UserFunc, handleRetExcep, EvalState } from "./value.js";
-import { CallPrepMethod, CallEvalMethod, CallVarsMethod, createMethodMap } from "./method.js";
+import { MethodDict, createMethodMap } from "./method.js";
 import { Action, getScope, findVariable } from "./task.js";
 
-interface ProcDef {
+interface ProcDef extends MethodDict {
     name: string;
-    prepMethod?: CallPrepMethod;
-    evalMethod: CallEvalMethod;
-    accessedVarsMethod?: CallVarsMethod;
 }
 
 export const createProcedure = (procDef: ProcDef): PetMap => {
-    const methodMap = createMethodMap(
-        procDef.prepMethod ?? null,
-        procDef.evalMethod,
-        procDef.accessedVarsMethod ?? null,
-    );
+    const methodMap = createMethodMap(procDef);
     return new PetMap([
         [symbols.IS_PROC, 1n],
         [symbols.METHODS, methodMap],
@@ -73,7 +66,7 @@ const getFuncSignature = (stmtsComp: PetMap): FuncSignature => {
 export const globalProcDefs: ProcDef[] = [
     {
         name: "RUN",
-        evalMethod: (task, worker, varSpace) => {
+        eval: (task, worker, varSpace) => {
             const comps = worker.getMember(symbols.COMPS).getList();
             const stmtsComp = comps.getMember(1).getMap();
             return task.callMethod(
@@ -85,7 +78,7 @@ export const globalProcDefs: ProcDef[] = [
     },
     {
         name: "FUNC",
-        prepMethod: (task, expr) => {
+        prep: (task, expr) => {
             const comps = expr.getMember(symbols.COMPS).getList();
             const stmtsComp = comps.getMember(1).getMap();
             const { argVars, argsVar } = getSignatureVars(stmtsComp);
@@ -101,7 +94,7 @@ export const globalProcDefs: ProcDef[] = [
                 (value) => task.returnValue(null),
             );
         },
-        evalMethod: (task, expr, varSpace) => {
+        eval: (task, expr, varSpace) => {
             const comps = expr.getMember(symbols.COMPS).getList();
             const stmtsComp = comps.getMember(1).getMap();
             const signature = getFuncSignature(stmtsComp);
@@ -120,7 +113,7 @@ export const globalProcDefs: ProcDef[] = [
     },
     {
         name: "PREP_VAR",
-        prepMethod: (task, stmt) => {
+        prep: (task, stmt) => {
             const comps = stmt.getMember(symbols.COMPS).getList();
             const declComp = comps.getMember(1).getMap();
             const variable = declComp.getMember(symbols.VAR).getMap();
@@ -136,11 +129,10 @@ export const globalProcDefs: ProcDef[] = [
                 }
             );
         },
-        evalMethod: (task, stmt, varSpace) => task.returnValue(null),
     },
     {
         name: "WORK_VAR",
-        prepMethod: (task, stmt) => {
+        prep: (task, stmt) => {
             const comps = stmt.getMember(symbols.COMPS).getList();
             const declComp = comps.getMember(1).getMap();
             const variable = declComp.getMember(symbols.VAR).getMap();
@@ -154,7 +146,7 @@ export const globalProcDefs: ProcDef[] = [
                 (value) => task.returnValue(null),
             );
         },
-        evalMethod: (task, stmt, varSpace) => {
+        eval: (task, stmt, varSpace) => {
             const comps = stmt.getMember(symbols.COMPS).getList();
             if (comps.getLength() < 4) {
                 return task.returnValue(null);
@@ -177,7 +169,7 @@ export const globalProcDefs: ProcDef[] = [
     {
         name: "SET",
         // TODO: Allow specifying module of variable.
-        evalMethod: (task, stmt, varSpace) => {
+        eval: (task, stmt, varSpace) => {
             const comps = stmt.getMember(symbols.COMPS).getList();
             const identComp = comps.getMember(1).getMap();
             const varName = identComp.getMember(symbols.IDENT).getPetString();
@@ -195,7 +187,7 @@ export const globalProcDefs: ProcDef[] = [
     },
     {
         name: "RET",
-        evalMethod: (task, stmt, varSpace) => {
+        eval: (task, stmt, varSpace) => {
             const comps = stmt.getMember(symbols.COMPS).getList();
             let retValue: PetValue;
             let retLevel = 0n;
