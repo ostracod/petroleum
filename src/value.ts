@@ -2,6 +2,7 @@
 import "./symbol.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
+import { getSignatureVars } from "./procedure.js";
 import { DeferralError, PetTypeError } from "./error.js";
 import { Action, Task, awaitCondTask, createFrame, findVariable, getVarSpaceType, VarSpaceType } from "./task.js";
 import { Scheduler } from "./scheduler.js";
@@ -456,6 +457,15 @@ export class PetMap implements ObservableBunchIface {
         return deferMember(this, toKnownValue(key));
     }
     
+    hasKey(key: KnownValue | PetValue): boolean {
+        return (typeof this.getMember(key) !== "undefined");
+    }
+    
+    deleteField(key: KnownValue | PetValue): void {
+        const mapKey = toMapKey(key);
+        this.fields.delete(mapKey);
+    }
+    
     toString(parents: KnownValue[] = []): string {
         const nextParents = [...parents, this];
         const textList: string[] = [];
@@ -497,12 +507,31 @@ export interface FuncSignature {
     argsName?: PetString;
 }
 
-// TODO: Add argument for accessed variables.
-const pruneFrames = (varSpace: PetMap): {
+const pruneFrameEntries = (frame: PetMap, scope: PetMap, remainingVars: PetMap): PetMap => {
+    const frameEntries = frame.getMember(symbols.FRAME_ENTRIES).getMap();
+    const variables = scope.getMember(symbols.VARS).getMap();
+    const output = new PetMap();
+    for (const name of frameEntries.getKeys()) {
+        if (remainingVars.hasKey(name)) {
+            const frameEntry = frameEntries.getMember(name);
+            output.setMember(name, frameEntry);
+            remainingVars.deleteField(name);
+        }
+    }
+    for (const name of variables.getKeys()) {
+        if (remainingVars.hasKey(name)) {
+            remainingVars.deleteField(name);
+        }
+    }
+    return output;
+};
+
+const pruneFrames = (varSpace: PetMap, accessedVars: PetMap): {
     topFrame: PetMap | null,
     bottomFrame: PetMap | null,
     module: PetMap,
 } => {
+    const remainingVars = accessedVars.shallowCopy();
     let varSpaceIsFrame = (getVarSpaceType(varSpace) === VarSpaceType.Frame);
     let topFrame: PetMap | null = null;
     let bottomFrame: PetMap | null = null;
@@ -526,8 +555,7 @@ const pruneFrames = (varSpace: PetMap): {
         if (frame === null) {
             prunedEntries = new PetMap();
         } else {
-            // TODO: Actually prune the frame.
-            prunedEntries = frame.getMember(symbols.FRAME_ENTRIES).getMap().shallowCopy();
+            prunedEntries = pruneFrameEntries(frame, scope, remainingVars);
         }
         const prunedFrame = new PetMap([
             [symbols.IS_FRAME, 1n],
@@ -572,6 +600,19 @@ export const handleRetExcep = (task: Task): ((excepValue: PetValue) => Action) =
     }
 );
 
+const getFuncSignature = (stmtsComp: PetMap): FuncSignature => {
+    const { argVars, argsVar } = getSignatureVars(stmtsComp);
+    if (typeof argVars === "undefined") {
+        const argsName = argsVar.getMember(symbols.IDENT).getPetString();
+        return { argsName };
+    } else {
+        const argNames = argVars.map((argVar) => (
+            argVar.getMember(symbols.IDENT).getPetString()
+        ));
+        return { argNames };
+    }
+};
+
 export class UserFunc extends PetFunc {
     // Statement sequence component which contains the function body.
     stmtsComp: PetMap;
@@ -585,14 +626,14 @@ export class UserFunc extends PetFunc {
     argNames?: PetString[];
     argsName?: PetString;
     
-    constructor(stmtsComp: PetMap, varSpace: PetMap, signature: FuncSignature) {
+    constructor(stmtsComp: PetMap, varSpace: PetMap, accessedVars: PetMap) {
         super();
         this.stmtsComp = stmtsComp;
-        const { topFrame, bottomFrame, module } = pruneFrames(varSpace);
+        const { topFrame, bottomFrame, module } = pruneFrames(varSpace, accessedVars);
         this.topFrame = topFrame;
         this.bottomFrame = bottomFrame;
         this.module = module;
-        const { argNames, argsName } = signature;
+        const { argNames, argsName } = getFuncSignature(this.stmtsComp);
         if (typeof argNames === "undefined") {
             this.argsName = argsName;
         } else {

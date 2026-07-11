@@ -36,6 +36,8 @@ Creates a function with `$body`. `$args` may have one of the following forms:
 
 If `[ARGS @$args]` is excluded, the function does not accept any arguments.
 
+Note that when the `FUNC` procedure is evaluated for the first time, the procedure will call the `#ACCESSED_VARS` method on the child statement sequence component. The `#ACCESSED_VARS` method returns a variable map which determines the contents of closures. The `FUNC` procedure stores the variable map in an `#ACCESSED_VARS` field of the invocation node to avoid redundantly calling the `#ACCESSED_VARS` method.
+
 ```
 PREP_VAR @$name = ($value)
 ```

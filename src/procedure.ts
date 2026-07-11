@@ -2,7 +2,7 @@
 import "./method.js";
 
 import { symbols } from "./symbol.js";
-import { PetValue, nullValue, PetMap, FuncSignature, UserFunc, handleRetExcep, EvalState } from "./value.js";
+import { PetValue, nullValue, PetMap, UserFunc, handleRetExcep, EvalState } from "./value.js";
 import { MethodDict, createMethodMap } from "./method.js";
 import { Action, getScope, findVariable } from "./task.js";
 
@@ -23,7 +23,7 @@ interface SignatureVars {
     argsVar?: PetMap;
 }
 
-const getSignatureVars = (stmtsComp: PetMap): SignatureVars => {
+export const getSignatureVars = (stmtsComp: PetMap): SignatureVars => {
     const attrs = stmtsComp.getMember(symbols.ATTRS).getList();
     if (attrs.getLength() <= 0) {
         return { argVars: [] };
@@ -46,19 +46,6 @@ const getSignatureVars = (stmtsComp: PetMap): SignatureVars => {
         return { argsVar };
     } else {
         throw new Error("Invalid function arguments.");
-    }
-};
-
-const getFuncSignature = (stmtsComp: PetMap): FuncSignature => {
-    const { argVars, argsVar } = getSignatureVars(stmtsComp);
-    if (typeof argVars === "undefined") {
-        const argsName = argsVar.getMember(symbols.IDENT).getPetString();
-        return { argsName };
-    } else {
-        const argNames = argVars.map((argVar) => (
-            argVar.getMember(symbols.IDENT).getPetString()
-        ));
-        return { argNames };
     }
 };
 
@@ -97,16 +84,21 @@ export const globalProcDefs: ProcDef[] = [
         eval: (task, expr, varSpace) => {
             const comps = expr.getMember(symbols.COMPS).getList();
             const stmtsComp = comps.getMember(1).getMap();
-            const signature = getFuncSignature(stmtsComp);
+            const fieldValue = expr.getMember(symbols.ACCESSED_VARS);
+            const createFunc = (varsValue: PetValue): Action => {
+                const accessedVars = varsValue.getMap();
+                const userFunc = new UserFunc(stmtsComp, varSpace, accessedVars);
+                return task.returnValue(userFunc);
+            };
+            if (typeof fieldValue !== "undefined") {
+                return createFunc(fieldValue);
+            }
             const scope = getScope(expr);
             return task.callMethod(
                 stmtsComp, symbols.ACCESSED_VARS, [scope],
                 (resultValue) => {
-                    const accessedVars = resultValue.getMap();
-                    // TODO: Use accessedVars.
-                    
-                    const userFunc = new UserFunc(stmtsComp, varSpace, signature);
-                    return task.returnValue(userFunc);
+                    expr.setMember(symbols.ACCESSED_VARS, resultValue);
+                    return createFunc(resultValue);
                 }
             );
         },
