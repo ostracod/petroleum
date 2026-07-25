@@ -69,6 +69,8 @@ Petroleum defines many symbols for keys and values in various data structures. S
 * `#COMPS` symbolizes a list of components.
 * `#COND` symbolizes a condition.
 * `#DECL_COMP` symbolizes a declaration component.
+* `#DEPS` symbolizes a map of dependencies.
+* `#DIR_PATH` symbolizes a directory path.
 * `#ERROR_TYPE` symbolizes the type of an error.
 * `#EXCEP_TYPE` symbolizes the type of an exception.
 * `#EXPR` symbolizes an expression.
@@ -93,11 +95,13 @@ Petroleum defines many symbols for keys and values in various data structures. S
 * `#IS_SCOPE` symbolizes whether a map is a scope.
 * `#LINE_NUM` symbolizes a line number.
 * `#LOC` symbolizes a string index, list index, or field key.
+* `#MAIN_MODULE` symbolizes the main module of a package.
 * `#MESSAGE` symbolizes a message.
 * `#METHODS` symbolizes a map of methods.
 * `#MODULE` symbolizes a module.
 * `#MODULE_TYPE` symbolizes the type of a module.
 * `#NODE_TYPE` symbolizes the type of a node.
+* `#PACK` symbolizes a package.
 * `#PARENT` symbolizes a parent.
 * `#PETROL_MODULE` symbolizes a module written in Petroleum code.
 * `#PHASE` symbolizes a phase.
@@ -105,6 +109,7 @@ Petroleum defines many symbols for keys and values in various data structures. S
 * `#PREP_VAR` symbolizes a prep-var.
 * `#RET_LEVEL` symbolizes the level of a return exception.
 * `#SCOPE` symbolizes a scope.
+* `#SPECIFIER` symbolizes a specifier.
 * `#STMT` symbolizes a statement.
 * `#STMT_TYPE` symbolizes the type of a statement.
 * `#STMTS` symbolizes a list of statements.
@@ -115,6 +120,7 @@ Petroleum defines many symbols for keys and values in various data structures. S
 * `#VAR` symbolizes a variable.
 * `#VAR_TYPE` symbolizes the type of a variable.
 * `#VARS` symbolizes a map of variables.
+* `#VER` symbolizes a version.
 * `#WORK_PHASE` symbolizes work-phase.
 * `#WORK_VAR` symbolizes a work-var.
 

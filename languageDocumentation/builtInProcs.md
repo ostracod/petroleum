@@ -72,7 +72,7 @@ Assigns `$value` to work-var `$name` in `$module`. If `($module)` is excluded, t
 IMPORT ($specifier) AS @$moduleName [VARS [$vars]]
 ```
 
-Imports a built-in module or a module in the current package according to `$specifier`. `$specifier` is either a built-in module symbol or a path relative to the current package root. If `AS @$moduleName` is included, the procedure stores the module in prep-var `$moduleName`. If `[VARS [$vars]]` is included, each attribute in `$vars` may have one of the following forms:
+Imports a built-in module or a module in the current package according to `$specifier`. `$specifier` is either a built-in module symbol or a path relative to the current package root. `$specifier` is determined during prep-phase. If `AS @$moduleName` is included, the procedure stores the module in prep-var `$moduleName`. If `[VARS [$vars]]` is included, each attribute in `$vars` may have one of the following forms:
 
 * `@$varName`
     * Imports `$varName` from the external module, exposing the variable as `$varName` in the current module.

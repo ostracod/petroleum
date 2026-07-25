@@ -5,6 +5,17 @@ Various types of data in Petroleum are represented as maps which conform to spec
 
 The user can add fields with their own keys to the map schemas if desired. Extra fields are useful to associate custom data with maps.  However, it may be dangerous to modify existing fields in map schemas. Avoid tampering with existing fields unless encouraged by documentation.
 
+### Package Schema
+
+Packages are represented as maps with the following fields:
+
+* The `#SPECIFIER` field stores the specifier of the package.
+    * See the section on the module system for information about package specifiers.
+* The `#VER` field stores the version of the package.
+* The `#MAIN_MODULE` field stores the main module of the package.
+* The `#DEPS` field stores a map from specifier to dependency package.
+* The `#DIR_PATH` field stores the absolute path of the package directory.
+
 ### Module Schema
 
 Modules are represented as maps. All modules have the following fields:
@@ -19,6 +30,7 @@ Modules written in Petroleum code have the following fields:
 * The `#FILE_PATH` field stores the absolute file path of the module.
 * The `#STMTS_COMP` field stores the top-level statement sequence component of the module.
     * Note that the start and end curly braces of the top-level statement sequence component are implicit.
+* The `#PACK` field stores the parent package.
 * The `#SCOPE` field references the same scope as held by the top-level statement sequence component of the module.
 * The `#FRAME` field is absent until the top-level statement sequence component enters work-phase.
 
