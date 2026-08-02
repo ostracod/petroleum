@@ -83,6 +83,7 @@ const createStmtsComp = (stmtSeqResult: StmtSeqResult, pos: ContentPos): PetMap 
 };
 
 export class ModuleParser {
+    parentPackage: PetMap
     modulePath: string;
     globalScope: PetMap;
     moduleContent: string;
@@ -92,7 +93,8 @@ export class ModuleParser {
     scope: PetMap | null;
     
     // `modulePath` must be an absolute path.
-    constructor(modulePath: string, globalScope: PetMap) {
+    constructor(parentPackage: PetMap, modulePath: string, globalScope: PetMap) {
+        this.parentPackage = parentPackage;
         this.modulePath = modulePath;
         this.globalScope = globalScope;
     }
@@ -478,6 +480,7 @@ export class ModuleParser {
             [symbols.MODULE_TYPE, symbols.PETROL_MODULE],
             [symbols.FILE_PATH, new PetString(this.modulePath)],
             [symbols.STMTS_COMP, stmtsComp],
+            [symbols.PACK, this.parentPackage],
             [symbols.SCOPE, stmtSeqResult.scope],
         ]);
         stmtsComp.setMember(symbols.PARENT, module);

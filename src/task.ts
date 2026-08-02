@@ -5,7 +5,6 @@ import { PetSymbol, symbols } from "./symbol.js";
 import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged, valueToString } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
 import { funcInvocationMethods, stmtsCompMethods, exprsCompMethods, stringExprMethods, identExprMethods, defaultPrepMethod, defaultEvalMethod, defaultVarsMethod } from "./method.js";
-import { ModuleParser } from "./moduleParser.js";
 import { PetContext } from "./context.js";
 
 export interface Action {
@@ -241,33 +240,30 @@ export const mainTask: TaskDef<null, { moduleIndex: number }> = {
     getInitState: (params) => ({ moduleIndex: 0 }),
     stages: [
         (task) => {
-            const modulePath = task.context.entryPackage.mainModulePath;
-            task.context.loadUserModule(modulePath);
-            return task.advanceStage({ moduleIndex: 0 });
-        },
-        (task) => {
             const { moduleIndex } = task.state;
             const { userModules } = task.context;
-            const moduleAmount = userModules.getLength();
-            if (moduleIndex < moduleAmount) {
-                return task.runTask(
-                    awaitModulePrepTask, { moduleIndex },
-                    (value) => task.repeatStage({ moduleIndex: moduleIndex + 1 }),
+            if (moduleIndex < userModules.length) {
+                const module = userModules[moduleIndex];
+                const stmtsComp = module.getMember(symbols.STMTS_COMP).getMap();
+                return task.awaitMember(
+                    stmtsComp,
+                    symbols.PHASE,
+                    new NotEqualFunc(symbols.PREP_PHASE),
+                    task.repeatStage({ moduleIndex: moduleIndex + 1 }),
                 );
             } else {
-                for (const element of userModules.elements) {
-                    const module = element.getMap();
+                for (const module of userModules) {
                     const scope = module.getMember(symbols.SCOPE).getMap();
                     const frame = createFrame(scope, null);
                     module.setMember(symbols.FRAME, frame);
                 }
-                return task.advanceStage({ moduleIndex: moduleAmount - 1 });
+                return task.advanceStage({ moduleIndex: userModules.length - 1 });
             }
         },
         (task) => {
             const { moduleIndex } = task.state;
             if (moduleIndex >= 0) {
-                const module = task.context.userModules.getMember(moduleIndex).getMap();
+                const module = task.context.userModules[moduleIndex];
                 const stmtsComp = module.getMember(symbols.STMTS_COMP).getMap();
                 const scope = module.getMember(symbols.SCOPE).getMap();
                 const parentScope = scope.getMember(symbols.PARENT);
@@ -282,40 +278,11 @@ export const mainTask: TaskDef<null, { moduleIndex: number }> = {
     ],
 };
 
-const awaitModulePrepTask: TaskDef<{ moduleIndex: number }, null> = {
+export const prepModuleTask: TaskDef<{ module: PetMap }, null> = {
     getInitState: (params) => null,
     stages: [
         (task) => {
-            return task.awaitMember(
-                task.context.userModules,
-                BigInt(task.params.moduleIndex),
-                new NotEqualFunc(null),
-                task.advanceStage(null),
-            );
-        },
-        (task) => {
-            const modules = task.context.userModules;
-            const module = modules.getMember(task.params.moduleIndex).getMap();
-            const stmtsComp = module.getMember(symbols.STMTS_COMP).getMap();
-            return task.awaitMember(
-                stmtsComp,
-                symbols.PHASE,
-                new NotEqualFunc(symbols.PREP_PHASE),
-                task.returnValue(null),
-            );
-        },
-    ],
-};
-
-export const loadModuleTask: TaskDef<{ modulePath: string }, null> = {
-    getInitState: (params) => null,
-    stages: [
-        (task) => {
-            // TODO: Pass if file is missing.
-            const { modulePath } = task.params;
-            const moduleParser = new ModuleParser(modulePath, task.context.globalScope);
-            const module = moduleParser.parseModule();
-            task.context.setUserModule(modulePath, module);
+            const { module } = task.params;
             const stmtsComp = module.getMember(symbols.STMTS_COMP).getMap();
             return task.callMethod(
                 stmtsComp, symbols.PREP, [],

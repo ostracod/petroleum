@@ -1,34 +1,36 @@
 
 import "./scheduler.js";
 
+import * as pathUtils from "path";
 import { symbols } from "./symbol.js";
 import { KnownValue, PetString, PetList, PetMap } from "./value.js";
 import { BuiltInFunc, DefFunc, globalFuncDefs } from "./builtInFunc.js";
 import { createProcedure, globalProcDefs } from "./procedure.js";
 import { CoroEndError } from "./error.js";
-import { UserPackage } from "./package.js";
-import { Action, TaskDef, TaskMembers, Task, mainTask, loadModuleTask } from "./task.js";
+import { ModuleParser } from "./moduleParser.js";
+import { resolvePackages } from "./package.js";
+import { Action, TaskDef, TaskMembers, Task, mainTask, prepModuleTask } from "./task.js";
 import { Scheduler } from "./scheduler.js";
 
 export class PetContext {
-    entryPackage: UserPackage;
     applicationArgs: string[];
     scheduler: Scheduler;
-    // This needs to be a PetList so that mainTask can await each element.
-    userModules: PetList;
+    userModules: PetMap[];
     // Map from absolute module path to index in `userModules`.
     userModuleIndexes: Map<string, number>;
     preppingWorkers: Set<PetMap>;
     globalScope: PetMap;
     
     constructor(entryPackagePath: string, applicationArgs: string[]) {
-        this.entryPackage = new UserPackage(entryPackagePath);
         this.applicationArgs = applicationArgs;
         this.scheduler = new Scheduler(this);
-        this.userModules = new PetList();
+        this.userModules = [];
         this.userModuleIndexes = new Map();
         this.preppingWorkers = new Set();
         this.globalScope = this.createGlobalScope();
+        const entryPackage = resolvePackages(entryPackagePath, this.globalScope);
+        const mainModule = entryPackage.getMember(symbols.MAIN_MODULE).getMap();
+        this.addUserModule(mainModule);
     }
     
     createGlobalScope(): PetMap {
@@ -106,19 +108,21 @@ export class PetContext {
         return task.getStageAction();
     }
     
-    loadUserModule(modulePath: string): void {
+    addUserModule(module: PetMap): void {
+        const modulePath = module.getMember(symbols.FILE_PATH).toString();
+        this.userModuleIndexes.set(modulePath, this.userModules.length);
+        this.userModules.push(module);
+        this.scheduler.scheduleTask(prepModuleTask, { module });
+    }
+    
+    loadUserModule(parentPackage: PetMap, modulePath: string): void {
         if (this.userModuleIndexes.has(modulePath)) {
             return;
         }
-        const moduleIndex = this.userModules.getLength();
-        this.userModuleIndexes.set(modulePath, moduleIndex);
-        this.userModules.addElement(null);
-        this.scheduler.scheduleTask(loadModuleTask, { modulePath });
-    }
-    
-    setUserModule(modulePath: string, module: PetMap): void {
-        const moduleIndex = this.userModuleIndexes.get(modulePath);
-        this.userModules.setMember(moduleIndex, module);
+        const absPath = pathUtils.resolve(modulePath);
+        const moduleParser = new ModuleParser(parentPackage, absPath, this.globalScope);
+        const module = moduleParser.parseModule();
+        this.addUserModule(module);
     }
 }
 
