@@ -3,7 +3,7 @@ import "./scheduler.js";
 
 import * as pathUtils from "path";
 import { symbols } from "./symbol.js";
-import { KnownValue, PetString, PetList, PetMap } from "./value.js";
+import { PetValue, KnownValue, PetString, PetList, PetMap } from "./value.js";
 import { BuiltInFunc, DefFunc, globalFuncDefs } from "./builtInFunc.js";
 import { createProcedure, globalProcDefs } from "./procedure.js";
 import { CoroEndError } from "./error.js";
@@ -115,12 +115,13 @@ export class PetContext {
         this.scheduler.scheduleTask(prepModuleTask, { module });
     }
     
-    loadUserModule(parentPackage: PetMap, modulePath: string): void {
-        if (this.userModuleIndexes.has(modulePath)) {
+    loadUserModule(parentPackage: PetMap, relModulePath: string): void {
+        const packagePath = parentPackage.getMember(symbols.DIR_PATH).toString();
+        const absModulePath = pathUtils.resolve(pathUtils.join(packagePath, relModulePath));
+        if (this.userModuleIndexes.has(absModulePath)) {
             return;
         }
-        const absPath = pathUtils.resolve(modulePath);
-        const moduleParser = new ModuleParser(parentPackage, absPath, this.globalScope);
+        const moduleParser = new ModuleParser(parentPackage, absModulePath, this.globalScope);
         const module = moduleParser.parseModule();
         this.addUserModule(module);
     }

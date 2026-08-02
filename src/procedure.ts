@@ -1,10 +1,10 @@
 
 import "./method.js";
 
-import { symbols } from "./symbol.js";
-import { PetValue, nullValue, PetMap, UserFunc, handleRetExcep, EvalState } from "./value.js";
+import { PetSymbol, symbols } from "./symbol.js";
+import { PetValue, nullValue, PetString, PetMap, UserFunc, handleRetExcep, EvalState } from "./value.js";
 import { MethodDict, createMethodMap } from "./method.js";
-import { Action, getScope, findVariable } from "./task.js";
+import { Action, getScope, findVariable, getModule } from "./task.js";
 
 interface ProcDef extends MethodDict {
     name: string;
@@ -177,6 +177,32 @@ export const globalProcDefs: ProcDef[] = [
                 },
             );
         },
+    },
+    {
+        name: "IMPORT",
+        prep: (task, stmt) => {
+            const comps = stmt.getMember(symbols.COMPS).getList();
+            const exprsComp = comps.getMember(1).getMap();
+            const scope = getScope(exprsComp);
+            return task.callMethod(
+                exprsComp, symbols.EVAL, [scope],
+                (values) => {
+                    const specifier = values.getList().getMember(0).getKnownValue();
+                    if (specifier instanceof PetString) {
+                        const path = specifier.toString();
+                        const module = getModule(stmt);
+                        const parentPackage = module.getMember(symbols.PACK).getMap();
+                        task.context.loadUserModule(parentPackage, path);
+                    } else if (specifier instanceof PetSymbol) {
+                        // TODO: Handle built-in module specifiers.
+                        
+                    }
+                    return task.returnValue(null);
+                }
+            );
+            
+        },
+        accessedVars: (task, expr, scope) => task.returnValue(new PetMap()),
     },
     {
         name: "RET",

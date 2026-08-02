@@ -3,7 +3,7 @@ import "./error.js";
 
 import * as fs from "fs";
 import { symbols } from "./symbol.js";
-import { KnownValue, escapeChars, PetString, PetList, PetMap } from "./value.js";
+import { PetValue, KnownValue, toPetValue, escapeChars, PetString, PetList, PetMap } from "./value.js";
 
 interface ContentPos {
     lineNumber: bigint;
@@ -83,7 +83,7 @@ const createStmtsComp = (stmtSeqResult: StmtSeqResult, pos: ContentPos): PetMap 
 };
 
 export class ModuleParser {
-    parentPackage: PetMap
+    parentPackage: PetValue;
     modulePath: string;
     globalScope: PetMap;
     moduleContent: string;
@@ -93,8 +93,8 @@ export class ModuleParser {
     scope: PetMap | null;
     
     // `modulePath` must be an absolute path.
-    constructor(parentPackage: PetMap, modulePath: string, globalScope: PetMap) {
-        this.parentPackage = parentPackage;
+    constructor(parentPackage: PetMap | PetValue, modulePath: string, globalScope: PetMap) {
+        this.parentPackage = toPetValue(parentPackage);
         this.modulePath = modulePath;
         this.globalScope = globalScope;
     }
