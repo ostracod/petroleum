@@ -115,15 +115,17 @@ export class PetContext {
         this.scheduler.scheduleTask(prepModuleTask, { module });
     }
     
-    loadUserModule(parentPackage: PetMap, relModulePath: string): void {
+    loadUserModule(parentPackage: PetMap, relModulePath: string): PetMap {
         const packagePath = parentPackage.getMember(symbols.DIR_PATH).toString();
         const absModulePath = pathUtils.resolve(pathUtils.join(packagePath, relModulePath));
-        if (this.userModuleIndexes.has(absModulePath)) {
-            return;
+        const userModuleIndex = this.userModuleIndexes.get(absModulePath);
+        if (typeof userModuleIndex !== "undefined") {
+            return this.userModules[userModuleIndex];
         }
         const moduleParser = new ModuleParser(parentPackage, absModulePath, this.globalScope);
         const module = moduleParser.parseModule();
         this.addUserModule(module);
+        return module;
     }
 }
 

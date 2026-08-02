@@ -2,7 +2,7 @@
 import "./method.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { PetValue, nullValue, PetString, PetMap, UserFunc, handleRetExcep, EvalState } from "./value.js";
+import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc, handleRetExcep, EvalState } from "./value.js";
 import { MethodDict, createMethodMap } from "./method.js";
 import { Action, getScope, findVariable, getModule } from "./task.js";
 
@@ -46,6 +46,62 @@ export const getSignatureVars = (stmtsComp: PetMap): SignatureVars => {
         return { argsVar };
     } else {
         throw new Error("Invalid function arguments.");
+    }
+};
+
+const setUpImportVar = (comps: PetList, moduleVars: PetMap): void => {
+    const firstComp = comps.getMember(0).getMap();
+    let externVarName: PetString;
+    let internVar: PetMap;
+    if (firstComp.getMember(symbols.COMP_TYPE).getSymbol() === symbols.DECL_COMP) {
+        internVar = firstComp.getMember(symbols.VAR).getMap();
+        externVarName = internVar.getMember(symbols.IDENT).getPetString();
+    } else {
+        externVarName = firstComp.getMember(symbols.IDENT).getPetString();
+        // comps.getMember(1) should be "AS".
+        const declComp = comps.getMember(2).getMap();
+        internVar = declComp.getMember(symbols.VAR).getMap();
+    }
+    const externVar = moduleVars.getMember(externVarName);
+    internVar.setMember(symbols.VAR_TYPE, symbols.IMPORT_VAR);
+    internVar.setMember(symbols.IMPORT_VAR, symbols.externVar);
+};
+
+const setUpImportVars = (comps: PetList, module: PetMap): void => {
+    const compAmount = comps.getLength();
+    let compIndex = 2;
+    if (compIndex >= compAmount) {
+        return;
+    }
+    const comp = comps.getMember(compIndex).getMap();
+    const compType = comp.getMember(symbols.COMP_TYPE).getSymbol();
+    if (compType === symbols.IDENT_COMP && comp.getMember(symbols.IDENT).toString() == "AS") {
+        const declComp = comps.getMember(compIndex + 1).getMap();
+        const variable = declComp.getMember(symbols.VAR).getMap();
+        variable.setMember(symbols.VAR_TYPE, symbols.PREP_VAR);
+        variable.setMember(symbols.VALUE, module);
+        compIndex += 2;
+    }
+    if (compIndex >= compAmount) {
+        return;
+    }
+    const moduleScope = module.getMember(symbols.SCOPE).getMap();
+    const moduleVars = moduleScope.getMember(symbols.VARS).getMap();
+    const attrsComp = comps.getMember(compIndex).getMap();
+    const attrs = attrsComp.getMember(symbols.ATTRS).getList();
+    for (const attr of attrs.elements) {
+        const attrComps = attr.getMap().getMember(symbols.COMPS).getList();
+        const firstComp = attrComps.getMember(0).getMap();
+        const firstCompType = firstComp.getMember(symbols.COMP_TYPE).getSymbol();
+        if (firstCompType === symbols.IDENT_COMP
+                && firstComp.getMember(symbols.IDENT).toString() == "VARS") {
+            const varAttrsComp = attrComps.getMember(1).getMap();
+            const varAttrs = varAttrsComp.getMember(symbols.ATTRS).getList();
+            for (const varAttr of varAttrs.elements) {
+                const varAttrComps = varAttr.getMap().getMember(symbols.COMPS).getList();
+                setUpImportVar(varAttrComps, moduleVars);
+            }
+        }
     }
 };
 
@@ -188,15 +244,16 @@ export const globalProcDefs: ProcDef[] = [
                 exprsComp, symbols.EVAL, [scope],
                 (values) => {
                     const specifier = values.getList().getMember(0).getKnownValue();
+                    let module: PetMap;
                     if (specifier instanceof PetString) {
                         const path = specifier.toString();
-                        const module = getModule(stmt);
-                        const parentPackage = module.getMember(symbols.PACK).getMap();
-                        task.context.loadUserModule(parentPackage, path);
+                        const parentModule = getModule(stmt);
+                        const parentPackage = parentModule.getMember(symbols.PACK).getMap();
+                        module = task.context.loadUserModule(parentPackage, path);
                     } else if (specifier instanceof PetSymbol) {
-                        // TODO: Handle built-in module specifiers.
-                        
+                        throw new Error("Built-in modules are not yet supported.");
                     }
+                    setUpImportVars(comps, module);
                     return task.returnValue(null);
                 }
             );
