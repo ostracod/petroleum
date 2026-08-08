@@ -2,9 +2,11 @@
 import "./builtInFunc.js";
 
 import { symbols } from "./symbol.js";
-import { PetValue, PetMap } from "./value.js";
+import { KnownValue, valueToString, PetMap, PetFunc } from "./value.js";
 import { DefFunc } from "./builtInFunc.js";
-import { Action, Task, prepStmtsTask, evalStmtsTask, prepExprsTask, evalExprsTask, prepWorkersTask, workersVarsTask, getFuncArgsComp, evalFuncTask, getScope, findVariable, getVarValue } from "./task.js";
+import { getChildWorkers, getFuncArgsComp } from "./node.js";
+import { getScope, findVariable, getVarValue } from "./variable.js";
+import { Action, Task, prepStmtsTask, evalStmtsTask, prepExprsTask, evalExprsTask, prepWorkersTask, workersVarsTask, evalFuncTask } from "./task.js";
 
 export type CallPrepMethod = (task: Task, worker: PetMap) => Action;
 export type CallEvalMethod = (task: Task, worker: PetMap, varSpace: PetMap) => Action;
@@ -62,26 +64,6 @@ class AccessedVarsMethod extends DefFunc {
 
 const callNopPrep: CallPrepMethod = (task, worker) => task.returnValue(null);
 
-const getChildWorkers = (node: PetMap): PetMap[] => {
-    const output: PetMap[] = [];
-    const comps = node.getMember(symbols.COMPS).getList();
-    for (const compValue of comps.elements) {
-        const comp = compValue.getMap();
-        const compType = comp.getMember(symbols.COMP_TYPE).getSymbol();
-        if (compType === symbols.STMTS_COMP || compType === symbols.EXPRS_COMP) {
-            output.push(comp);
-        } else if (compType === symbols.ATTRS_COMP) {
-            const attrs = comp.getMember(symbols.ATTRS).getList();
-            for (const attrValue of attrs.elements) {
-                const attr = attrValue.getMap();
-                const workers = getChildWorkers(attr);
-                output.push(...workers);
-            }
-        }
-    }
-    return output;
-};
-
 export const defaultPrepMethod = new PrepMethod((task, worker) => {
     const childWorkers = getChildWorkers(worker);
     return task.runTask(
@@ -101,6 +83,23 @@ export const defaultVarsMethod = new AccessedVarsMethod((task, worker, scope) =>
         (value) => task.returnValue(value),
     );
 });
+
+export const getMethodWithDefault = (methodMap: PetMap, methodKey: KnownValue): PetFunc => {
+    const method = methodMap.getMember(methodKey);
+    if (typeof method !== "undefined") {
+        return method.getFunc();
+    }
+    if (methodKey === symbols.PREP) {
+        return defaultPrepMethod;
+    }
+    if (methodKey === symbols.EVAL) {
+        return defaultEvalMethod;
+    }
+    if (methodKey === symbols.ACCESSED_VARS) {
+        return defaultVarsMethod;
+    }
+    throw new Error("Missing method key: " + valueToString(methodKey));
+};
 
 export const createMethodMap = (methodDict: MethodDict): PetMap => {
     const output = new PetMap([]);

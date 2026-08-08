@@ -2,9 +2,11 @@
 import "./method.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc, handleRetExcep, EvalState } from "./value.js";
+import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc, EvalState } from "./value.js";
 import { MethodDict, createMethodMap } from "./method.js";
-import { Action, getScope, findVariable, getModule } from "./task.js";
+import { getModule } from "./node.js";
+import { findVariable, getScope, getSignatureVars } from "./variable.js";
+import { Action } from "./task.js";
 
 interface ProcDef extends MethodDict {
     name: string;
@@ -16,37 +18,6 @@ export const createProcedure = (procDef: ProcDef): PetMap => {
         [symbols.IS_PROC, 1n],
         [symbols.METHODS, methodMap],
     ]);
-};
-
-interface SignatureVars {
-    argVars?: PetMap[];
-    argsVar?: PetMap;
-}
-
-export const getSignatureVars = (stmtsComp: PetMap): SignatureVars => {
-    const attrs = stmtsComp.getMember(symbols.ATTRS).getList();
-    if (attrs.getLength() <= 0) {
-        return { argVars: [] };
-    }
-    const attr = attrs.getMember(0).getMap();
-    const comps = attr.getMember(symbols.COMPS).getList();
-    const comp = comps.getMember(1).getMap();
-    const compType = comp.getMember(symbols.COMP_TYPE).getSymbol();
-    if (compType === symbols.ATTRS_COMP) {
-        const argAttrs = comp.getMember(symbols.ATTRS).getList();
-        const argVars = argAttrs.elements.map((attrValue) => {
-            const argAttr = attrValue.getMap();
-            const argComps = argAttr.getMember(symbols.COMPS).getList();
-            const declComp = argComps.getMember(0).getMap();
-            return declComp.getMember(symbols.VAR).getMap();
-        });
-        return { argVars };
-    } else if (compType === symbols.DECL_COMP) {
-        const argsVar = comp.getMember(symbols.VAR).getMap();
-        return { argsVar };
-    } else {
-        throw new Error("Invalid function arguments.");
-    }
 };
 
 const setUpImportVar = (comps: PetList, moduleVars: PetMap): void => {
@@ -115,7 +86,7 @@ export const globalProcDefs: ProcDef[] = [
             return task.callMethod(
                 stmtsComp, symbols.EVAL, [varSpace],
                 (value) => task.returnValue(null),
-                handleRetExcep(task),
+                (exception) => task.handleRetExcep(exception),
             );
         },
     },

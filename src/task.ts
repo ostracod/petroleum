@@ -1,10 +1,12 @@
 
-import "./package.js";
+import "./node.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged, valueToString } from "./value.js";
+import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
-import { funcInvocationMethods, stmtsCompMethods, exprsCompMethods, stringExprMethods, identExprMethods, defaultPrepMethod, defaultEvalMethod, defaultVarsMethod } from "./method.js";
+import { getMethodWithDefault } from "./method.js";
+import { workerIsInvocation, getWorkerMethodMap, getFuncArgsComp } from "./node.js";
+import { createFrame, VarSpaceType, getVarSpaceType, getVarValue, getScope } from "./variable.js";
 import { PetContext } from "./context.js";
 
 export interface Action {
@@ -206,35 +208,24 @@ export class Task<ParamsT = any, StateT = any> {
         const invocation = createMethodInvocation(worker, key, args);
         this.context.scheduler.scheduleTask(callMethodTask, invocation);
     }
-}
-
-// parentVarSpace is either a scope or a frame.
-export const createFrame = (scope: PetMap, parentFrame: PetMap | null): PetMap => {
-    const variables = scope.getMember(symbols.VARS).getMap();
-    const frameEntries: [PetValue, PetMap][] = [];
-    for (const field of variables.fields.values()) {
-        const variable = field.value.getMap();
-        const varType = variable.getMember(symbols.VAR_TYPE).getSymbol();
-        if (varType === symbols.WORK_VAR) {
-            const identifier = variable.getMember(symbols.IDENT);
-            const frameEntry = new PetMap([
-                [symbols.IS_FRAME_ENTRY, 1n],
-                [symbols.VAR, variable],
-                [symbols.VALUE, null],
-            ]);
-            frameEntries.push([identifier, frameEntry]);
+    
+    handleRetExcep(excepValue: PetValue): Action {
+        const exception = excepValue.getMap();
+        const excepType = exception.getMember(symbols.EXCEP_TYPE).getSymbol();
+        if (excepType === symbols.RET_EXCEP) {
+            const retLevel = exception.getMember(symbols.RET_LEVEL).getInt();
+            if (retLevel <= 0n) {
+                const value = exception.getMember(symbols.VALUE);
+                return this.returnValue(value);
+            } else {
+                const excepCopy = exception.shallowCopy();
+                excepCopy.setMember(symbols.RET_LEVEL, retLevel - 1n);
+                return this.throwException(excepCopy);
+            }
         }
+        return this.throwException(exception);
     }
-    const output = new PetMap([
-        [symbols.IS_FRAME, 1n],
-        [symbols.SCOPE, scope],
-        [symbols.FRAME_ENTRIES, new PetMap(frameEntries)],
-    ]);
-    if (parentFrame !== null) {
-        output.setMember(symbols.PARENT, parentFrame);
-    }
-    return output;
-};
+}
 
 export const mainTask: TaskDef<null, { moduleIndex: number }> = {
     getInitState: (params) => ({ moduleIndex: 0 }),
@@ -546,80 +537,6 @@ export const awaitCondTask: TaskDef<{ observer: MemberObserver }, null> = {
     ],
 };
 
-const nodeIsInvocation = (node: PetMap, nodeType: PetSymbol): boolean => {
-    if (nodeType === symbols.STMT) {
-        const stmtType = node.getMember(symbols.STMT_TYPE).getSymbol();
-        return (stmtType === symbols.INVOC_STMT);
-    } else if (nodeType === symbols.EXPR) {
-        const exprType = node.getMember(symbols.EXPR_TYPE).getSymbol();
-        return (exprType === symbols.INVOC_EXPR);
-    }
-    return false;
-};
-
-const workerIsInvocation = (worker: PetMap): boolean => {
-    const nodeTypeValue = worker.getMember(symbols.NODE_TYPE);
-    if (typeof nodeTypeValue === "undefined") {
-        return false;
-    }
-    const nodeType = nodeTypeValue.getSymbol();
-    return nodeIsInvocation(worker, nodeType);
-};
-
-const getWorkerMethodMap = (worker: PetMap): PetMap => {
-    const nodeTypeValue = worker.getMember(symbols.NODE_TYPE);
-    if (typeof nodeTypeValue !== "undefined") {
-        const nodeType = nodeTypeValue.getSymbol();
-        if (nodeIsInvocation(worker, nodeType)) {
-            const invocable = worker.getMember(symbols.INVOC).getKnownValue();
-            if (invocable instanceof PetFunc) {
-                return funcInvocationMethods;
-            } else {
-                const procedure = invocable as PetMap;
-                return procedure.getMember(symbols.METHODS).getMap();
-            }
-        } else if (nodeType === symbols.EXPR) {
-            const exprType = worker.getMember(symbols.EXPR_TYPE).getSymbol();
-            if (exprType === symbols.STR_EXPR) {
-                return stringExprMethods;
-            } else if (exprType === symbols.IDENT_EXPR) {
-                return identExprMethods;
-            }
-            // TODO: Support calling methods on more types of expressions.
-        }
-        throw new Error("Not yet implemented");
-    }
-    const compTypeValue = worker.getMember(symbols.COMP_TYPE);
-    if (typeof compTypeValue !== "undefined") {
-        const compType = compTypeValue.getSymbol();
-        if (compType === symbols.STMTS_COMP) {
-            return stmtsCompMethods;
-        } else if (compType === symbols.EXPRS_COMP) {
-            return exprsCompMethods;
-        }
-        // TODO: Support calling methods on more types of components.
-        throw new Error("Not yet implemented");
-    }
-    throw new Error("Expected worker.");
-};
-
-const getMethodWithDefault = (methodMap: PetMap, methodKey: KnownValue): PetFunc => {
-    const method = methodMap.getMember(methodKey);
-    if (typeof method !== "undefined") {
-        return method.getFunc();
-    }
-    if (methodKey === symbols.PREP) {
-        return defaultPrepMethod;
-    }
-    if (methodKey === symbols.EVAL) {
-        return defaultEvalMethod;
-    }
-    if (methodKey === symbols.ACCESSED_VARS) {
-        return defaultVarsMethod;
-    }
-    throw new Error("Missing method key: " + valueToString(methodKey));
-};
-
 const callMethodTask: TaskDef<MethodInvocation, null> = {
     getInitState: (params) => null,
     stages: [
@@ -678,102 +595,6 @@ const callMethodTask: TaskDef<MethodInvocation, null> = {
     ],
 };
 
-export enum VarSpaceType { Scope, Frame };
-
-export const getVarSpaceType = (varSpace: PetMap): VarSpaceType => {
-    const isScope = varSpace.getMember(symbols.IS_SCOPE);
-    if (typeof isScope !== "undefined" && isScope.getInt() !== 0n) {
-        return VarSpaceType.Scope;
-    }
-    const isFrame = varSpace.getMember(symbols.IS_FRAME);
-    if (typeof isFrame !== "undefined" && isFrame.getInt() !== 0n) {
-        return VarSpaceType.Frame;
-    }
-    throw new Error("Invalid variable space.");
-};
-
-// varSpace is either a frame or a scope.
-// Returns a variable or frame entry.
-export const findVariable = (varSpace: PetMap, name: PetString): PetMap | null => {
-    let varSpaceIsFrame = (getVarSpaceType(varSpace) === VarSpaceType.Frame);
-    while (true) {
-        let frame: PetMap | null;
-        let scope: PetMap;
-        if (varSpaceIsFrame) {
-            frame = varSpace;
-            scope = frame.getMember(symbols.SCOPE).getMap();
-        } else {
-            frame = null;
-            scope = varSpace;
-        }
-        if (frame !== null) {
-            const frameEntries = frame.getMember(symbols.FRAME_ENTRIES).getMap();
-            const frameEntry = frameEntries.getMember(name);
-            if (typeof frameEntry !== "undefined") {
-                return frameEntry.getMap();
-            }
-        }
-        const variables = scope.getMember(symbols.VARS).getMap();
-        const variable = variables.getMember(name);
-        if (typeof variable !== "undefined") {
-            return variable.getMap();
-        }
-        const parentFrame = frame?.getMember(symbols.PARENT);
-        if (typeof parentFrame === "undefined") {
-            const parentScope = scope.getMember(symbols.PARENT);
-            if (typeof parentScope === "undefined") {
-                break;
-            }
-            varSpace = parentScope.getMap();
-            varSpaceIsFrame = false;
-        } else {
-            varSpace = parentFrame.getMap();
-            varSpaceIsFrame = true;
-        }
-    }
-    return null;
-};
-
-// varSpace is either a frame or a scope.
-export const getVarValue = (varSpace: PetMap, name: PetString): PetValue => {
-    const result = findVariable(varSpace, name);
-    if (result === null) {
-        throw new Error(`Could not find variable "${name.toString()}".`);
-    }
-    // TODO: Handle imported variables.
-    return result.deferMember(symbols.VALUE);
-};
-
-// `entity` is a node or a component.
-export const getScope = (entity: PetMap): PetMap => {
-    while (true) {
-        const scope = entity.getMember(symbols.SCOPE);
-        if (typeof scope !== "undefined") {
-            return scope.getMap();
-        }
-        const parent = entity.getMember(symbols.PARENT);
-        if (typeof parent === "undefined") {
-            throw new Error("Could not get scope.");
-        }
-        entity = parent.getMap();
-    }
-};
-
-// `entity` is a node or a component.
-export const getModule = (entity: PetMap): PetMap => {
-    while (true) {
-        const parent = entity.getMember(symbols.PARENT);
-        if (typeof parent === "undefined") {
-            throw new Error("Could not get module.");
-        }
-        entity = parent.getMap();
-        const moduleType = entity.getMember(symbols.MODULE_TYPE);
-        if (typeof moduleType !== "undefined") {
-            return entity;
-        }
-    }
-};
-
 const determineInvocTask: TaskDef<{ worker: PetMap }, null> = {
     getInitState: (params) => null,
     stages: [
@@ -801,11 +622,6 @@ const determineInvocTask: TaskDef<{ worker: PetMap }, null> = {
             }
         },
     ],
-};
-
-export const getFuncArgsComp = (invocNode: PetMap): PetMap | null => {
-    const comps = invocNode.getMember(symbols.COMPS).getList();
-    return (comps.getLength() > 1) ? comps.getMember(1).getMap() : null;
 };
 
 interface EvalFuncParams {

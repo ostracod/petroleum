@@ -2,9 +2,9 @@
 import "./symbol.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { getSignatureVars } from "./procedure.js";
 import { DeferralError, PetTypeError } from "./error.js";
-import { Action, Task, awaitCondTask, createFrame, findVariable, getVarSpaceType, VarSpaceType } from "./task.js";
+import { createFrame, findVariable, getVarSpaceType, VarSpaceType, getSignatureVars, pruneFrames } from "./variable.js";
+import { Action, Task, awaitCondTask } from "./task.js";
 import { Scheduler } from "./scheduler.js";
 
 // PetValueAndKey contains types which can be used as both values and Map keys.
@@ -502,103 +502,10 @@ export abstract class PetFunc {
     abstract toString(): string;
 }
 
-export interface FuncSignature {
+interface FuncSignature {
     argNames?: PetString[];
     argsName?: PetString;
 }
-
-const pruneFrameEntries = (frame: PetMap, scope: PetMap, remainingVars: PetMap): PetMap => {
-    const frameEntries = frame.getMember(symbols.FRAME_ENTRIES).getMap();
-    const variables = scope.getMember(symbols.VARS).getMap();
-    const output = new PetMap();
-    for (const name of frameEntries.getKeys()) {
-        if (remainingVars.hasKey(name)) {
-            const frameEntry = frameEntries.getMember(name);
-            output.setMember(name, frameEntry);
-            remainingVars.deleteField(name);
-        }
-    }
-    for (const name of variables.getKeys()) {
-        if (remainingVars.hasKey(name)) {
-            remainingVars.deleteField(name);
-        }
-    }
-    return output;
-};
-
-const pruneFrames = (varSpace: PetMap, accessedVars: PetMap): {
-    topFrame: PetMap | null,
-    bottomFrame: PetMap | null,
-    module: PetMap,
-} => {
-    const remainingVars = accessedVars.shallowCopy();
-    let varSpaceIsFrame = (getVarSpaceType(varSpace) === VarSpaceType.Frame);
-    let topFrame: PetMap | null = null;
-    let bottomFrame: PetMap | null = null;
-    let module: PetMap;
-    while (true) {
-        let frame: PetMap | null;
-        let scope: PetMap;
-        if (varSpaceIsFrame) {
-            frame = varSpace;
-            scope = frame.getMember(symbols.SCOPE).getMap();
-        } else {
-            frame = null;
-            scope = varSpace;
-        }
-        const moduleValue = scope.getMember(symbols.MODULE);
-        if (typeof moduleValue !== "undefined") {
-            module = moduleValue.getMap();
-            break;
-        }
-        let prunedEntries: PetMap;
-        if (frame === null) {
-            prunedEntries = new PetMap();
-        } else {
-            prunedEntries = pruneFrameEntries(frame, scope, remainingVars);
-        }
-        const prunedFrame = new PetMap([
-            [symbols.IS_FRAME, 1n],
-            [symbols.SCOPE, scope],
-            [symbols.FRAME_ENTRIES, prunedEntries],
-        ]);
-        if (topFrame === null) {
-            topFrame = prunedFrame;
-            bottomFrame = prunedFrame;
-        } else {
-            bottomFrame.setMember(symbols.PARENT, prunedFrame);
-            bottomFrame = prunedFrame;
-        }
-        const parentFrame = frame?.getMember(symbols.PARENT);
-        if (typeof parentFrame === "undefined") {
-            varSpace = scope.getMember(symbols.PARENT).getMap();
-            varSpaceIsFrame = false;
-        } else {
-            varSpace = parentFrame.getMap();
-            varSpaceIsFrame = true;
-        }
-    }
-    return { topFrame, bottomFrame, module };
-};
-
-export const handleRetExcep = (task: Task): ((excepValue: PetValue) => Action) => (
-    (excepValue) => {
-        const exception = excepValue.getMap();
-        const excepType = exception.getMember(symbols.EXCEP_TYPE).getSymbol();
-        if (excepType === symbols.RET_EXCEP) {
-            const retLevel = exception.getMember(symbols.RET_LEVEL).getInt();
-            if (retLevel <= 0n) {
-                const value = exception.getMember(symbols.VALUE);
-                return task.returnValue(value);
-            } else {
-                const excepCopy = exception.shallowCopy();
-                excepCopy.setMember(symbols.RET_LEVEL, retLevel - 1n);
-                return task.throwException(excepCopy);
-            }
-        }
-        return task.throwException(exception);
-    }
-);
 
 const getFuncSignature = (stmtsComp: PetMap): FuncSignature => {
     const { argVars, argsVar } = getSignatureVars(stmtsComp);
@@ -665,7 +572,7 @@ export class UserFunc extends PetFunc {
         return task.callMethod(
             this.stmtsComp, symbols.EVAL, [bodyFrame],
             (value) => task.returnValue(null),
-            handleRetExcep(task),
+            (exception) => task.handleRetExcep(exception),
         );
     }
     
