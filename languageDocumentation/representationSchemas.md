@@ -92,6 +92,7 @@ Identifier expressions have the following fields:
 * The `#IDENT` field stores the identifier string.
 * The `#VAR` field stores the variable which matches the identifier.
     * This field stores null until the identifier expression finishes prep-phase.
+    * Note that if the identifier matches an imported variable, the `#VAR` field stores the imported variable rather than the referenced prep-var or work-var.
 * Identifier expressions also have `#NODE_TYPE`, `#COMPS`, `#PARENT`, `#PHASE`, `#LINE_NUM`, and `#COL_NUM` fields which are common to all expressions.
 
 Invocation expressions have the following fields:
@@ -254,7 +255,7 @@ Methods are defined as functions. Petroleum recognizes methods with the followin
 * The `#ACCESSED_VARS` method determines the frame entries which a function closure will store.
     * This method accepts two arguments: `$worker` and `$scope`.
     * This method returns a map from variable name to variable visible in `$scope`.
-        * The `#EVAL` method of `$worker` may access these variables.
+        * The map includes all variables which the `#EVAL` method of `$worker` may access.
 
 The user may define methods with other keys if desired. The user is responsible for deciding when to invoke such methods.
 
