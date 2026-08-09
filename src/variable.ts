@@ -46,9 +46,43 @@ export const getVarSpaceType = (varSpace: PetMap): VarSpaceType => {
     throw new Error("Invalid variable space.");
 };
 
+export const findVariable = (scope: PetMap, name: PetString): PetMap | null => {
+    while (true) {
+        const variables = scope.getMember(symbols.VARS).getMap();
+        const variable = variables.getMember(name);
+        if (typeof variable !== "undefined") {
+            return variable.getMap();
+        }
+        const parentScope = scope.getMember(symbols.PARENT);
+        if (typeof parentScope === "undefined") {
+            break;
+        }
+        scope = parentScope.getMap();
+    }
+    return null;
+};
+
+const resolvePrepVar = (variable: PetMap): PetMap | null => {
+    while (true) {
+        const varType = variable.getMember(symbols.VAR_TYPE).getSymbol();
+        if (varType === null) {
+            // TODO: Throw an await exception.
+            throw new Error("Variable type is not defined.");
+        } else if (varType === symbols.PREP_VAR) {
+            return variable;
+        } else if (varType === symbols.IMPORT_VAR) {
+            variable = variable.getMember(symbols.IMPORT_VAR).getMap();
+        } else if (varType === symbols.WORK_VAR) {
+            return null;
+        } else {
+            throw new Error(`Unknown variable type: ${varType.toString()}`);
+        }
+    }
+}
+
 // varSpace is either a frame or a scope.
-// Returns a variable or frame entry.
-export const findVariable = (varSpace: PetMap, name: PetString): PetMap | null => {
+// Returns a frame entry, prep-var, or null.
+export const findVarValue = (varSpace: PetMap, name: PetString): PetMap | null => {
     let varSpaceIsFrame = (getVarSpaceType(varSpace) === VarSpaceType.Frame);
     while (true) {
         let frame: PetMap | null;
@@ -70,7 +104,7 @@ export const findVariable = (varSpace: PetMap, name: PetString): PetMap | null =
         const variables = scope.getMember(symbols.VARS).getMap();
         const variable = variables.getMember(name);
         if (typeof variable !== "undefined") {
-            return variable.getMap();
+            return resolvePrepVar(variable.getMap());
         }
         const parentFrame = frame?.getMember(symbols.PARENT);
         if (typeof parentFrame === "undefined") {
@@ -90,11 +124,10 @@ export const findVariable = (varSpace: PetMap, name: PetString): PetMap | null =
 
 // varSpace is either a frame or a scope.
 export const getVarValue = (varSpace: PetMap, name: PetString): PetValue => {
-    const result = findVariable(varSpace, name);
+    const result = findVarValue(varSpace, name);
     if (result === null) {
         throw new Error(`Could not find variable "${name.toString()}".`);
     }
-    // TODO: Handle imported variables.
     return result.deferMember(symbols.VALUE);
 };
 

@@ -3,7 +3,7 @@ import "./symbol.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
 import { DeferralError, PetTypeError } from "./error.js";
-import { createFrame, findVariable, getVarSpaceType, VarSpaceType, getSignatureVars, pruneFrames } from "./variable.js";
+import { createFrame, findVarValue, getVarSpaceType, VarSpaceType, getSignatureVars, pruneFrames } from "./variable.js";
 import { Action, Task, awaitCondTask } from "./task.js";
 import { Scheduler } from "./scheduler.js";
 
@@ -556,13 +556,13 @@ export class UserFunc extends PetFunc {
         const scope = this.stmtsComp.getMember(symbols.SCOPE).getMap();
         const bodyFrame = createFrame(scope, this.topFrame);
         if (typeof this.argNames === "undefined") {
-            const frameEntry = findVariable(bodyFrame, this.argsName);
+            const frameEntry = findVarValue(bodyFrame, this.argsName);
             frameEntry.setMember(symbols.VALUE, args);
         } else {
             for (let index = 0; index < this.argNames.length; index++) {
                 const argName = this.argNames[index];
                 const arg = args.getMember(index);
-                const frameEntry = findVariable(bodyFrame, argName);
+                const frameEntry = findVarValue(bodyFrame, argName);
                 frameEntry.setMember(symbols.VALUE, arg);
             }
         }

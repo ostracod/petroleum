@@ -5,7 +5,7 @@ import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc, EvalState } from "./value.js";
 import { MethodDict, createMethodMap } from "./method.js";
 import { getModule } from "./node.js";
-import { findVariable, getScope, getSignatureVars } from "./variable.js";
+import { findVarValue, getScope, getSignatureVars } from "./variable.js";
 import { Action } from "./task.js";
 
 interface ProcDef extends MethodDict {
@@ -35,7 +35,7 @@ const setUpImportVar = (comps: PetList, moduleVars: PetMap): void => {
     }
     const externVar = moduleVars.getMember(externVarName);
     internVar.setMember(symbols.VAR_TYPE, symbols.IMPORT_VAR);
-    internVar.setMember(symbols.IMPORT_VAR, symbols.externVar);
+    internVar.setMember(symbols.IMPORT_VAR, externVar);
 };
 
 const setUpImportVars = (comps: PetList, module: PetMap): void => {
@@ -174,7 +174,7 @@ export const globalProcDefs: ProcDef[] = [
             const declComp = comps.getMember(1).getMap();
             const variable = declComp.getMember(symbols.VAR).getMap();
             const varName = variable.getMember(symbols.IDENT).getPetString();
-            const frameEntry = findVariable(varSpace, varName);
+            const frameEntry = findVarValue(varSpace, varName);
             const exprsComp = comps.getMember(3).getMap();
             return task.callMethod(
                 exprsComp, symbols.EVAL, [varSpace],
@@ -193,7 +193,7 @@ export const globalProcDefs: ProcDef[] = [
             const comps = stmt.getMember(symbols.COMPS).getList();
             const identComp = comps.getMember(1).getMap();
             const varName = identComp.getMember(symbols.IDENT).getPetString();
-            const frameEntry = findVariable(varSpace, varName);
+            const frameEntry = findVarValue(varSpace, varName);
             const exprsComp = comps.getMember(3).getMap();
             return task.callMethod(
                 exprsComp, symbols.EVAL, [varSpace],
