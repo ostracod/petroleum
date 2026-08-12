@@ -5,7 +5,7 @@ import { symbols } from "./symbol.js";
 import { KnownValue, valueToString, PetMap, PetFunc } from "./value.js";
 import { DefFunc } from "./builtInFunc.js";
 import { getChildWorkers, getFuncArgsComp } from "./node.js";
-import { getScope, findVariable, getVarValue } from "./variable.js";
+import { getScope, findVariable, getVarValue, varIsInScope } from "./variable.js";
 import { Action, Task, prepStmtsTask, evalStmtsTask, prepExprsTask, evalExprsTask, prepWorkersTask, workersVarsTask, evalFuncTask } from "./task.js";
 
 export type CallPrepMethod = (task: Task, worker: PetMap) => Action;
@@ -219,19 +219,12 @@ export const identExprMethods = createMethodMap({
     },
     accessedVars: (task, expr, scope) => {
         const variable = expr.getMember(symbols.VAR).getMap();
-        const varScope = variable.getMember(symbols.SCOPE).getMap();
-        while (true) {
-            if (scope === varScope) {
-                const varName = variable.getMember(symbols.IDENT).getPetString();
-                return task.returnValue(new PetMap([[varName, variable]]));
-            }
-            const parentScope = scope.getMember(symbols.PARENT);
-            if (typeof parentScope === "undefined") {
-                break
-            }
-            scope = parentScope.getMap();
+        if (varIsInScope(variable, scope)) {
+            const varName = variable.getMember(symbols.IDENT).getPetString();
+            return task.returnValue(new PetMap([[varName, variable]]));
+        } else {
+            return task.returnValue(new PetMap());
         }
-        return task.returnValue(new PetMap());
     },
 });
 

@@ -146,6 +146,21 @@ export const getScope = (entity: PetMap): PetMap => {
     }
 };
 
+export const varIsInScope = (variable: PetMap, scope: PetMap): boolean => {
+    const varScope = variable.getMember(symbols.SCOPE).getMap();
+    while (true) {
+        if (scope === varScope) {
+            return true;
+        }
+        const parentScope = scope.getMember(symbols.PARENT);
+        if (typeof parentScope === "undefined") {
+            break
+        }
+        scope = parentScope.getMap();
+    }
+    return false;
+};
+
 export interface SignatureVars {
     argVars?: PetMap[];
     argsVar?: PetMap;

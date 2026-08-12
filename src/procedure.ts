@@ -5,7 +5,7 @@ import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc, EvalState } from "./value.js";
 import { MethodDict, createMethodMap } from "./method.js";
 import { getModule } from "./node.js";
-import { findVarValue, getScope, getSignatureVars } from "./variable.js";
+import { findVarValue, getScope, varIsInScope, getSignatureVars } from "./variable.js";
 import { Action } from "./task.js";
 
 interface ProcDef extends MethodDict {
@@ -18,6 +18,17 @@ export const createProcedure = (procDef: ProcDef): PetMap => {
         [symbols.IS_PROC, 1n],
         [symbols.METHODS, methodMap],
     ]);
+};
+
+const readWorkVarComps = (stmt: PetMap): { variable: PetMap, exprsComp?: PetMap } => {
+    const comps = stmt.getMember(symbols.COMPS).getList();
+    const declComp = comps.getMember(1).getMap();
+    const variable = declComp.getMember(symbols.VAR).getMap();
+    if (comps.getLength() < 4) {
+        return { variable };
+    }
+    const exprsComp = comps.getMember(3).getMap();
+    return { variable, exprsComp };
 };
 
 const setUpImportVar = (comps: PetList, moduleVars: PetMap): void => {
@@ -153,35 +164,52 @@ export const globalProcDefs: ProcDef[] = [
     {
         name: "WORK_VAR",
         prep: (task, stmt) => {
-            const comps = stmt.getMember(symbols.COMPS).getList();
-            const declComp = comps.getMember(1).getMap();
-            const variable = declComp.getMember(symbols.VAR).getMap();
+            const { variable, exprsComp } = readWorkVarComps(stmt);
             variable.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
-            if (comps.getLength() < 4) {
+            if (typeof exprsComp === "undefined") {
                 return task.returnValue(null);
             }
-            const exprsComp = comps.getMember(3).getMap();
             return task.callMethod(
                 exprsComp, symbols.PREP, [],
                 (value) => task.returnValue(null),
             );
         },
         eval: (task, stmt, varSpace) => {
-            const comps = stmt.getMember(symbols.COMPS).getList();
-            if (comps.getLength() < 4) {
+            const { variable, exprsComp } = readWorkVarComps(stmt);
+            if (typeof exprsComp === "undefined") {
                 return task.returnValue(null);
             }
-            const declComp = comps.getMember(1).getMap();
-            const variable = declComp.getMember(symbols.VAR).getMap();
             const varName = variable.getMember(symbols.IDENT).getPetString();
             const frameEntry = findVarValue(varSpace, varName);
-            const exprsComp = comps.getMember(3).getMap();
             return task.callMethod(
                 exprsComp, symbols.EVAL, [varSpace],
                 (values) => {
                     const value = values.getList().getMember(0);
                     frameEntry.setMember(symbols.VALUE, value);
                     return task.returnValue(null);
+                },
+            );
+        },
+        accessedVars: (task, stmt, scope) => {
+            const { variable, exprsComp } = readWorkVarComps(stmt);
+            const varMap = new PetMap();
+            if (varIsInScope(variable, scope)) {
+                const varName = variable.getMember(symbols.IDENT).getPetString();
+                varMap.setMember(varName, variable);
+            }
+            if (typeof exprsComp === "undefined") {
+                return task.returnValue(varMap);
+            }
+            return task.callMethod(
+                exprsComp, symbols.ACCESSED_VARS, [scope],
+                (resultValue) => {
+                    const resultMap = resultValue.getMap();
+                    const names = resultMap.getKeys();
+                    for (const name of names) {
+                        const accessedVar = resultMap.getMember(name);
+                        varMap.setMember(name, accessedVar);
+                    }
+                    return task.returnValue(varMap);
                 },
             );
         },
@@ -228,7 +256,6 @@ export const globalProcDefs: ProcDef[] = [
                     return task.returnValue(null);
                 }
             );
-            
         },
         accessedVars: (task, expr, scope) => task.returnValue(new PetMap()),
     },

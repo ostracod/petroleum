@@ -60,13 +60,13 @@ Initializes prep-var `$name` with a new symbol whose display name is `$name`.
 GET ($module) $name
 ```
 
-Returns the value of variable `$name` in `$module`.
+Returns the value of variable `$name` in `$module`. `$module` is determined during prep-phase.
 
 ```
 SET ($module) $name = ($value)
 ```
 
-Assigns `$value` to work-var `$name` in `$module`. If `($module)` is excluded, the variable is in the current module.
+Assigns `$value` to work-var `$name` in `$module`. `$module` is determined during prep-phase. If `($module)` is excluded, the variable is in the current scope.
 
 ```
 IMPORT ($specifier) AS @$moduleName [VARS [$vars]]
