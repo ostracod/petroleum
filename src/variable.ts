@@ -1,7 +1,7 @@
 
 import "./package.js";
 
-import { symbols } from "./symbol.js";
+import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, PetString, PetMap } from "./value.js";
 
 // parentVarSpace is either a scope or a frame.
@@ -62,21 +62,54 @@ export const findVariable = (scope: PetMap, name: PetString): PetMap | null => {
     return null;
 };
 
-const resolvePrepVar = (variable: PetMap): PetMap | null => {
+const getVarType = (variable: PetMap): PetSymbol => {
+    const varType = variable.getMember(symbols.VAR_TYPE).getSymbol();
+    if (varType === null) {
+        // TODO: Throw an await exception.
+        throw new Error("Variable type is not defined.");
+    }
+    return varType;
+};
+
+// `variable` is an imported variable.
+// Returns a frame entry, prep-var, or null.
+const resolveImportVar = (variable: PetMap): PetMap | null => {
     while (true) {
-        const varType = variable.getMember(symbols.VAR_TYPE).getSymbol();
-        if (varType === null) {
-            // TODO: Throw an await exception.
-            throw new Error("Variable type is not defined.");
-        } else if (varType === symbols.PREP_VAR) {
+        variable = variable.getMember(symbols.IMPORT_VAR).getMap();
+        const varType = getVarType(variable);
+        if (varType === symbols.PREP_VAR) {
             return variable;
         } else if (varType === symbols.IMPORT_VAR) {
-            variable = variable.getMember(symbols.IMPORT_VAR).getMap();
+            continue;
         } else if (varType === symbols.WORK_VAR) {
-            return null;
+            const scope = variable.getMember(symbols.SCOPE).getMap();
+            const module = scope.getMember(symbols.MODULE).getMap();
+            const frameValue = module.getMember(symbols.FRAME);
+            if (typeof frameValue === "undefined") {
+                return null
+            } else {
+                const frame = frameValue.getMap();
+                const frameEntries = frame.getMember(symbols.FRAME_ENTRIES).getMap();
+                const varName = variable.getMember(symbols.IDENT).getPetString();
+                return frameEntries.getMember(varName).getMap();
+            }
         } else {
             throw new Error(`Unknown variable type: ${varType.toString()}`);
         }
+    }
+};
+
+// Returns a frame entry, prep-var, or null.
+const resolveVariable = (variable: PetMap): PetMap | null => {
+    const varType = getVarType(variable);
+    if (varType === symbols.PREP_VAR) {
+        return variable;
+    } else if (varType === symbols.IMPORT_VAR) {
+        return resolveImportVar(variable);
+    } else if (varType === symbols.WORK_VAR) {
+        return null;
+    } else {
+        throw new Error(`Unknown variable type: ${varType.toString()}`);
     }
 }
 
@@ -104,7 +137,7 @@ export const findVarValue = (varSpace: PetMap, name: PetString): PetMap | null =
         const variables = scope.getMember(symbols.VARS).getMap();
         const variable = variables.getMember(name);
         if (typeof variable !== "undefined") {
-            return resolvePrepVar(variable.getMap());
+            return resolveVariable(variable.getMap());
         }
         const parentFrame = frame?.getMember(symbols.PARENT);
         if (typeof parentFrame === "undefined") {
