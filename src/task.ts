@@ -6,7 +6,7 @@ import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, PetList, Pet
 import { NotEqualFunc } from "./builtInFunc.js";
 import { getMethodWithDefault } from "./method.js";
 import { workerIsInvocation, getWorkerMethodMap, getFuncArgsComp } from "./node.js";
-import { createFrame, VarSpaceType, getVarSpaceType, getVarValue, getScope } from "./variable.js";
+import { createFrame, VarSpaceType, getVarSpaceType, findVariable, getVarValue, getScope } from "./variable.js";
 import { PetContext } from "./context.js";
 
 export interface Action {
@@ -606,7 +606,8 @@ const determineInvocTask: TaskDef<{ worker: PetMap }, null> = {
             const compType = firstComp.getMember(symbols.COMP_TYPE).getSymbol();
             if (compType === symbols.IDENT_COMP) {
                 const identifier = firstComp.getMember(symbols.IDENT).getPetString();
-                const invocable = getVarValue(scope, identifier);
+                const variable = findVariable(scope, identifier);
+                const invocable = getVarValue(scope, variable);
                 worker.setMember(symbols.INVOC, invocable);
                 return task.returnValue(null);
             } else if (compType === symbols.EXPRS_COMP) {

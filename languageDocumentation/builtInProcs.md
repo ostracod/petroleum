@@ -60,13 +60,13 @@ Initializes prep-var `$name` with a new symbol whose display name is `$name`.
 GET ($module) $name
 ```
 
-Returns the value of variable `$name` in `$module`. `$module` is determined during prep-phase.
+Returns the value of variable `$name` in `$module`. The `#PREP` method of this procedure determines `$module` and stores the source variable in a `#SRC_VAR` field of the `GET` expression. The `#EVAL` method of this procedure accesses the `#SRC_VAR` field.
 
 ```
 SET ($module) $name = ($value)
 ```
 
-Assigns `$value` to work-var `$name` in `$module`. `$module` is determined during prep-phase. If `($module)` is excluded, the variable is in the current scope.
+Assigns `$value` to work-var `$name` in `$module`. The `#PREP` method of this procedure determines `$module` and stores the destination variable in a `#DEST_VAR` field of the `SET` statement. The `#EVAL` method of this procedure accesses the `#DEST_VAR` field. If `($module)` is excluded, the variable is in the current scope.
 
 ```
 IMPORT ($specifier) AS @$moduleName [VARS [$vars]]

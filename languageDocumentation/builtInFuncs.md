@@ -239,10 +239,10 @@ FIND_VAR($scope, $name)
 Searches through scopes for a variable with `$name` starting at `$scope`. Returns a variable or null. Note that this function does not resolve imported variables to prep-vars or work-vars.
 
 ```
-FIND_VAR_VALUE($varSpace, $name)
+FIND_VAR_VALUE($varSpace, $var)
 ```
 
-Searches through frames and scopes for a variable with `$name` starting at `$varSpace`. `$varSpace` may be a frame or a scope. Returns a frame entry, prep-var, or null.
+Returns the frame entry or prep-var which stores the value of `$var`. `$varSpace` is the current frame or scope.
 
 ```
 NEW_FRAME($scope, $parentFrame)

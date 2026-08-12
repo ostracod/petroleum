@@ -5,7 +5,7 @@ import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc, EvalState } from "./value.js";
 import { MethodDict, createMethodMap } from "./method.js";
 import { getModule } from "./node.js";
-import { findVarValue, getScope, varIsInScope, getSignatureVars } from "./variable.js";
+import { findVariable, findVarValue, getScope, varIsInScope, getSignatureVars } from "./variable.js";
 import { Action } from "./task.js";
 
 interface ProcDef extends MethodDict {
@@ -29,6 +29,33 @@ const readWorkVarComps = (stmt: PetMap): { variable: PetMap, exprsComp?: PetMap 
     }
     const exprsComp = comps.getMember(3).getMap();
     return { variable, exprsComp };
+};
+
+interface SetProcComps {
+    varName: PetString,
+    moduleComp?: PetMap,
+    valueComp: PetMap,
+}
+
+const readSetComps = (stmt: PetMap): SetProcComps => {
+    const comps = stmt.getMember(symbols.COMPS).getList();
+    const secondComp = comps.getMember(1).getMap();
+    let moduleComp: PetMap | null;
+    let identComp: PetMap;
+    if (secondComp.getMember(symbols.COMP_TYPE).getSymbol() === symbols.EXPR_COMP) {
+        moduleComp = secondComp;
+        identComp = comps.getMember(2).getMap();
+    } else {
+        moduleComp = null;
+        identComp = secondComp;
+    }
+    const varName = identComp.getMember(symbols.IDENT).getPetString();
+    const valueComp = comps.getMember(comps.getLength() - 1).getMap();
+    const output: SetProcComps = { varName, valueComp };
+    if (moduleComp !== null) {
+        output.moduleComp = moduleComp;
+    }
+    return output;
 };
 
 const setUpImportVar = (comps: PetList, moduleVars: PetMap): void => {
@@ -179,8 +206,7 @@ export const globalProcDefs: ProcDef[] = [
             if (typeof exprsComp === "undefined") {
                 return task.returnValue(null);
             }
-            const varName = variable.getMember(symbols.IDENT).getPetString();
-            const frameEntry = findVarValue(varSpace, varName);
+            const frameEntry = findVarValue(varSpace, variable);
             return task.callMethod(
                 exprsComp, symbols.EVAL, [varSpace],
                 (values) => {
@@ -216,15 +242,24 @@ export const globalProcDefs: ProcDef[] = [
     },
     {
         name: "SET",
-        // TODO: Allow specifying module of variable.
-        eval: (task, stmt, varSpace) => {
-            const comps = stmt.getMember(symbols.COMPS).getList();
-            const identComp = comps.getMember(1).getMap();
-            const varName = identComp.getMember(symbols.IDENT).getPetString();
-            const frameEntry = findVarValue(varSpace, varName);
-            const exprsComp = comps.getMember(3).getMap();
+        prep: (task, stmt) => {
+            const { varName, valueComp } = readSetComps(stmt);
+            // TODO: Determine module if moduleComp is present.
+            
+            const scope = getScope(stmt);
+            const destVar = findVariable(scope, varName);
+            stmt.setMember(symbols.DEST_VAR, destVar);
             return task.callMethod(
-                exprsComp, symbols.EVAL, [varSpace],
+                valueComp, symbols.PREP, [],
+                (value) => task.returnValue(null),
+            );
+        },
+        eval: (task, stmt, varSpace) => {
+            const destVar = stmt.getMember(symbols.DEST_VAR).getMap();
+            const frameEntry = findVarValue(varSpace, destVar);
+            const { valueComp } = readSetComps(stmt);
+            return task.callMethod(
+                valueComp, symbols.EVAL, [varSpace],
                 (values) => {
                     const value = values.getList().getMember(0);
                     frameEntry.setMember(symbols.VALUE, value);
@@ -232,6 +267,8 @@ export const globalProcDefs: ProcDef[] = [
                 },
             );
         },
+        // TODO: Implement accessed vars method correctly.
+        
     },
     {
         name: "IMPORT",

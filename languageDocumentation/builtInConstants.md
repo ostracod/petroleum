@@ -70,6 +70,7 @@ Petroleum defines many symbols for keys and values in various data structures. S
 * `#COND` symbolizes a condition.
 * `#DECL_COMP` symbolizes a declaration component.
 * `#DEPS` symbolizes a map of dependencies.
+* `#DEST_VAR` symbolizes a destination variable.
 * `#DIR_PATH` symbolizes a directory path.
 * `#ERROR_TYPE` symbolizes the type of an error.
 * `#EXCEP_TYPE` symbolizes the type of an exception.
@@ -110,6 +111,7 @@ Petroleum defines many symbols for keys and values in various data structures. S
 * `#RET_LEVEL` symbolizes the level of a return exception.
 * `#SCOPE` symbolizes a scope.
 * `#SPECIFIER` symbolizes a specifier.
+* `#SRC_VAR` symbolizes a source variable.
 * `#STMT` symbolizes a statement.
 * `#STMT_TYPE` symbolizes the type of a statement.
 * `#STMTS` symbolizes a list of statements.

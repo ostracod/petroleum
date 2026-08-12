@@ -503,22 +503,9 @@ export abstract class PetFunc {
 }
 
 interface FuncSignature {
-    argNames?: PetString[];
-    argsName?: PetString;
+    argVars?: PetMap[];
+    argsVar?: PetMap;
 }
-
-const getFuncSignature = (stmtsComp: PetMap): FuncSignature => {
-    const { argVars, argsVar } = getSignatureVars(stmtsComp);
-    if (typeof argVars === "undefined") {
-        const argsName = argsVar.getMember(symbols.IDENT).getPetString();
-        return { argsName };
-    } else {
-        const argNames = argVars.map((argVar) => (
-            argVar.getMember(symbols.IDENT).getPetString()
-        ));
-        return { argNames };
-    }
-};
 
 export class UserFunc extends PetFunc {
     // Statement sequence component which contains the function body.
@@ -529,9 +516,9 @@ export class UserFunc extends PetFunc {
     bottomFrame: PetMap | null;
     // `bottomFrame` will be modified so its parent is the module frame.
     module: PetMap;
-    // `argNames` and `argsName` are mutually exclusive.
-    argNames?: PetString[];
-    argsName?: PetString;
+    // `argVars` and `argsVar` are mutually exclusive.
+    argVars?: PetMap[];
+    argsVar?: PetMap;
     
     constructor(stmtsComp: PetMap, varSpace: PetMap, accessedVars: PetMap) {
         super();
@@ -540,29 +527,29 @@ export class UserFunc extends PetFunc {
         this.topFrame = topFrame;
         this.bottomFrame = bottomFrame;
         this.module = module;
-        const { argNames, argsName } = getFuncSignature(this.stmtsComp);
-        if (typeof argNames === "undefined") {
-            this.argsName = argsName;
+        const { argVars, argsVar } = getSignatureVars(this.stmtsComp);
+        if (typeof argVars === "undefined") {
+            this.argsVar = argsVar;
         } else {
-            this.argNames = argNames;
+            this.argVars = argVars;
         }
     }
     
     getArgAmount(): number | null {
-        return (typeof this.argNames === "undefined") ? null : this.argNames.length;
+        return (typeof this.argVars === "undefined") ? null : this.argVars.length;
     }
     
     call(task: Task, args: PetList): Action {
         const scope = this.stmtsComp.getMember(symbols.SCOPE).getMap();
         const bodyFrame = createFrame(scope, this.topFrame);
-        if (typeof this.argNames === "undefined") {
-            const frameEntry = findVarValue(bodyFrame, this.argsName);
+        if (typeof this.argVars === "undefined") {
+            const frameEntry = findVarValue(bodyFrame, this.argsVar);
             frameEntry.setMember(symbols.VALUE, args);
         } else {
-            for (let index = 0; index < this.argNames.length; index++) {
-                const argName = this.argNames[index];
+            for (let index = 0; index < this.argVars.length; index++) {
+                const argVar = this.argVars[index];
                 const arg = args.getMember(index);
-                const frameEntry = findVarValue(bodyFrame, argName);
+                const frameEntry = findVarValue(bodyFrame, argVar);
                 frameEntry.setMember(symbols.VALUE, arg);
             }
         }

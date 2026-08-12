@@ -99,68 +99,46 @@ const resolveImportVar = (variable: PetMap): PetMap | null => {
     }
 };
 
+const getFrameEntry = (frame: PetMap, workVar: PetMap): PetMap => {
+    const varName = workVar.getMember(symbols.IDENT).getPetString();
+    const varScope = workVar.getMember(symbols.SCOPE).getMap();
+    while (true) {
+        const scope = frame.getMember(symbols.SCOPE).getMap();
+        if (scope === varScope) {
+            const frameEntries = frame.getMember(symbols.FRAME_ENTRIES).getMap();
+            return frameEntries.getMember(varName).getMap();
+        }
+        const parentFrame = frame.getMember(symbols.PARENT);
+        if (typeof parentFrame === "undefined") {
+            throw new Error(`Could not find find frame entry for "${varName.toString()}".`);
+        } else {
+            frame = parentFrame.getMap();
+        }
+    }
+};
+
+// varSpace is either a frame or a scope.
 // Returns a frame entry, prep-var, or null.
-const resolveVariable = (variable: PetMap): PetMap | null => {
+export const findVarValue = (varSpace: PetMap, variable: PetMap): PetMap => {
     const varType = getVarType(variable);
     if (varType === symbols.PREP_VAR) {
         return variable;
     } else if (varType === symbols.IMPORT_VAR) {
         return resolveImportVar(variable);
     } else if (varType === symbols.WORK_VAR) {
-        return null;
+        if (getVarSpaceType(varSpace) === VarSpaceType.Frame) {
+            return getFrameEntry(varSpace, variable);
+        } else {
+            throw new Error("Cannot access work-var value without frame.");
+        }
     } else {
         throw new Error(`Unknown variable type: ${varType.toString()}`);
     }
-}
-
-// varSpace is either a frame or a scope.
-// Returns a frame entry, prep-var, or null.
-export const findVarValue = (varSpace: PetMap, name: PetString): PetMap | null => {
-    let varSpaceIsFrame = (getVarSpaceType(varSpace) === VarSpaceType.Frame);
-    while (true) {
-        let frame: PetMap | null;
-        let scope: PetMap;
-        if (varSpaceIsFrame) {
-            frame = varSpace;
-            scope = frame.getMember(symbols.SCOPE).getMap();
-        } else {
-            frame = null;
-            scope = varSpace;
-        }
-        if (frame !== null) {
-            const frameEntries = frame.getMember(symbols.FRAME_ENTRIES).getMap();
-            const frameEntry = frameEntries.getMember(name);
-            if (typeof frameEntry !== "undefined") {
-                return frameEntry.getMap();
-            }
-        }
-        const variables = scope.getMember(symbols.VARS).getMap();
-        const variable = variables.getMember(name);
-        if (typeof variable !== "undefined") {
-            return resolveVariable(variable.getMap());
-        }
-        const parentFrame = frame?.getMember(symbols.PARENT);
-        if (typeof parentFrame === "undefined") {
-            const parentScope = scope.getMember(symbols.PARENT);
-            if (typeof parentScope === "undefined") {
-                break;
-            }
-            varSpace = parentScope.getMap();
-            varSpaceIsFrame = false;
-        } else {
-            varSpace = parentFrame.getMap();
-            varSpaceIsFrame = true;
-        }
-    }
-    return null;
 };
 
 // varSpace is either a frame or a scope.
-export const getVarValue = (varSpace: PetMap, name: PetString): PetValue => {
-    const result = findVarValue(varSpace, name);
-    if (result === null) {
-        throw new Error(`Could not find variable "${name.toString()}".`);
-    }
+export const getVarValue = (varSpace: PetMap, variable: PetMap): PetValue => {
+    const result = findVarValue(varSpace, variable);
     return result.deferMember(symbols.VALUE);
 };
 

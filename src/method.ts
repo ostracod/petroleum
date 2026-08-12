@@ -213,8 +213,8 @@ export const identExprMethods = createMethodMap({
         return task.returnValue(null);
     },
     eval: (task, expr, varSpace) => {
-        const varName = expr.getMember(symbols.IDENT).getPetString();
-        const value = getVarValue(varSpace, varName);
+        const variable = expr.getMember(symbols.VAR).getMap();
+        const value = getVarValue(varSpace, variable);
         return task.returnValue(value);
     },
     accessedVars: (task, expr, scope) => {
