@@ -5,8 +5,8 @@ import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc, EvalState } from "./value.js";
 import { MethodDict, createMethodMap } from "./method.js";
 import { getModule } from "./node.js";
-import { findVariable, findVarValue, getScope, varIsInScope, getSignatureVars } from "./variable.js";
-import { Action } from "./task.js";
+import { findVariable, findVarValue, getModuleFrameEntry, getScope, varIsInScope, getSignatureVars } from "./variable.js";
+import { Action, setProcPrepTask } from "./task.js";
 
 interface ProcDef extends MethodDict {
     name: string;
@@ -31,18 +31,18 @@ const readWorkVarComps = (stmt: PetMap): { variable: PetMap, exprsComp?: PetMap 
     return { variable, exprsComp };
 };
 
-interface SetProcComps {
+export interface SetProcParts {
     varName: PetString,
     moduleComp?: PetMap,
     valueComp: PetMap,
 }
 
-const readSetComps = (stmt: PetMap): SetProcComps => {
+const readSetComps = (stmt: PetMap): SetProcParts => {
     const comps = stmt.getMember(symbols.COMPS).getList();
     const secondComp = comps.getMember(1).getMap();
     let moduleComp: PetMap | null;
     let identComp: PetMap;
-    if (secondComp.getMember(symbols.COMP_TYPE).getSymbol() === symbols.EXPR_COMP) {
+    if (secondComp.getMember(symbols.COMP_TYPE).getSymbol() === symbols.EXPRS_COMP) {
         moduleComp = secondComp;
         identComp = comps.getMember(2).getMap();
     } else {
@@ -51,7 +51,7 @@ const readSetComps = (stmt: PetMap): SetProcComps => {
     }
     const varName = identComp.getMember(symbols.IDENT).getPetString();
     const valueComp = comps.getMember(comps.getLength() - 1).getMap();
-    const output: SetProcComps = { varName, valueComp };
+    const output: SetProcParts = { varName, valueComp };
     if (moduleComp !== null) {
         output.moduleComp = moduleComp;
     }
@@ -243,21 +243,21 @@ export const globalProcDefs: ProcDef[] = [
     {
         name: "SET",
         prep: (task, stmt) => {
-            const { varName, valueComp } = readSetComps(stmt);
-            // TODO: Determine module if moduleComp is present.
-            
-            const scope = getScope(stmt);
-            const destVar = findVariable(scope, varName);
-            stmt.setMember(symbols.DEST_VAR, destVar);
-            return task.callMethod(
-                valueComp, symbols.PREP, [],
+            const parts = readSetComps(stmt);
+            return task.runTask(
+                setProcPrepTask, { stmt, parts },
                 (value) => task.returnValue(null),
             );
         },
         eval: (task, stmt, varSpace) => {
             const destVar = stmt.getMember(symbols.DEST_VAR).getMap();
-            const frameEntry = findVarValue(varSpace, destVar);
-            const { valueComp } = readSetComps(stmt);
+            const { moduleComp, valueComp } = readSetComps(stmt);
+            let frameEntry: PetMap;
+            if (typeof moduleComp === "undefined") {
+                frameEntry = findVarValue(varSpace, destVar);
+            } else {
+                frameEntry = getModuleFrameEntry(destVar);
+            }
             return task.callMethod(
                 valueComp, symbols.EVAL, [varSpace],
                 (values) => {
@@ -267,8 +267,27 @@ export const globalProcDefs: ProcDef[] = [
                 },
             );
         },
-        // TODO: Implement accessed vars method correctly.
-        
+        accessedVars: (task, stmt, scope) => {
+            const { valueComp } = readSetComps(stmt);
+            const destVar = stmt.getMember(symbols.DEST_VAR).getMap();
+            const varMap = new PetMap();
+            if (varIsInScope(destVar, scope)) {
+                const varName = destVar.getMember(symbols.IDENT).getPetString();
+                varMap.setMember(varName, destVar);
+            }
+            return task.callMethod(
+                valueComp, symbols.ACCESSED_VARS, [scope],
+                (resultValue) => {
+                    const resultMap = resultValue.getMap();
+                    const names = resultMap.getKeys();
+                    for (const name of names) {
+                        const accessedVar = resultMap.getMember(name);
+                        varMap.setMember(name, accessedVar);
+                    }
+                    return task.returnValue(varMap);
+                },
+            );
+        },
     },
     {
         name: "IMPORT",

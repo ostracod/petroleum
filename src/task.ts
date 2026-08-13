@@ -5,6 +5,7 @@ import { PetSymbol, symbols } from "./symbol.js";
 import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
 import { getMethodWithDefault } from "./method.js";
+import { SetProcParts } from "./procedure.js";
 import { workerIsInvocation, getWorkerMethodMap, getFuncArgsComp } from "./node.js";
 import { createFrame, VarSpaceType, getVarSpaceType, findVariable, getVarValue, getScope } from "./variable.js";
 import { PetContext } from "./context.js";
@@ -673,6 +674,40 @@ export const handleExcepTask: TaskDef<{ exception: PetValue }, null> = {
                 
             }
             return task.returnValue(null);
+        },
+    ],
+};
+
+export const setProcPrepTask: TaskDef<{ stmt: PetMap, parts: SetProcParts }, null> = {
+    getInitState: (params) => null,
+    stages: [
+        (task) => {
+            const { stmt, parts } = task.params;
+            const { varName, moduleComp, valueComp } = parts;
+            const scope = getScope(stmt);
+            if (typeof moduleComp === "undefined") {
+                const destVar = findVariable(scope, varName);
+                stmt.setMember(symbols.DEST_VAR, destVar);
+                return task.advanceStage(null);
+            }
+            return task.callMethod(
+                moduleComp, symbols.EVAL, [scope],
+                (listValue) => {
+                    const module = listValue.getList().getMember(0).getMap();
+                    const moduleScope = module.getMember(symbols.SCOPE).getMap();
+                    const moduleVars = moduleScope.getMember(symbols.VARS).getMap();
+                    const destVar = moduleVars.getMember(varName);
+                    stmt.setMember(symbols.DEST_VAR, destVar);
+                    return task.advanceStage(null);
+                },
+            );
+        },
+        (task) => {
+            const { parts: { valueComp } } = task.params;
+            return task.callMethod(
+                valueComp, symbols.PREP, [],
+                (value) => task.returnValue(null),
+            );
         },
     ],
 };

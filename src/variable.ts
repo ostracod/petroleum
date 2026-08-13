@@ -71,9 +71,23 @@ const getVarType = (variable: PetMap): PetSymbol => {
     return varType;
 };
 
+// `variable` is a work-var at the top level of a module.
+export const getModuleFrameEntry = (variable: PetMap): PetMap => {
+    const scope = variable.getMember(symbols.SCOPE).getMap();
+    const module = scope.getMember(symbols.MODULE).getMap();
+    const frameValue = module.getMember(symbols.FRAME);
+    if (typeof frameValue === "undefined") {
+        throw new Error("Cannot access work-var value without frame.");
+    }
+    const frame = frameValue.getMap();
+    const frameEntries = frame.getMember(symbols.FRAME_ENTRIES).getMap();
+    const varName = variable.getMember(symbols.IDENT).getPetString();
+    return frameEntries.getMember(varName).getMap();
+};
+
 // `variable` is an imported variable.
 // Returns a frame entry, prep-var, or null.
-const resolveImportVar = (variable: PetMap): PetMap | null => {
+const resolveImportVar = (variable: PetMap): PetMap => {
     while (true) {
         variable = variable.getMember(symbols.IMPORT_VAR).getMap();
         const varType = getVarType(variable);
@@ -82,17 +96,7 @@ const resolveImportVar = (variable: PetMap): PetMap | null => {
         } else if (varType === symbols.IMPORT_VAR) {
             continue;
         } else if (varType === symbols.WORK_VAR) {
-            const scope = variable.getMember(symbols.SCOPE).getMap();
-            const module = scope.getMember(symbols.MODULE).getMap();
-            const frameValue = module.getMember(symbols.FRAME);
-            if (typeof frameValue === "undefined") {
-                return null
-            } else {
-                const frame = frameValue.getMap();
-                const frameEntries = frame.getMember(symbols.FRAME_ENTRIES).getMap();
-                const varName = variable.getMember(symbols.IDENT).getPetString();
-                return frameEntries.getMember(varName).getMap();
-            }
+            return getModuleFrameEntry(variable);
         } else {
             throw new Error(`Unknown variable type: ${varType.toString()}`);
         }
