@@ -3,6 +3,8 @@ import "./package.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, PetString, PetMap } from "./value.js";
+import { NotEqualFunc } from "./builtInFunc.js";
+import { AwaitException } from "./exception.js";
 
 // parentVarSpace is either a scope or a frame.
 export const createFrame = (scope: PetMap, parentFrame: PetMap | null): PetMap => {
@@ -63,12 +65,14 @@ export const findVariable = (scope: PetMap, name: PetString): PetMap | null => {
 };
 
 const getVarType = (variable: PetMap): PetSymbol => {
-    const varType = variable.getMember(symbols.VAR_TYPE).getSymbol();
+    const varType = variable.getMember(symbols.VAR_TYPE).getKnownValue();
     if (varType === null) {
-        // TODO: Throw an await exception.
-        throw new Error("Variable type is not defined.");
+        throw new AwaitException(variable, symbols.VAR_TYPE, new NotEqualFunc(null));
+    } else if (varType instanceof PetSymbol) {
+        return varType;
+    } else {
+        throw new Error("Unexpected variable type.");
     }
-    return varType;
 };
 
 // `variable` is a work-var at the top level of a module.

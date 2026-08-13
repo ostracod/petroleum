@@ -3,7 +3,7 @@ import "./task.js";
 
 import { EvalState } from "./value.js";
 import { ConstantFunc } from "./builtInFunc.js";
-import { DeferralError, CoroEndError } from "./error.js";
+import { AwaitException, CoroEndException } from "./exception.js";
 import { Action, TaskDef, handleExcepTask } from "./task.js";
 import { PetContext } from "./context.js";
 
@@ -24,19 +24,19 @@ export class Coroutine {
             try {
                 nextAction = this.action.run();
             } catch (error) {
-                if (error instanceof CoroEndError) {
+                if (error instanceof CoroEndException) {
                     const exception = error.unhandledExcep;
                     if (exception === null) {
                         break;
                     } else {
                         nextAction = this.context.runTask(handleExcepTask, { exception });
                     }
-                } else if (error instanceof DeferralError) {
+                } else if (error instanceof AwaitException) {
                     const { task } = this.action;
                     nextAction = task.throwAwaitExcep(
                         error.bunch,
                         error.location,
-                        new ConstantFunc(1n),
+                        error.condition,
                         new EvalState(task, this.action),
                     );
                 } else {

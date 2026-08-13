@@ -6,7 +6,7 @@ import { symbols } from "./symbol.js";
 import { PetValue, KnownValue, PetString, PetList, PetMap } from "./value.js";
 import { BuiltInFunc, DefFunc, globalFuncDefs } from "./builtInFunc.js";
 import { createProcedure, globalProcDefs } from "./procedure.js";
-import { CoroEndError } from "./error.js";
+import { CoroEndException } from "./exception.js";
 import { ModuleParser } from "./moduleParser.js";
 import { resolvePackages } from "./package.js";
 import { Action, TaskDef, TaskMembers, Task, mainTask, prepModuleTask } from "./task.js";
@@ -92,10 +92,10 @@ export class PetContext {
             parentTask: null,
             stages: taskDef.stages,
             acceptReturnValue: (value) => {
-                throw new CoroEndError(null);
+                throw new CoroEndException(null);
             },
             handleException: (exception) => {
-                throw new CoroEndError(exception);
+                throw new CoroEndException(exception);
             },
         };
         const task = new Task<ParamsT, StateT>(

@@ -1,5 +1,5 @@
 
-import "./error.js";
+import "./exception.js";
 
 import * as fs from "fs";
 import { symbols } from "./symbol.js";

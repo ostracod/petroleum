@@ -2,7 +2,7 @@
 import "./symbol.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { DeferralError, PetTypeError } from "./error.js";
+import { DeferralException, PetTypeError } from "./exception.js";
 import { createFrame, findVarValue, getVarSpaceType, VarSpaceType, getSignatureVars, pruneFrames } from "./variable.js";
 import { Action, Task, awaitCondTask } from "./task.js";
 import { Scheduler } from "./scheduler.js";
@@ -25,7 +25,7 @@ export class PetValue {
         if (typeof this.knownValue === "undefined") {
             const value = this.bunch.getMember(this.location);
             if (typeof value === "undefined") {
-                throw new DeferralError(this.bunch, this.location);
+                throw new DeferralException(this.bunch, this.location);
             }
             this.knownValue = value.getKnownValue();
             delete this.bunch;
@@ -38,7 +38,7 @@ export class PetValue {
         try {
             return this.getKnownValue();
         } catch (error) {
-            if (error instanceof DeferralError) {
+            if (error instanceof DeferralException) {
                 return undefined;
             }
             throw error;
