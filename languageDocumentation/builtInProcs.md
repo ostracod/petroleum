@@ -133,7 +133,7 @@ Throws a pass exception which pauses the current coroutine. Petroleum will resum
 AWAIT ($bunch, $loc, $condition, $message)
 ```
 
-Pauses the current coroutine until a member exists in `$bunch` at `$loc` which satisifes `$condition`. `$bunch` is a list or a map. `$loc` is a list index or field key. `$condition` is a function which accepts the member as an argument and returns a boolean. Petroleum checks the condition upon invocation of this procedure and whenever the member in `$bunch` at `$loc` changes. If the condition is initially true, this procedure will not pause the coroutine. This procedure pauses the coroutine by throwing an await exception.
+Pauses the current coroutine until a member exists in `$bunch` at `$loc` which satisifes `$condition`, then returns the member. `$bunch` is a list or a map. `$loc` is a list index or field key. `$condition` is a function which accepts the member as an argument and returns a boolean. Petroleum checks the condition upon invocation of this procedure and whenever the member in `$bunch` at `$loc` changes. If the condition is initially true, this procedure will not pause the coroutine. This procedure pauses the coroutine by throwing an await exception.
 
 ```
 ABORT ($errorType, $message)

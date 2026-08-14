@@ -152,6 +152,7 @@ export class Task<ParamsT = any, StateT = any> {
             [symbols.LOC, location],
             [symbols.COND, condition],
             [symbols.EVAL_STATE, evalState],
+            // TODO: Add #MESSAGE field.
         ]);
         return this.throwException(exception);
     }

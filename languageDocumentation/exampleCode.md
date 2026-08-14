@@ -290,14 +290,13 @@ SET_MEMBER(IDENT_EXPR_METHODS, #isEven, FUNC {
     WORK_VAR @var = (MEMBER(worker, #VAR))
     COMMENT "We may need to wait until the variable procedure"
     COMMENT "sets the #isEven field on the variable."
-    AWAIT (
+    RET (AWAIT (
         var, #isEven,
         FUNC {[ARGS [@member]], RET (TRUE)}
         CONCAT(LIST (
             "Waiting for #isEven to be set on ", MEMBER(var, #IDENT)
         ))
-    )
-    RET (MEMBER(var, #isEven))
+    ))
 })
 
 COMMENT "The `evenIntVar` and `oddIntVar` procedures work in mostly the same way,"
