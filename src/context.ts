@@ -8,7 +8,7 @@ import { BuiltInFunc, DefFunc, globalFuncDefs } from "./builtInFunc.js";
 import { createProcedure, globalProcDefs } from "./procedure.js";
 import { CoroEndException } from "./exception.js";
 import { ModuleParser } from "./moduleParser.js";
-import { resolvePackages } from "./package.js";
+import { PackageResolver } from "./package.js";
 import { Action, TaskDef, TaskMembers, Task, mainTask, prepModuleTask } from "./task.js";
 import { Scheduler } from "./scheduler.js";
 
@@ -28,7 +28,8 @@ export class PetContext {
         this.userModuleIndexes = new Map();
         this.preppingWorkers = new Set();
         this.globalScope = this.createGlobalScope();
-        const entryPackage = resolvePackages(entryPackagePath, this.globalScope);
+        const packageResolver = new PackageResolver(entryPackagePath, this.globalScope);
+        const entryPackage = packageResolver.resolvePackages();
         const mainModule = entryPackage.getMember(symbols.MAIN_MODULE).getMap();
         this.addUserModule(mainModule);
     }
