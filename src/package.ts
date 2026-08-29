@@ -2,10 +2,13 @@
 import "./moduleParser.js";
 
 import * as fs from "fs";
+import * as os from "os";
 import * as pathUtils from "path";
 import { symbols } from "./symbol.js";
 import { PetString, PetMap } from "./value.js";
 import { ModuleParser } from "./moduleParser.js";
+
+const packageStorePath = pathUtils.join(pathUtils.resolve(os.homedir()), "petroleumPackages");
 
 interface DependencyConfig {
     specifier: string;
@@ -19,6 +22,29 @@ interface PackageConfig {
     mainModule: string;
     dependencies: DependencyConfig[];
 }
+
+interface SpecifierParts {
+    developerName: string;
+    packageName: string;
+}
+
+const splitSpecifier = (specifier: string): SpecifierParts => {
+    const parts = specifier.split(".");
+    if (parts.length !== 2) {
+        throw new Error(`Package specifier must have the format "$developerName.$packageName"; received "${specifier}"`);
+    }
+    return { developerName: parts[0], packageName: parts[1] };
+};
+
+const getSpecifierPath = (specifier: string): string => {
+    const parts = splitSpecifier(specifier);
+    return pathUtils.join(packageStorePath, parts.developerName, parts.packageName);
+};
+
+const getPackagePath = (specifier: string, version: Version): string => {
+    const specifierPath = getSpecifierPath(specifier);
+    return pathUtils.join(specifierPath, "v" + version.toString());
+};
 
 class Version {
     major: number;
@@ -88,7 +114,7 @@ class VersionRange {
     }
     
     contains(version: Version): boolean {
-        return (version.compare(this.minVersion) >= 1
+        return (version.compare(this.minVersion) >= 0
             && version.compare(this.maxVersion) < 0);
     }
 }
@@ -160,16 +186,17 @@ class VersionMap<T> {
     }
     
     findSmallestAtLeast(version: Version): number {
-        let minIndex = 0; // Inclusive.
-        let maxIndex = this.entries.length; // Exclusive.
-        while (maxIndex > minIndex + 1) {
+        // Both minIndex and maxIndex are inclusive.
+        let minIndex = 0;
+        let maxIndex = this.entries.length;
+        while (maxIndex > minIndex) {
             const middleIndex = Math.floor((minIndex + maxIndex) / 2);
             const middleVersion = this.entries[middleIndex].version;
             const comparison = middleVersion.compare(version);
             if (comparison > 0) {
-                minIndex = middleIndex;
-            } else if (comparison < 0) {
                 maxIndex = middleIndex;
+            } else if (comparison < 0) {
+                minIndex = middleIndex + 1;
             } else {
                 return middleIndex
             }
@@ -187,14 +214,8 @@ class VersionMap<T> {
         }
     }
     
-    getBiggestUnder(version: Version): T | null {
-        const index = this.findSmallestAtLeast(version) - 1;
-        return (index < 0) ? null : this.entries[index].value;
-    }
-    
-    getEqual(version: Version): T | null {
-        const index = this.findEqual(version);
-        return (index < 0) ? null : this.entries[index].value;
+    findBiggestUnder(version: Version): number {
+        return this.findSmallestAtLeast(version) - 1;
     }
     
     add(version: Version, value: T): void {
@@ -224,10 +245,14 @@ class SelectionDependency {
         this.compatibleSels = new VersionMap();
     }
     
+    isCompatibleWith(version: Version): boolean {
+        return this.versionRange.contains(version);
+    }
+    
     addIfCompatible(selection: PackageSelection): void {
         const { version } = selection.pack;
         const { key } = this.parentSel.pack;
-        if (!this.versionRange.contains(version) || selection.dependents.has(key)) {
+        if (!this.isCompatibleWith(version) || selection.dependents.has(key)) {
             return;
         }
         this.compatibleSels.add(version, selection);
@@ -310,6 +335,27 @@ export class PackageResolver {
         this.packageStoreCache = new Map();
     }
     
+    getStoreVersions(specifier: string): VersionMap<PetPackage | null> {
+        let versionMap = this.packageStoreCache.get(specifier);
+        if (typeof versionMap !== "undefined") {
+            return versionMap;
+        }
+        versionMap = new VersionMap();
+        this.packageStoreCache.set(specifier, versionMap);
+        const specifierPath = getSpecifierPath(specifier);
+        if (!fs.existsSync(specifierPath)) {
+            return versionMap;
+        }
+        const dirNames = fs.readdirSync(specifierPath);
+        for (const dirName of dirNames) {
+            if (dirName.startsWith("v")) {
+                const version = new Version(dirName.substring(1));
+                versionMap.add(version, null);
+            }
+        }
+        return versionMap;
+    }
+    
     addSelection(pack: PetPackage): PackageSelection {
         const selection = new PackageSelection(pack, this);
         
@@ -357,14 +403,46 @@ export class PackageResolver {
         return selection;
     }
     
+    getStorePackage(
+        versionMap: VersionMap<PetPackage | null>,
+        dependency: SelectionDependency,
+    ): PetPackage | null {
+        const index = versionMap.findBiggestUnder(dependency.versionRange.maxVersion);
+        const entry = versionMap.entries[index];
+        if (!dependency.isCompatibleWith(entry.version)) {
+            return null;
+        }
+        if (entry.value === null) {
+            const packagePath = getPackagePath(dependency.specifier, entry.version);
+            entry.value = new PetPackage(packagePath);
+        }
+        return entry.value;
+    }
+    
     // Returns the map representation of the entry package.
     resolvePackages(): PetMap {
         this.selections = new Map();
         this.dependencies = new Map();
         this.unsatisfiedSelections = new Set();
         this.entrySelection = this.addSelection(this.entryPackage);
-        // TODO: Resolve dependency packages.
-        
+        while (true) {
+            const selection = this.unsatisfiedSelections.values().next().value;
+            if (typeof selection === "undefined") {
+                break;
+            }
+            const dependency = selection.getUnsatisfiedDep();
+            if (dependency === null) {
+                throw new Error("Unsatisfied package must have unsatisfied dependency!");
+            }
+            const versionMap = this.getStoreVersions(dependency.specifier);
+            const pack = this.getStorePackage(versionMap, dependency);
+            if (pack === null) {
+                throw new Error(`Could not find ${dependency.specifier} package in store which satisfies dependency of ${selection.pack.specifier}!`);
+            }
+            // TODO: Finish implementation.
+            
+            break;
+        }
         return this.entrySelection.toMap();
     }
 }
