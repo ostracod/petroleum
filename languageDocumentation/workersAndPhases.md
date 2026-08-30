@@ -48,4 +48,13 @@ The `#PREP` method of a procedure is responsible for invoking the `#PREP` method
 * Direct child worker components of the invocation node
 * Workers in block attributes of direct child statement sequence components
 
+## Expression Grade
+
+The "grade" of an expression determines when the expression may be evaluated:
+
+* "prep-grade" expressions may only be evaluated during prep-phase of the parent node.
+* "work-grade" expressions may only be evaluated during work-phase of the parent node.
+
+The grade of an expression depends on the enclosing delimiters in the parent component. Prep-grade expressions are enclosed by angle brackets, while work-grade expressions are enclosed by parentheses.
+
 

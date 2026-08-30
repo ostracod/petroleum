@@ -4,7 +4,7 @@
 The example below declares a function which determines whether the argument number is prime:
 
 ```
-PREP_VAR @isPrime = (FUNC {
+PREP_VAR @isPrime = <FUNC {
     [ARGS [@inputNum]]
     WORK_VAR @factor = (2)
     WHILE (LESS(factor, inputNum)) {
@@ -14,7 +14,7 @@ PREP_VAR @isPrime = (FUNC {
         SET factor = (ADD(factor, 1))
     }
     RET (TRUE)
-})
+}>
 
 COMMENT "Prints whether the numbers 2 to 100 are prime."
 WORK_VAR @num = (2)
@@ -72,7 +72,7 @@ The example below demonstrates usage of error exceptions:
 ```
 TRY {
     PRINT("About to throw an error!")
-    ABORT(#VALUE_ERROR, "Bad value")
+    ABORT (#VALUE_ERROR, "Bad value")
     PRINT("This statement is not reached.")
 } CATCH {
     [EXCEP @excep]
@@ -88,18 +88,18 @@ TRY {
 The example below demonstrates usage of return exceptions:
 
 ```
-PREP_VAR @myReturn = (FUNC {
+PREP_VAR @myReturn = <FUNC {
     THROW (MAP [FIELDS [
         (#EXCEP_TYPE) = (#RET_EXCEP)
         (#VALUE) = (123)
         (#RET_LEVEL) = (1)
     ]])
-})
-PREP_VAR @myFunc = (FUNC {
+}>
+PREP_VAR @myFunc = <FUNC {
     PRINT("About to return a value!")
     myReturn()
     PRINT("This statement is not reached.")
-})
+}>
 COMMENT "Prints 123."
 PRINT(myFunc())
 ```
@@ -162,16 +162,16 @@ PRINT(myList)
 The example below demonstrates usage of imports:
 
 ```
-IMPORT (#FILE_SYSTEM) AS @fileSystem [
+IMPORT <#FILE_SYSTEM> AS @fileSystem [
     VARS [@PATH_NAME, PATH_PARENT AS @pathParent]
 ]
-PREP_VAR @path = "/abc/def"
+PREP_VAR @path = <"/abc/def">
 COMMENT "Prints \"def\"."
 PRINT(PATH_NAME(path))
 COMMENT "Prints \"/abc\"."
 PRINT(pathParent(path))
 COMMENT "Prints 1."
-PRINT((GET (fileSystem) IS_ABS_PATH)(path))
+PRINT(<GET <fileSystem> IS_ABS_PATH>(path))
 ```
 
 The example below defines a custom procedure:
@@ -181,26 +181,26 @@ PREP_SYMBOL @#expr
 PREP_SYMBOL @#attrInt
 PREP_SYMBOL @#stmtsComp
 
-PREP_VAR @repeatMethods = (MAP [FIELDS [
+PREP_VAR @repeatMethods = <MAP [FIELDS [
     (#PREP) = (FUNC {
         [ARGS [@worker]]
         
         WORK_VAR @comps = (MEMBER(worker, #COMPS))
         IF (NOT_EQUAL(LEN(comps), 4)) {
-            ABORT(#SYNTAX_ERROR, "`repeat` must be followed by exactly three components.")
+            ABORT (#SYNTAX_ERROR, "`repeat` must be followed by exactly three components.")
         }
         
         WORK_VAR @exprsComp = (MEMBER(comps, 1))
         WORK_VAR @attrsComp = (MEMBER(comps, 2))
         WORK_VAR @stmtsComp = (MEMBER(comps, 3))
         IF (NOT_EQUAL(MEMBER(exprsComp, #COMP_TYPE), #EXPRS_COMP)) {
-            ABORT(#SYNTAX_ERROR, "First component after `repeat` must be expressions component.")
+            ABORT (#SYNTAX_ERROR, "First component after `repeat` must be expressions component.")
         }
         IF (NOT_EQUAL(MEMBER(attrsComp, #COMP_TYPE), #ATTRS_COMP)) {
-            ABORT(#SYNTAX_ERROR, "Second component after `repeat` must be attributes component.")
+            ABORT (#SYNTAX_ERROR, "Second component after `repeat` must be attributes component.")
         }
         IF (NOT_EQUAL(MEMBER(stmtsComp, #COMP_TYPE), #STMTS_COMP)) {
-            ABORT(#SYNTAX_ERROR, "Third component after `repeat` must be statements component.")
+            ABORT (#SYNTAX_ERROR, "Third component after `repeat` must be statements component.")
         }
         
         COMMENT "Procedures are responsible for calling the #PREP method"
@@ -211,22 +211,22 @@ PREP_VAR @repeatMethods = (MAP [FIELDS [
         WORK_VAR @exprs = (MEMBER(exprsComp, #EXPRS))
         WORK_VAR @attrs = (MEMBER(attrsComp, #ATTRS))
         IF (NOT_EQUAL(LEN(exprs), 1)) {
-            ABORT(#SYNTAX_ERROR, "`repeat` expects exactly one expression.")
+            ABORT (#SYNTAX_ERROR, "`repeat` expects exactly one expression.")
         }
         IF (NOT_EQUAL(LEN(attrs), 1)) {
-            ABORT(#SYNTAX_ERROR, "`repeat` expects exactly one attribute.")
+            ABORT (#SYNTAX_ERROR, "`repeat` expects exactly one attribute.")
         }
         
         WORK_VAR @expr = (MEMBER(exprs, 0))
         WORK_VAR @attr = (MEMBER(attrs, 0))
         WORK_VAR @attrComps = (MEMBER(attr, #COMPS))
         IF (NOT_EQUAL(LEN(attrComps), 1)) {
-            ABORT(#SYNTAX_ERROR, "`repeat` attribute must contain exactly one component.")
+            ABORT (#SYNTAX_ERROR, "`repeat` attribute must contain exactly one component.")
         }
         
         WORK_VAR @attrComp = (MEMBER(attrComps, 0))
         IF (NOT_EQUAL(MEMBER(attrComp, #COMP_TYPE), #INT_COMP)) {
-            ABORT(#SYNTAX_ERROR, "`repeat` attribute must contain an integer component.")
+            ABORT (#SYNTAX_ERROR, "`repeat` attribute must contain an integer component.")
         }
         WORK_VAR @attrInt = (MEMBER(attrComp, #INT))
         
@@ -248,12 +248,12 @@ PREP_VAR @repeatMethods = (MAP [FIELDS [
             SET count = (SUB(count, 1))
         }
     })
-]])
+]]>
 
-PREP_VAR @repeat = (MAP [FIELDS [
+PREP_VAR @repeat = <MAP [FIELDS [
     (#IS_PROC) = (TRUE)
     (#METHODS) = (repeatMethods)
-]])
+]]>
 
 WORK_VAR @sum = (0)
 repeat (ADD(1, 2)) [5] {
@@ -301,7 +301,7 @@ SET_MEMBER(IDENT_EXPR_METHODS, #isEven, FUNC {
 
 COMMENT "The `evenIntVar` and `oddIntVar` procedures work in mostly the same way,"
 COMMENT "so we will define a function to create their methods."
-PREP_VAR @varMethods = (FUNC {
+PREP_VAR @varMethods = <FUNC {
     [ARGS [@isEven]]
     RET (MAP [FIELDS [
         (#PREP) = (FUNC {
@@ -322,7 +322,7 @@ PREP_VAR @varMethods = (FUNC {
             WORK_VAR @expr = (MEMBER(MEMBER(exprsComp, #EXPRS)), 0)
             WORK_VAR @exprIsEven = (CALL_METHOD(expr, #isEven))
             IF (NOT_EQUAL(isEven, exprIsEven)) {
-                ABORT(#TYPE_ERROR, "Invalid integer type!")
+                ABORT (#TYPE_ERROR, "Invalid integer type!")
             }
             
             COMMENT "Stash values to use in the #EVAL method."
@@ -341,20 +341,20 @@ PREP_VAR @varMethods = (FUNC {
             SET_MEMBER(frameEntry, #VALUE, value)
         })
     ]])
-})
+}>
 
 COMMENT "Define custom procedures to declare even and odd integer variables."
-PREP_VAR @evenIntVar = (MAP [FIELDS [
+PREP_VAR @evenIntVar = <MAP [FIELDS [
     (#IS_PROC) = (TRUE)
     (#METHODS) = (varMethods(TRUE))
-]])
-PREP_VAR @oddIntVar = (MAP [FIELDS [
+]]>
+PREP_VAR @oddIntVar = <MAP [FIELDS [
     (#IS_PROC) = (TRUE)
     (#METHODS) = (varMethods(FALSE))
-]])
+]]>
 
 COMMENT "Define a custom procedure to add integers."
-PREP_VAR @addInts = (MAP [FIELDS [
+PREP_VAR @addInts = <MAP [FIELDS [
     (#IS_PROC) = (TRUE)
     (#METHODS) = (MAP [FIELDS [
         (#PREP) = (FUNC {
@@ -391,14 +391,14 @@ PREP_VAR @addInts = (MAP [FIELDS [
             RET (EQUAL(isEven1, isEven2))
         })
     ]])
-]])
+]]>
 
 COMMENT "Example invocations of the procedures."
 COMMENT "Note that even/odd compatibility is checked during prep-phase."
 evenIntVar @myEvenInt (10)
 oddIntVar @myOddInt (13)
 oddIntVar @myResult (addInts(myEvenInt, myOddInt))
-COMMENT("Prints 23.")
+COMMENT "Prints 23."
 PRINT(myResult)
 ```
 

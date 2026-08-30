@@ -39,10 +39,10 @@ If `[ARGS @$args]` is excluded, the function does not accept any arguments.
 Note that when the `FUNC` procedure is evaluated for the first time, the procedure will call the `#ACCESSED_VARS` method on the child statement sequence component. The `#ACCESSED_VARS` method returns a variable map which determines the contents of closures. The `FUNC` procedure stores the variable map in an `#ACCESSED_VARS` field of the invocation node to avoid redundantly calling the `#ACCESSED_VARS` method.
 
 ```
-PREP_VAR @$name = ($value)
+PREP_VAR @$name = <$value>
 ```
 
-Initializes prep-var `$name` with `$value`. `$value` is determined during prep-phase.
+Initializes prep-var `$name` with `$value`.
 
 ```
 WORK_VAR @$name = ($value)
@@ -57,22 +57,22 @@ PREP_SYMBOL @$name
 Initializes prep-var `$name` with a new symbol whose display name is `$name`.
 
 ```
-GET ($module) $name
+GET <$module> $name
 ```
 
-Returns the value of variable `$name` in `$module`. The `#PREP` method of this procedure determines `$module` and stores the source variable in a `#SRC_VAR` field of the `GET` expression. The `#EVAL` method of this procedure accesses the `#SRC_VAR` field.
+Returns the value of variable `$name` in `$module`. The `#PREP` method of this procedure stores the source variable in a `#SRC_VAR` field of the `GET` expression. The `#EVAL` method of this procedure accesses the `#SRC_VAR` field.
 
 ```
-SET ($module) $name = ($value)
+SET <$module> $name = ($value)
 ```
 
-Assigns `$value` to work-var `$name` in `$module`. The `#PREP` method of this procedure determines `$module` and stores the destination variable in a `#DEST_VAR` field of the `SET` statement. The `#EVAL` method of this procedure accesses the `#DEST_VAR` field. If `($module)` is excluded, the variable is in the current scope.
+Assigns `$value` to work-var `$name` in `$module`. The `#PREP` method of this procedure stores the destination variable in a `#DEST_VAR` field of the `SET` statement. The `#EVAL` method of this procedure accesses the `#DEST_VAR` field. If `<$module>` is excluded, the variable is in the current scope.
 
 ```
-IMPORT ($specifier) AS @$moduleName [VARS [$vars]]
+IMPORT <$specifier> AS @$moduleName [VARS [$vars]]
 ```
 
-Imports a built-in module or a module in the current package according to `$specifier`. `$specifier` is either a built-in module symbol or a path relative to the current package root. `$specifier` is determined during prep-phase. If `AS @$moduleName` is included, the procedure stores the module in prep-var `$moduleName`. If `[VARS [$vars]]` is included, each attribute in `$vars` may have one of the following forms:
+Imports a built-in module or a module in the current package according to `$specifier`. `$specifier` is either a built-in module symbol or a path relative to the current package root. If `AS @$moduleName` is included, the procedure stores the module in prep-var `$moduleName`. If `[VARS [$vars]]` is included, each attribute in `$vars` may have one of the following forms:
 
 * `@$varName`
     * Imports `$varName` from the external module, exposing the variable as `$varName` in the current module.
@@ -82,7 +82,7 @@ Imports a built-in module or a module in the current package according to `$spec
 If `$specifier` is a path to a missing file, the procedure will pause until the file is created.
 
 ```
-IMPORT_PACK ($specifier) AS @$moduleName [VARS [$vars]]
+IMPORT_PACK <$specifier> AS @$moduleName [VARS [$vars]]
 ```
 
 Imports the main module of package `$specifier` in the package store. The version of imported package depends on `petroleumPackage.json` in the current package. This procedure otherwise works in the same way as `IMPORT`.

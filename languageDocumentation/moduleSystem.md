@@ -56,7 +56,7 @@ The example below demonstrates usage of the `INIT` module attribute:
     WORK_VAR @myVar1 = (10)
     PRINT(myVar1)
 }]
-PREP_VAR @myVar2 = (20)
+PREP_VAR @myVar2 = <20>
 ```
 
 

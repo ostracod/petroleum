@@ -35,8 +35,8 @@ The example below demonstrates usage of prep-vars and work-vars:
 ```
 COMMENT "`myVar1` is initialized after `myVar2`, because the value of"
 COMMENT "`myVar2` must be known to compute the value of `myVar1`."
-PREP_VAR @myVar1 = (ADD(myVar2, 1))
-PREP_VAR @myVar2 = (5)
+PREP_VAR @myVar1 = <ADD(myVar2, 1)>
+PREP_VAR @myVar2 = <5>
 
 COMMENT "During initialization of `myVar3`, `myVar4` is accessible but"
 COMMENT "returns null because `myVar4` hasn't been initialized yet."
@@ -45,7 +45,7 @@ WORK_VAR @myVar4 = (ADD(myVar3, 2))
 
 COMMENT "This statement will throw an error, because work-vars"
 COMMENT "are inaccessible during prep-phase.
-PREP_VAR @myVar5 = (myVar3)
+PREP_VAR @myVar5 = <myVar3>
 
 COMMENT "This statement will not throw an error."
 WORK_VAR @myVar6 = (myVar1)
@@ -70,9 +70,9 @@ RUN {
     COMMENT "`myFunc2` holds a closure on `myVar1`. Note that `myFunc2` can only"
     COMMENT "be called when the top-level statement sequence is in work-phase."
     COMMENT "Also note that `myFunc2` cannot hold a closure on `myVar2`."
-    PREP_VAR @myFunc2 = (FUNC {
+    PREP_VAR @myFunc2 = <FUNC {
         PRINT(ADD(myVar1, 1))
-    })
+    }>
     
     SET myVar1 = (10)
     SET myVar2 = (20)

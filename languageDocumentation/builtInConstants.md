@@ -81,6 +81,7 @@ Petroleum defines many symbols for keys and values in various data structures. S
 * `#FILE_PATH` symbolizes a file path.
 * `#FRAME` symbolizes a frame.
 * `#FRAME_ENTRIES` symbolizes a map of frame entries.
+* `#GRADE` symbolizes the grade on an expression.
 * `#IDENT` symbolizes an identifier.
 * `#IDENT_COMP` symbolizes an identifier component.
 * `#IDENT_EXPR` symbolizes an identifier expression.
@@ -106,6 +107,7 @@ Petroleum defines many symbols for keys and values in various data structures. S
 * `#PARENT` symbolizes a parent.
 * `#PETROL_MODULE` symbolizes a module written in Petroleum code.
 * `#PHASE` symbolizes a phase.
+* `#PREP_GRADE` symbolizes prep-grade.
 * `#PREP_PHASE` symbolizes prep-phase.
 * `#PREP_VAR` symbolizes a prep-var.
 * `#RET_LEVEL` symbolizes the level of a return exception.
@@ -123,6 +125,7 @@ Petroleum defines many symbols for keys and values in various data structures. S
 * `#VAR_TYPE` symbolizes the type of a variable.
 * `#VARS` symbolizes a map of variables.
 * `#VER` symbolizes a version.
+* `#WORK_GRADE` symbolizes work-grade.
 * `#WORK_PHASE` symbolizes work-phase.
 * `#WORK_VAR` symbolizes a work-var.
 

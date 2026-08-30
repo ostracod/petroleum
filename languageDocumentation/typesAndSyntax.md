@@ -47,7 +47,7 @@ Petroleum code consists of "nodes". Each node is either a "statement", "expressi
     * An identifier component consists of identifier characters, which may be the following:
         * Uppercase and lowercase letters
         * Decimal digits
-        * Any of these symbols: ``_.?!:;'`+-*/%=<>~&|^#$``
+        * Any of these symbols: ``_.?!:;'`+-*/%=~&|^#$``
     * The first character of an identifier cannot be a decimal digit.
 * **Declaration component**
     * A declaration component consists of an at sign (`@`) followed by an identifier.
@@ -56,8 +56,10 @@ Petroleum code consists of "nodes". Each node is either a "statement", "expressi
     * A statement sequence component consists of a statement sequence enclosed by curly braces (`{` and `}`).
     * For example: `{PRINT("Hello"), PRINT("World")}` is a statement sequence component.
 * **Expression sequence component**
-    * An expression sequence component consists of an expression sequence enclosed by parentheses (`(` and `)`).
-    * For example: `(10, 20, 30)` is an expression sequence component.
+    * An expression sequence component consists of an expression sequence enclosed by one of the following pairs of delimiters:
+        * Angle brackets (`<` and `>`) enclose "prep-grade" expressions.
+        * Parentheses (`(` and `)`) enclose "work-grade" expressions.
+    * For example: `(10, 20, 30)` is a work-grade expression sequence component.
 * **Attribute sequence component**
     * An attribute sequence component consists of an attribute sequence enclosed by square brackets (`[` and `]`).
     * For example: `[EXCEP @myExcep]` is an attribute sequence component.
@@ -71,22 +73,22 @@ Each expression may have one of the following forms:
 * **Identifier expression**
     * An identifier expression consists of a single identifier component.
 * **Invocation expression**
-    * An invocation expression consists of an identifier component or expression sequence component followed by one or more additional components.
+    * An invocation expression consists of an identifier component or prep-grade expression sequence component followed by one or more additional components.
     * The first component determines the invocable which will be invoked.
         * When the first component is an expression sequence component, the component must contain exactly one expression.
-    * If the invocable is a function, the first component is followed by an expression sequence component which specifies the function arguments.
+    * If the invocable is a function, the first component is followed by a work-grade expression sequence component which specifies the function arguments.
         * No additional components may follow the arguments.
-    * For example: `ADD(1, 2)` and `(ADD)(1, 2)` both invoke the `ADD` function with the arguments 1 and 2.
+    * For example: `ADD(1, 2)` and `<ADD>(1, 2)` both invoke the `ADD` function with the arguments 1 and 2.
 
 Each statement may have one of the following forms:
 
 * **Invocation statement**
-    * An invocation statement consists of an identifier component or expression sequence component followed by zero or more additional components.
+    * An invocation statement consists of an identifier component or prep-grade expression sequence component followed by zero or more additional components.
     * The first component determines the invocable which will be invoked.
         * When the first component is an expression sequence component, the component must contain exactly one expression.
-    * If the invocable is a function, the first component may be followed by an expression sequence component which specifies the function arguments.
+    * If the invocable is a function, the first component may be followed by a work-grade expression sequence component which specifies the function arguments.
         * No additional components may follow the arguments.
-    * For example: `ADD_ELEM(myList, 10)` and `(ADD_ELEM)(myList, 10)` both invoke the `ADD_ELEM` function with the arguments `myList` and 10.
+    * For example: `ADD_ELEM(myList, 10)` and `<ADD_ELEM>(myList, 10)` both invoke the `ADD_ELEM` function with the arguments `myList` and 10.
 * **Block attributes statement**
     * A block attributes statement consists of a single attribute sequence component.
         * Attributes in this attribute sequence component are "block attributes".

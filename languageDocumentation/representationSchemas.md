@@ -71,6 +71,7 @@ All expressions have the following fields:
 
 * The `#NODE_TYPE` field stores `#EXPR`.
 * The `#EXPR_TYPE` field stores the type of the expression. The type may be `#INT_EXPR`, `#STR_EXPR`, `#IDENT_EXPR`, or `#INVOC_EXPR`.
+* The `#GRADE` field stores the grade, which may be `#PREP_GRADE` or `#WORK_GRADE`.
 * The `#PHASE` field stores the current phase, which may be `#PREP_PHASE` or `#WORK_PHASE`.
 * Expressions also have `#COMPS`, `#PARENT`, `#LINE_NUM`, and `#COL_NUM` fields which are common to all nodes.
 
@@ -78,13 +79,13 @@ Integer expressions have the following fields:
 
 * The `#EXPR_TYPE` field stores `#INT_EXPR`.
 * The `#INT` field stores the integer value.
-* Integer expressions also have `#NODE_TYPE`, `#COMPS`, `#PARENT`, `#PHASE`, `#LINE_NUM`, and `#COL_NUM` fields which are common to all expressions.
+* Integer expressions also have `#NODE_TYPE`, `#COMPS`, `#PARENT`, `#GRADE`, `#PHASE`, `#LINE_NUM`, and `#COL_NUM` fields which are common to all expressions.
 
 String expressions have the following fields:
 
 * The `#EXPR_TYPE` field stores `#STR_EXPR`.
 * The `#STR` field stores the string value.
-* String expressions also have `#NODE_TYPE`, `#COMPS`, `#PARENT`, `#PHASE`, `#LINE_NUM`, and `#COL_NUM` fields which are common to all expressions.
+* String expressions also have `#NODE_TYPE`, `#COMPS`, `#PARENT`, `#GRADE`, `#PHASE`, `#LINE_NUM`, and `#COL_NUM` fields which are common to all expressions.
 
 Identifier expressions have the following fields:
 
@@ -93,14 +94,14 @@ Identifier expressions have the following fields:
 * The `#VAR` field stores the variable which matches the identifier.
     * This field stores null until the identifier expression finishes prep-phase.
     * Note that if the identifier matches an imported variable, the `#VAR` field stores the imported variable rather than the referenced prep-var or work-var.
-* Identifier expressions also have `#NODE_TYPE`, `#COMPS`, `#PARENT`, `#PHASE`, `#LINE_NUM`, and `#COL_NUM` fields which are common to all expressions.
+* Identifier expressions also have `#NODE_TYPE`, `#COMPS`, `#PARENT`, `#GRADE`, `#PHASE`, `#LINE_NUM`, and `#COL_NUM` fields which are common to all expressions.
 
 Invocation expressions have the following fields:
 
 * The `#EXPR_TYPE` field stores `#INVOC_EXPR`.
 * The `#INVOC` field stores the invocable.
     * This field stores null until the invocation expression finishes prep-phase.
-* Invocation expressions also have `#NODE_TYPE`, `#COMPS`, `#PARENT`, `#PHASE`, `#LINE_NUM`, and `#COL_NUM` fields which are common to all expressions.
+* Invocation expressions also have `#NODE_TYPE`, `#COMPS`, `#PARENT`, `#GRADE`, `#PHASE`, `#LINE_NUM`, and `#COL_NUM` fields which are common to all expressions.
 
 ### Component Schema
 
@@ -150,6 +151,7 @@ Expression sequence components have the following fields:
 
 * The `#COMP_TYPE` field stores `#EXPRS_COMP`.
 * The `#EXPRS` field stores the list of expressions.
+* The `#GRADE` field stores the grade of the expressions, which may be `#PREP_GRADE` or `#WORK_GRADE`.
 * The `#PHASE` field stores the current phase, which may be `#PREP_PHASE` or `#WORK_PHASE`.
 * The `#PARENT` field stores the parent node.
 * Expression sequence components also have `#LINE_NUM` and `#COL_NUM` fields which are common to all components.
