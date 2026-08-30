@@ -97,6 +97,12 @@ export const getModule = (entity: PetMap): PetMap => {
     }
 };
 
+// `entity` is a node or a component.
+export const getPackage = (entity: PetMap): PetMap => {
+    const parentModule = getModule(entity);
+    return parentModule.getMember(symbols.PACK).getMap();
+}
+
 export const getFuncArgsComp = (invocNode: PetMap): PetMap | null => {
     const comps = invocNode.getMember(symbols.COMPS).getList();
     return (comps.getLength() > 1) ? comps.getMember(1).getMap() : null;

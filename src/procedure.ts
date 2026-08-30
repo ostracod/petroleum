@@ -4,7 +4,7 @@ import "./method.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc, EvalState } from "./value.js";
 import { MethodDict, createMethodMap } from "./method.js";
-import { getModule } from "./node.js";
+import { getPackage } from "./node.js";
 import { findVariable, findVarValue, getModuleFrameEntry, getScope, varIsInScope, getSignatureVars } from "./variable.js";
 import { Action, setProcPrepTask } from "./task.js";
 
@@ -302,13 +302,37 @@ export const globalProcDefs: ProcDef[] = [
                     let module: PetMap;
                     if (specifier instanceof PetString) {
                         const path = specifier.toString();
-                        const parentModule = getModule(stmt);
-                        const parentPackage = parentModule.getMember(symbols.PACK).getMap();
+                        const parentPackage = getPackage(stmt);
                         module = task.context.loadUserModule(parentPackage, path);
                     } else if (specifier instanceof PetSymbol) {
                         throw new Error("Built-in modules are not yet supported.");
                     }
                     setUpImportVars(comps, module);
+                    return task.returnValue(null);
+                }
+            );
+        },
+        accessedVars: (task, expr, scope) => task.returnValue(new PetMap()),
+    },
+    {
+        name: "IMPORT_PACK",
+        prep: (task, stmt) => {
+            const comps = stmt.getMember(symbols.COMPS).getList();
+            const exprsComp = comps.getMember(1).getMap();
+            const scope = getScope(exprsComp);
+            return task.callMethod(
+                exprsComp, symbols.EVAL, [scope],
+                (values) => {
+                    const specifier = values.getList().getMember(0);
+                    const parentPackage = getPackage(stmt);
+                    const depMap = parentPackage.getMember(symbols.DEPS).getMap();
+                    const depPackage = depMap.getMember(specifier).getMap();
+                    const mainModule = depPackage.getMember(symbols.MAIN_MODULE).getMap();
+                    const modulePath = mainModule.getMember(symbols.FILE_PATH).toString();
+                    if (!task.context.hasUserModule(modulePath)) {
+                        task.context.addUserModule(mainModule);
+                    }
+                    setUpImportVars(comps, mainModule);
                     return task.returnValue(null);
                 }
             );

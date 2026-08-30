@@ -109,6 +109,10 @@ export class PetContext {
         return task.getStageAction();
     }
     
+    hasUserModule(absModulePath: string): boolean {
+        return this.userModuleIndexes.has(absModulePath);
+    }
+    
     addUserModule(module: PetMap): void {
         const modulePath = module.getMember(symbols.FILE_PATH).toString();
         this.userModuleIndexes.set(modulePath, this.userModules.length);
