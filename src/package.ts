@@ -490,12 +490,70 @@ export class PackageResolver {
         return removedRedundantPack;
     }
     
+    markAndSweep(): void {
+        
+        // Unmark all selections.
+        for (const versionMap of this.selections.values()) {
+            for (const selection of versionMap.getValues()) {
+                selection.isMarked = false;
+            }
+        }
+        
+        // Start by visiting entry package.
+        this.entrySelection.isMarked = true;
+        const selectionsToVisit = new Set<PackageSelection>([this.entrySelection]);
+        
+        // Traverse dependencies of packages.
+        while (true) {
+            const selection = selectionsToVisit.values().next().value;
+            if (typeof selection === "undefined") {
+                break;
+            }
+            selectionsToVisit.delete(selection);
+            for (const dependency of selection.dependencies.values()) {
+                for (const depSelection of dependency.compatibleSels.getValues()) {
+                    if (!depSelection.isMarked) {
+                        depSelection.isMarked = true;
+                        selectionsToVisit.add(depSelection);
+                    }
+                }
+            }
+        }
+        
+        // Gather list of unmarked selections.
+        const unmarkedSelections: PackageSelection[] = [];
+        for (const versionMap of this.selections.values()) {
+            for (const selection of versionMap.getValues()) {
+                if (!selection.isMarked) {
+                    unmarkedSelections.push(selection);
+                }
+            }
+        }
+        
+        // Remove unmarked selections.
+        for (const selection of unmarkedSelections) {
+            this.removeSelection(selection);
+        }
+    }
+    
+    getCurrentState(): string {
+        const keys: string[] = [];
+        for (const versionMap of this.selections.values()) {
+            for (const selection of versionMap.getValues()) {
+                keys.push(selection.pack.key);
+            }
+        }
+        keys.sort();
+        return keys.join(" ");
+    }
+    
     // Returns the map representation of the entry package.
     resolvePackages(): PetMap {
         this.selections = new Map();
         this.dependencies = new Map();
         this.unsatisfiedSelections = new Set();
         this.entrySelection = this.addSelection(this.entryPackage);
+        this.previousStates = new Set();
         while (true) {
             const selection = this.unsatisfiedSelections.values().next().value;
             if (typeof selection === "undefined") {
@@ -512,9 +570,14 @@ export class PackageResolver {
             }
             const addedSelection = this.addSelection(pack);
             const removedRedundantPack = this.removeRedundantPacks(addedSelection);
-            // TODO: Finish implementation.
-            
-            break;
+            if (removedRedundantPack) {
+                this.markAndSweep();
+            }
+            const currentState = this.getCurrentState();
+            if (this.previousStates.has(currentState)) {
+                throw new Error("Package resolution encountered instability!");
+            }
+            this.previousStates.add(currentState);
         }
         return this.entrySelection.toMap();
     }
