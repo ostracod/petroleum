@@ -185,6 +185,10 @@ class VersionMap<T> {
         return this.entries.map((entry) => entry.value);
     }
     
+    getNewestValue(): T {
+        return this.entries.at(-1).value;
+    }
+    
     findSmallestAtLeast(version: Version): number {
         // Both minIndex and maxIndex are inclusive.
         let minIndex = 0;
@@ -313,7 +317,6 @@ class PackageSelection {
         const packageAsMap = new PetMap([
             [symbols.SPECIFIER, new PetString(this.pack.specifier)],
             [symbols.VER, new PetString(this.pack.version.toString())],
-            // TODO: Put the actual map of dependencies here.
             [symbols.DEPS, new PetMap()],
             [symbols.DIR_PATH, new PetString(dirPath)],
         ]);
@@ -490,13 +493,21 @@ export class PackageResolver {
         return removedRedundantPack;
     }
     
+    getAllSelections(): PackageSelection[] {
+        const output: PackageSelection[] = [];
+        for (const versionMap of this.selections.values()) {
+            for (const selection of versionMap.getValues()) {
+                output.push(selection);
+            }
+        }
+        return output;
+    }
+    
     markAndSweep(): void {
         
         // Unmark all selections.
-        for (const versionMap of this.selections.values()) {
-            for (const selection of versionMap.getValues()) {
-                selection.isMarked = false;
-            }
+        for (const selection of this.getAllSelections()) {
+            selection.isMarked = false;
         }
         
         // Start by visiting entry package.
@@ -522,11 +533,9 @@ export class PackageResolver {
         
         // Gather list of unmarked selections.
         const unmarkedSelections: PackageSelection[] = [];
-        for (const versionMap of this.selections.values()) {
-            for (const selection of versionMap.getValues()) {
-                if (!selection.isMarked) {
-                    unmarkedSelections.push(selection);
-                }
+        for (const selection of this.getAllSelections()) {
+            if (!selection.isMarked) {
+                unmarkedSelections.push(selection);
             }
         }
         
@@ -538,13 +547,31 @@ export class PackageResolver {
     
     getCurrentState(): string {
         const keys: string[] = [];
-        for (const versionMap of this.selections.values()) {
-            for (const selection of versionMap.getValues()) {
-                keys.push(selection.pack.key);
-            }
+        for (const selection of this.getAllSelections()) {
+            keys.push(selection.pack.key);
         }
         keys.sort();
         return keys.join(" ");
+    }
+    
+    // Returns the map representation of the entry package.
+    convertSelsToMaps(): PetMap {
+        // Map from package key to map representation of package.
+        const packMap = new Map<string, PetMap>();
+        for (const selection of this.getAllSelections()) {
+            packMap.set(selection.pack.key, selection.toMap());
+        }
+        for (const selection of this.getAllSelections()) {
+            const pack = packMap.get(selection.pack.key);
+            const depMap = pack.getMember(symbols.DEPS).getMap();
+            for (const { compatibleSels } of selection.dependencies.values()) {
+                const depSelection = compatibleSels.getNewestValue();
+                const depPack = packMap.get(depSelection.pack.key);
+                const specifier = depPack.getMember(symbols.SPECIFIER);
+                depMap.setMember(specifier, depPack);
+            }
+        }
+        return packMap.get(this.entryPackage.key);
     }
     
     // Returns the map representation of the entry package.
@@ -579,7 +606,7 @@ export class PackageResolver {
             }
             this.previousStates.add(currentState);
         }
-        return this.entrySelection.toMap();
+        return this.convertSelsToMaps();
     }
 }
 
