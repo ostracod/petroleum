@@ -293,6 +293,18 @@ class PackageSelection {
         return (this.getUnsatisfiedDep() === null);
     }
     
+    // We say that a package is "redundant" if all dependents are satisfied
+    // by other packages with the same specifier.
+    isRedundant(): boolean {
+        for (const dependentSel of this.dependents.values()) {
+            const { compatibleSels } = dependentSel.dependencies.get(this.pack.specifier);
+            if (compatibleSels.getLength() <= 1) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
     toMap(): PetMap {
         const { dirPath } = this.pack;
         const mainModulePath = pathUtils.normalize(
@@ -400,7 +412,44 @@ export class PackageResolver {
             this.unsatisfiedSelections.add(selection);
         }
         
+        // Remove dependents of `selection` from this.unsatisfiedSelections if necessary.
+        for (const dependentSel of selection.dependents.values()) {
+            if (dependentSel.isSatisfied()) {
+                this.unsatisfiedSelections.delete(dependentSel);
+            }
+        }
+        
         return selection;
+    }
+    
+    // `selection` must be redundant or not reachable from the entry package.
+    removeSelection(selection: PackageSelection): void {
+        const { specifier, version } = selection.pack;
+        
+        // Remove `selection` from this.unsatisfiedSelections.
+        this.unsatisfiedSelections.delete(selection);
+        
+        // Remove `selection` from dependencies of other selections.
+        for (const dependentSel of selection.dependents.values()) {
+            const dependency = dependentSel.dependencies.get(specifier);
+            dependency.compatibleSels.remove(version);
+        }
+        
+        // Remove `selection` from dependents of other selections.
+        for (const dependency of selection.dependencies.values()) {
+            for (const depSelection of dependency.compatibleSels.getValues()) {
+                depSelection.dependents.delete(selection.pack.key);
+            }
+        }
+        
+        // Remove dependencies of `selection` from this.dependencies.
+        for (const dependency of selection.dependencies.values()) {
+            const dependencySet = this.dependencies.get(dependency.specifier);
+            dependencySet.delete(dependency);
+        }
+        
+        // Remove `selection` from this.selections.
+        this.selections.get(specifier).remove(version);
     }
     
     getStorePackage(
@@ -417,6 +466,28 @@ export class PackageResolver {
             entry.value = new PetPackage(packagePath);
         }
         return entry.value;
+    }
+    
+    // Returns whether any redundant packages have been removed.
+    removeRedundantPacks(addedSelection: PackageSelection): boolean {
+        const { specifier } = addedSelection.pack;
+        const candidateSels = new Set<PackageSelection>();
+        for (const dependentSel of addedSelection.dependents.values()) {
+            const { compatibleSels } = dependentSel.dependencies.get(specifier);
+            for (const selection of compatibleSels.getValues()) {
+                if (selection !== addedSelection) {
+                    candidateSels.add(selection);
+                }
+            }
+        }
+        let removedRedundantPack;
+        for (const selection of candidateSels) {
+            if (selection.isRedundant()) {
+                this.removeSelection(selection);
+                removedRedundantPack = true;
+            }
+        }
+        return removedRedundantPack;
     }
     
     // Returns the map representation of the entry package.
@@ -439,6 +510,8 @@ export class PackageResolver {
             if (pack === null) {
                 throw new Error(`Could not find ${dependency.specifier} package in store which satisfies dependency of ${selection.pack.specifier}!`);
             }
+            const addedSelection = this.addSelection(pack);
+            const removedRedundantPack = this.removeRedundantPacks(addedSelection);
             // TODO: Finish implementation.
             
             break;
