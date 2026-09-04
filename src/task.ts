@@ -539,11 +539,40 @@ export const awaitCondTask: TaskDef<{ observer: MemberObserver }, null> = {
     ],
 };
 
+const checkGradeForEval = (worker: PetMap): void => {
+    if (worker.getMember(symbols.NODE_TYPE)?.getSymbol() !== symbols.EXPR) {
+        return;
+    }
+    const grade = worker.getMember(symbols.GRADE).getSymbol();
+    const exprsComp = worker.getMember(symbols.PARENT).getMap();
+    if (exprsComp.getMember(symbols.COMP_TYPE).getSymbol() !== symbols.EXPRS_COMP) {
+        throw new Error("Expression must be inside expression sequence component.");
+    }
+    let parent = exprsComp.getMember(symbols.PARENT).getMap();
+    while (true) {
+        const phaseValue = parent.getMember(symbols.PHASE);
+        if (typeof phaseValue !== "undefined") {
+            const phase = phaseValue.getSymbol();
+            if (grade === symbols.PREP_GRADE && phase === symbols.WORK_PHASE) {
+                throw new Error("Cannot evaluate prep-grade expression when parent is in work-phase.");
+            }
+            if (grade === symbols.WORK_GRADE && phase === symbols.PREP_PHASE) {
+                throw new Error("Cannot evaluate work-grade expression when parent is in prep-phase.");
+            }
+            break;
+        }
+        parent = parent.getMember(symbols.PARENT).getMap();
+    }
+};
+
 const callMethodTask: TaskDef<MethodInvocation, null> = {
     getInitState: (params) => null,
     stages: [
         (task) => {
             const { worker, key: methodKey } = task.params;
+            if (methodKey === symbols.EVAL) {
+                checkGradeForEval(worker);
+            }
             if (methodKey === symbols.PREP) {
                 const phase = worker.getMember(symbols.PHASE).getSymbol();
                 if (phase === symbols.WORK_PHASE) {
@@ -616,7 +645,8 @@ const determineInvocTask: TaskDef<{ worker: PetMap }, null> = {
                 return task.callMethod(
                     firstComp, symbols.EVAL, [scope],
                     (returnValue) => {
-                        worker.setMember(symbols.INVOC, returnValue);
+                        const listValue = returnValue.getList();
+                        worker.setMember(symbols.INVOC, listValue.getMember(0));
                         return task.returnValue(null);
                     },
                 );

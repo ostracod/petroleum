@@ -47,7 +47,7 @@ Petroleum code consists of "nodes". Each node is either a "statement", "expressi
     * An identifier component consists of identifier characters, which may be the following:
         * Uppercase and lowercase letters
         * Decimal digits
-        * Any of these symbols: ``_.?!:;'`+-*/%=~&|^#$``
+        * Any of these symbols: `_.?!:;+-*/%=~&|^#$`
     * The first character of an identifier cannot be a decimal digit.
 * **Declaration component**
     * A declaration component consists of an at sign (`@`) followed by an identifier.

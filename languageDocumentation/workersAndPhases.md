@@ -50,11 +50,19 @@ The `#PREP` method of a procedure is responsible for invoking the `#PREP` method
 
 ## Expression Grade
 
-The "grade" of an expression determines when the expression may be evaluated:
+The "grade" of an expression determines when the expression may be evaluated. Suppose that X is an expression, and Y is the parent worker of the parent expression sequence component of X:
 
-* "prep-grade" expressions may only be evaluated during prep-phase of the parent node.
-* "work-grade" expressions may only be evaluated during work-phase of the parent node.
+* If X is "prep-grade", X may only be evaluated when Y is in prep-phase.
+* If X is "work-grade", X may only be evaluated when Y is in work-phase.
 
-The grade of an expression depends on the enclosing delimiters in the parent component. Prep-grade expressions are enclosed by angle brackets, while work-grade expressions are enclosed by parentheses.
+The grade of an expression depends on the enclosing delimiters in the parent expression sequence component. Prep-grade expressions are enclosed by angle brackets, while work-grade expressions are enclosed by parentheses. For example:
 
+```
+COMMENT "`ADD(1, 2)` is enclosed by angle brackets, so the expression is prep-grade"
+COMMENT "and can only be evaluated when the `myProc1` statement is in prep-phase."
+myProc1 <ADD(1, 2)>
 
+COMMENT "`ADD(3, 4)` is enclosed by parentheses, so the expression is work-grade"
+COMMENT "and can only be evaluated when the `myProc2` statement is in work-phase."
+myProc2 (ADD(3, 4))
+```

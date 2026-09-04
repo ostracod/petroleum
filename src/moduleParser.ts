@@ -2,7 +2,7 @@
 import "./exception.js";
 
 import * as fs from "fs";
-import { symbols } from "./symbol.js";
+import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, KnownValue, toPetValue, escapeChars, PetString, PetList, PetMap } from "./value.js";
 
 interface ContentPos {
@@ -16,7 +16,7 @@ interface StmtSeqResult {
     scope: PetMap;
 }
 
-const identifierSymbols = new Set("_.?!:;'`+-*/%=<>~&|^#$".split(""));
+const identifierSymbols = new Set("_.?!:;+-*/%=~&|^#$".split(""));
 
 const isDigit = (character: string): boolean => {
     const charCode = character.charCodeAt(0);
@@ -270,20 +270,35 @@ export class ModuleParser {
         return createStmtsComp(stmtSeqResult, pos);
     }
     
-    parseExprsComp(): PetMap {
+    parseExprsComp(startBracket: "<" | "("): PetMap {
+        let endBracket: string;
+        let bracketName: string;
+        let grade: PetSymbol;
+        if (startBracket === "<") {
+            endBracket = ">";
+            bracketName = "angle bracket";
+            grade = symbols.PREP_GRADE;
+        } else {
+            endBracket = ")";
+            bracketName = "parenthesis";
+            grade = symbols.WORK_GRADE;
+        }
         const posFields = this.getPosFields();
         // Pass over parenthesis.
         this.advance(1);
         const compsSequence = this.parseCompsSequence();
-        const expressions = compsSequence.map(this.compsToExpression);
-        const endParenPos = this.getPos();
+        const expressions = compsSequence.map((components) => (
+            this.compsToExpression(components, grade)
+        ));
+        const endBracketPos = this.getPos();
         const character = this.readText(1);
-        if (character !== ")") {
-            this.throwError("Expected close parenthesis.", endParenPos);
+        if (character !== endBracket) {
+            this.throwError(`Expected close ${bracketName}.`, endBracketPos);
         }
         const exprsComp = new PetMap([
             [symbols.COMP_TYPE, symbols.EXPRS_COMP],
             [symbols.EXPRS, new PetList(expressions)],
+            [symbols.GRADE, grade],
             [symbols.PHASE, symbols.PREP_PHASE],
             ...posFields,
         ])
@@ -325,8 +340,8 @@ export class ModuleParser {
             return this.parseDeclComp();
         } else if (firstChar === "{") {
             return this.parseStmtsComp();
-        } else if (firstChar === "(") {
-            return this.parseExprsComp();
+        } else if (firstChar === "<" || firstChar === "(") {
+            return this.parseExprsComp(firstChar);
         } else if (firstChar === "[") {
             return this.parseAttrsComp();
         } else {
@@ -363,12 +378,13 @@ export class ModuleParser {
         return output;
     }
     
-    compsToExpression(components: PetMap[]): PetMap {
+    compsToExpression(components: PetMap[], grade: PetSymbol): PetMap {
         const firstComp = components[0];
         const pos = getCompPos(firstComp);
         const commonFields: [KnownValue, KnownValue][] = [
             [symbols.NODE_TYPE, symbols.EXPR],
             [symbols.COMPS, new PetList(components)],
+            [symbols.GRADE, grade],
             [symbols.PHASE, symbols.PREP_PHASE],
             ...posToFields(pos),
         ];
