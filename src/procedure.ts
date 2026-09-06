@@ -186,7 +186,6 @@ export const globalProcDefs: ProcDef[] = [
                 }
             );
         },
-        accessedVars: (task, expr, scope) => task.returnValue(new PetMap()),
     },
     {
         name: "WORK_VAR",
@@ -312,7 +311,6 @@ export const globalProcDefs: ProcDef[] = [
                 }
             );
         },
-        accessedVars: (task, expr, scope) => task.returnValue(new PetMap()),
     },
     {
         name: "IMPORT_PACK",
@@ -337,7 +335,6 @@ export const globalProcDefs: ProcDef[] = [
                 }
             );
         },
-        accessedVars: (task, expr, scope) => task.returnValue(new PetMap()),
     },
     {
         name: "RET",

@@ -141,23 +141,6 @@ export class Task<ParamsT = any, StateT = any> {
         return task.getStageAction();
     }
     
-    throwAwaitExcep(
-        bunch: ObservableBunch,
-        location: KnownValue,
-        condition: PetFunc,
-        evalState: EvalState,
-    ): Action {
-        const exception = new PetMap([
-            [symbols.EXCEP_TYPE, symbols.AWAIT_EXCEP],
-            [symbols.BUNCH, bunch],
-            [symbols.LOC, location],
-            [symbols.COND, condition],
-            [symbols.EVAL_STATE, evalState],
-            // TODO: Add #MESSAGE field.
-        ]);
-        return this.throwException(exception);
-    }
-    
     throwObserverAwait(observer: MemberObserver): Action {
         const { bunch, location, condition, evalState } = observer;
         const exception = createAwaitExcep(

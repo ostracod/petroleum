@@ -187,6 +187,10 @@ export const exprsCompMethods = createMethodMap({
         (value) => task.returnValue(value),
     ),
     accessedVars: (task, exprsComp, scope) => {
+        const grade = exprsComp.getMember(symbols.GRADE).getSymbol();
+        if (grade === symbols.PREP_GRADE) {
+            return task.returnValue(new PetMap());
+        }
         const exprList = exprsComp.getMember(symbols.EXPRS).getList();
         const exprs = exprList.elements.map((value) => value.getMap());
         return task.runTask(
