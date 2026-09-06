@@ -4,6 +4,7 @@ import "./procedure.js";
 import { symbols } from "./symbol.js";
 import { KnownValue, PetValue, toPetValue, PetString, ObservableBunch, PetMap, PetFunc, EvalState } from "./value.js";
 import { ConstantFunc } from "./builtInFunc.js";
+import { Action } from "./task.js";
 
 export class PetException extends Error {
     mapValue: PetValue;
@@ -13,6 +14,11 @@ export class PetException extends Error {
     constructor(mapValue: PetMap | PetValue) {
         super();
         this.mapValue = toPetValue(mapValue);
+    }
+    
+    createEvalState(currentAction: Action): EvalState {
+        const { task } = currentAction;
+        return new EvalState(task, task.returnValue(null));
     }
 }
 
@@ -45,6 +51,10 @@ export class AwaitException extends PetException {
         message: string,
     ) {
         super(createAwaitExcep(bunch, location, condition, message));
+    }
+    
+    createEvalState(currentAction: Action): EvalState {
+        return new EvalState(currentAction.task, currentAction);
     }
 }
 

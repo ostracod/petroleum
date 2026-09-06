@@ -31,7 +31,7 @@ export class Coroutine {
                     const exception = mapValue.tryMap();
                     if (typeof exception !== "undefined"
                             && !exception.hasKey(symbols.EVAL_STATE)) {
-                        const evalState = new EvalState(task, this.action);
+                        const evalState = error.createEvalState(this.action);
                         exception.setMember(symbols.EVAL_STATE, evalState);
                     }
                     nextAction = task.throwException(mapValue);

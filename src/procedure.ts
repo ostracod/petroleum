@@ -4,6 +4,7 @@ import "./method.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc, EvalState } from "./value.js";
 import { MethodDict, createMethodMap } from "./method.js";
+import { PetException } from "./exception.js";
 import { getPackage } from "./node.js";
 import { findVariable, findVarValue, getModuleFrameEntry, getScope, varIsInScope, getSignatureVars } from "./variable.js";
 import { Action, setProcPrepTask } from "./task.js";
@@ -342,19 +343,14 @@ export const globalProcDefs: ProcDef[] = [
             const comps = stmt.getMember(symbols.COMPS).getList();
             let retValue: PetValue;
             let retLevel = 0n;
-            const throwRetExcep = (): Action => {
-                const evalState = new EvalState(task, task.returnValue(null));
-                const exception = new PetMap([
-                    [symbols.EXCEP_TYPE, symbols.RET_EXCEP],
-                    [symbols.VALUE, retValue],
-                    [symbols.RET_LEVEL, retLevel],
-                    [symbols.EVAL_STATE, evalState],
-                ]);
-                return task.throwException(exception);
-            };
+            const createRetExcep = (): PetException => new PetException(new PetMap([
+                [symbols.EXCEP_TYPE, symbols.RET_EXCEP],
+                [symbols.VALUE, retValue],
+                [symbols.RET_LEVEL, retLevel],
+            ]));
             if (comps.getLength() <= 1) {
                 retValue = nullValue;
-                return throwRetExcep();
+                throw createRetExcep();
             }
             const exprsComp = comps.getMember(1).getMap();
             return task.callMethod(
@@ -365,7 +361,7 @@ export const globalProcDefs: ProcDef[] = [
                     if (values.getLength() > 1) {
                         retLevel = values.getMember(1).getInt();
                     }
-                    return throwRetExcep();
+                    throw createRetExcep();
                 },
             );
         },
