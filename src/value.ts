@@ -25,7 +25,11 @@ export class PetValue {
         if (typeof this.knownValue === "undefined") {
             const value = this.bunch.getMember(this.location);
             if (typeof value === "undefined") {
-                throw new DeferralException(this.bunch, this.location);
+                throw new DeferralException(
+                    this.bunch,
+                    this.location,
+                    "TODO: Put exception message here.",
+                );
             }
             this.knownValue = value.getKnownValue();
             delete this.bunch;
@@ -53,8 +57,25 @@ export class PetValue {
         return value;
     }
     
-    getInstance<T>(classConstructor: abstract new (...args: any[]) => T, displayName: string): T {
+    getInstance<T>(
+        classConstructor: abstract new (...args: any[]) => T,
+        displayName: string,
+    ): T {
         const value = this.getKnownValue();
+        if (!(value instanceof classConstructor)) {
+            throw new PetTypeError(`Expected ${displayName}.`);
+        }
+        return value;
+    }
+    
+    tryInstance<T>(
+        classConstructor: abstract new (...args: any[]) => T,
+        displayName: string,
+    ): T | undefined {
+        const value = this.tryKnownValue();
+        if (typeof value === "undefined") {
+            return undefined;
+        }
         if (!(value instanceof classConstructor)) {
             throw new PetTypeError(`Expected ${displayName}.`);
         }
@@ -75,6 +96,10 @@ export class PetValue {
     
     getMap(): PetMap {
         return this.getInstance(PetMap, "map");
+    }
+    
+    tryMap(): PetMap | undefined {
+        return this.tryInstance(PetMap, "map");
     }
     
     getFunc(): PetFunc {

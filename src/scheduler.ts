@@ -1,9 +1,10 @@
 
 import "./task.js";
 
+import { symbols } from "./symbol.js";
 import { EvalState } from "./value.js";
 import { ConstantFunc } from "./builtInFunc.js";
-import { AwaitException, CoroEndException } from "./exception.js";
+import { PetException, CoroEndException } from "./exception.js";
 import { Action, TaskDef, handleExcepTask } from "./task.js";
 import { PetContext } from "./context.js";
 
@@ -24,21 +25,23 @@ export class Coroutine {
             try {
                 nextAction = this.action.run();
             } catch (error) {
-                if (error instanceof CoroEndException) {
+                if (error instanceof PetException) {
+                    const { mapValue } = error;
+                    const { task } = this.action;
+                    const exception = mapValue.tryMap();
+                    if (typeof exception !== "undefined"
+                            && !exception.hasKey(symbols.EVAL_STATE)) {
+                        const evalState = new EvalState(task, this.action);
+                        exception.setMember(symbols.EVAL_STATE, evalState);
+                    }
+                    nextAction = task.throwException(mapValue);
+                } else if (error instanceof CoroEndException) {
                     const exception = error.unhandledExcep;
                     if (exception === null) {
                         break;
                     } else {
                         nextAction = this.context.runTask(handleExcepTask, { exception });
                     }
-                } else if (error instanceof AwaitException) {
-                    const { task } = this.action;
-                    nextAction = task.throwAwaitExcep(
-                        error.bunch,
-                        error.location,
-                        error.condition,
-                        new EvalState(task, this.action),
-                    );
                 } else {
                     throw error;
                 }

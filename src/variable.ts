@@ -67,7 +67,12 @@ export const findVariable = (scope: PetMap, name: PetString): PetMap | null => {
 const getVarType = (variable: PetMap): PetSymbol => {
     const varType = variable.getMember(symbols.VAR_TYPE).getKnownValue();
     if (varType === null) {
-        throw new AwaitException(variable, symbols.VAR_TYPE, new NotEqualFunc(null));
+        throw new AwaitException(
+            variable,
+            symbols.VAR_TYPE,
+            new NotEqualFunc(null),
+            "TODO: Put exception message here.",
+        );
     } else if (varType instanceof PetSymbol) {
         return varType;
     } else {

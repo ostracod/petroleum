@@ -1,26 +1,57 @@
 
 import "./procedure.js";
 
-import { KnownValue, PetValue, ObservableBunch, PetFunc } from "./value.js";
+import { symbols } from "./symbol.js";
+import { KnownValue, PetValue, toPetValue, PetString, ObservableBunch, PetMap, PetFunc, EvalState } from "./value.js";
 import { ConstantFunc } from "./builtInFunc.js";
 
-export class AwaitException extends Error {
-    bunch: ObservableBunch;
-    location: KnownValue;
-    condition: PetFunc;
+export class PetException extends Error {
+    mapValue: PetValue;
     
-    constructor(bunch: ObservableBunch, location: KnownValue, condition: PetFunc) {
+    // If `#EVAL_STATE` is missing in `mapValue`, the field will be
+    // populated when the exception is caught by `Coroutine.run`.
+    constructor(mapValue: PetMap | PetValue) {
         super();
-        this.bunch = bunch;
-        this.location = location;
-        this.condition = condition;
+        this.mapValue = toPetValue(mapValue);
+    }
+}
+
+export const createAwaitExcep = (
+    bunch: ObservableBunch,
+    location: KnownValue,
+    condition: PetFunc,
+    message: string,
+    evalState?: EvalState,
+): PetMap => {
+    const output = new PetMap([
+        [symbols.EXCEP_TYPE, symbols.AWAIT_EXCEP],
+        [symbols.BUNCH, bunch],
+        [symbols.LOC, location],
+        [symbols.COND, condition],
+        [symbols.MESSAGE, new PetString(message)],
+    ]);
+    if (typeof evalState !== "undefined") {
+        output.setMember(symbols.EVAL_STATE, evalState);
+    }
+    return output;
+};
+
+export class AwaitException extends PetException {
+    
+    constructor(
+        bunch: ObservableBunch,
+        location: KnownValue,
+        condition: PetFunc,
+        message: string,
+    ) {
+        super(createAwaitExcep(bunch, location, condition, message));
     }
 }
 
 export class DeferralException extends AwaitException {
     
-    constructor(bunch: ObservableBunch, location: KnownValue) {
-        super(bunch, location, new ConstantFunc(1n));
+    constructor(bunch: ObservableBunch, location: KnownValue, message: string) {
+        super(bunch, location, new ConstantFunc(1n), message);
     }
 }
 

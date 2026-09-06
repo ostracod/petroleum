@@ -251,6 +251,12 @@ NEW_FRAME($scope, $parentFrame)
 Creates a frame with `$scope` and `$parentFrame`. If `$parentFrame` is null, the new frame has no parent. The new frame stores a frame entry for each variable in `$scope`, and the value in each frame entry is null.
 
 ```
+SET_CALLER($node)
+```
+
+Associates `$node` with the current frame in the call stack. When printing a stack trace, Petroleum will include the file path and line number of `$node`.
+
+```
 PRINT($value)
 ```
 

@@ -6,6 +6,7 @@ import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, PetList, Pet
 import { NotEqualFunc } from "./builtInFunc.js";
 import { getMethodWithDefault } from "./method.js";
 import { SetProcParts } from "./procedure.js";
+import { createAwaitExcep } from "./exception.js";
 import { workerIsInvocation, getWorkerMethodMap, getFuncArgsComp } from "./node.js";
 import { createFrame, VarSpaceType, getVarSpaceType, findVariable, getVarValue, getScope } from "./variable.js";
 import { PetContext } from "./context.js";
@@ -159,7 +160,12 @@ export class Task<ParamsT = any, StateT = any> {
     
     throwObserverAwait(observer: MemberObserver): Action {
         const { bunch, location, condition, evalState } = observer;
-        return this.throwAwaitExcep(bunch, location, condition, evalState);
+        const exception = createAwaitExcep(
+            bunch, location, condition,
+            "TODO: Put exception message here.",
+            evalState,
+        );
+        return this.throwException(exception);
     }
     
     awaitMember(
