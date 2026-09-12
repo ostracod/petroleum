@@ -7,7 +7,7 @@ import { MethodDict, createMethodMap } from "./method.js";
 import { PetException } from "./exception.js";
 import { getPackage } from "./node.js";
 import { findVariable, findVarValue, getModuleFrameEntry, getScope, varIsInScope, getSignatureVars } from "./variable.js";
-import { Action, setProcPrepTask } from "./task.js";
+import { Action, setProcPrepTask, awaitProcEvalTask } from "./task.js";
 
 interface ProcDef extends MethodDict {
     name: string;
@@ -365,6 +365,13 @@ export const globalProcDefs: ProcDef[] = [
                 },
             );
         },
+    },
+    {
+        name: "AWAIT",
+        eval: (task, worker, varSpace) => task.runTask(
+            awaitProcEvalTask, { worker, varSpace },
+            (value) => task.returnValue(value),
+        ),
     },
     {
         name: "ABORT",

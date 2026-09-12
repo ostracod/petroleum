@@ -158,6 +158,10 @@ const toMapKey = (value: KnownValue | PetValue): MapKey => (
     (value instanceof PetValue) ? value.toMapKey() : valueToMapKey(value)
 );
 
+export const toPetString = (value: string | PetString): PetString => (
+    (value instanceof PetString) ? value : new PetString(value)
+);
+
 export const toPetList = (values: (KnownValue | PetValue)[] | PetList): PetList => (
     (values instanceof PetList) ? values : new PetList(values)
 );
@@ -294,17 +298,20 @@ export class MemberObserver {
     bunch: ObservableBunch;
     location: KnownValue;
     condition: PetFunc;
+    message: string | PetString;
     evalState: EvalState;
     
     constructor(
         bunch: ObservableBunch,
         location: KnownValue,
         condition: PetFunc,
+        message: PetString | string,
         evalState: EvalState,
     ) {
         this.bunch = bunch;
         this.location = location;
         this.condition = condition;
+        this.message = message;
         this.evalState = evalState;
     }
     
@@ -313,10 +320,12 @@ export class MemberObserver {
     }
     
     toString(): string {
+        const message = (this.message instanceof PetString)
+            ? this.message.toString()
+            : this.message;
         // TODO: Add stack trace.
         
-        // TODO: Put await exception message here.
-        return "Stuck awaiting member: ...";
+        return "Stuck awaiting member: " + message;
     }
 }
 
@@ -332,19 +341,21 @@ class MemberObservatory {
     
     addObserver(
         scheduler: Scheduler,
-        inputLocation: PetValue,
+        location: KnownValue,
         condition: PetFunc,
+        message: PetString,
         evalState: EvalState,
     ): void {
         this.scheduler = scheduler;
-        const location = inputLocation.getKnownValue();
         const mapKey = valueToMapKey(location);
         let observers = this.observers.get(mapKey);
         if (typeof observers === "undefined") {
             observers = [];
             this.observers.set(mapKey, observers);
         }
-        const observer = new MemberObserver(this.bunch, location, condition, evalState);
+        const observer = new MemberObserver(
+            this.bunch, location, condition, message, evalState,
+        );
         observers.push(observer);
         this.scheduler.waitingObservers.add(observer);
     }

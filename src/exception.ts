@@ -2,7 +2,7 @@
 import "./procedure.js";
 
 import { symbols } from "./symbol.js";
-import { KnownValue, PetValue, toPetValue, valueToString, PetString, ObservableBunch, PetMap, PetFunc, EvalState } from "./value.js";
+import { KnownValue, PetValue, toPetValue, toPetString, valueToString, PetString, ObservableBunch, PetMap, PetFunc, EvalState } from "./value.js";
 import { ConstantFunc } from "./builtInFunc.js";
 import { Action } from "./task.js";
 
@@ -26,7 +26,7 @@ export const createAwaitExcep = (
     bunch: ObservableBunch,
     location: KnownValue,
     condition: PetFunc,
-    message: string,
+    message: PetString | string,
     evalState?: EvalState,
 ): PetMap => {
     const output = new PetMap([
@@ -34,7 +34,7 @@ export const createAwaitExcep = (
         [symbols.BUNCH, bunch],
         [symbols.LOC, location],
         [symbols.COND, condition],
-        [symbols.MESSAGE, new PetString(message)],
+        [symbols.MESSAGE, toPetString(message)],
     ]);
     if (typeof evalState !== "undefined") {
         output.setMember(symbols.EVAL_STATE, evalState);

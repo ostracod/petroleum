@@ -2,7 +2,7 @@
 import "./node.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged } from "./value.js";
+import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
 import { getMethodWithDefault } from "./method.js";
 import { SetProcParts } from "./procedure.js";
@@ -142,11 +142,9 @@ export class Task<ParamsT = any, StateT = any> {
     }
     
     throwObserverAwait(observer: MemberObserver): Action {
-        const { bunch, location, condition, evalState } = observer;
+        const { bunch, location, condition, message, evalState } = observer;
         const exception = createAwaitExcep(
-            bunch, location, condition,
-            "TODO: Put exception message here.",
-            evalState,
+            bunch, location, condition, message, evalState,
         );
         return this.throwException(exception);
     }
@@ -155,17 +153,29 @@ export class Task<ParamsT = any, StateT = any> {
         bunch: ObservableBunch,
         location: KnownValue | PetValue,
         condition: PetFunc,
+        message: string | PetString,
         nextAction: Action,
     ): Action {
         const observer = new MemberObserver(
             bunch,
             toKnownValue(location),
             condition,
+            message,
             new EvalState(this, nextAction),
         );
         return this.runTask(
             awaitCondTask, { observer },
             (value) => nextAction,
+        );
+    }
+    
+    awaitPhase(worker: PetMap, nextAction: Action): Action {
+        return this.awaitMember(
+            worker,
+            symbols.PHASE,
+            new NotEqualFunc(symbols.PREP_PHASE),
+            "TODO: Put message here.",
+            nextAction,
         );
     }
     
@@ -227,10 +237,8 @@ export const mainTask: TaskDef<null, { moduleIndex: number }> = {
             if (moduleIndex < userModules.length) {
                 const module = userModules[moduleIndex];
                 const stmtsComp = module.getMember(symbols.STMTS_COMP).getMap();
-                return task.awaitMember(
+                return task.awaitPhase(
                     stmtsComp,
-                    symbols.PHASE,
-                    new NotEqualFunc(symbols.PREP_PHASE),
                     task.repeatStage({ moduleIndex: moduleIndex + 1 }),
                 );
             } else {
@@ -296,10 +304,8 @@ export const prepStmtsTask: TaskDef<{ stmtsComp: PetMap }, { stmtIndex: number }
             const stmts = stmtsComp.getMember(symbols.STMTS).getList();
             if (stmtIndex < stmts.getLength()) {
                 const stmt = stmts.getMember(stmtIndex).getMap();
-                return task.awaitMember(
+                return task.awaitPhase(
                     stmt,
-                    symbols.PHASE,
-                    new NotEqualFunc(symbols.PREP_PHASE),
                     task.repeatStage({ stmtIndex: stmtIndex + 1 }),
                 );
             } else {
@@ -326,10 +332,8 @@ export const prepExprsTask: TaskDef<{ exprsComp: PetMap }, { exprIndex: number }
             const exprs = exprsComp.getMember(symbols.EXPRS).getList();
             if (exprIndex < exprs.getLength()) {
                 const expr = exprs.getMember(exprIndex).getMap();
-                return task.awaitMember(
+                return task.awaitPhase(
                     expr,
-                    symbols.PHASE,
-                    new NotEqualFunc(symbols.PREP_PHASE),
                     task.repeatStage({ exprIndex: exprIndex + 1 }),
                 );
             } else {
@@ -353,10 +357,8 @@ export const prepWorkersTask: TaskDef<{ workers: PetMap[] }, { workerIndex: numb
             const { workerIndex } = task.state;
             if (workerIndex < workers.length) {
                 const worker = workers[workerIndex];
-                return task.awaitMember(
+                return task.awaitPhase(
                     worker,
-                    symbols.PHASE,
-                    new NotEqualFunc(symbols.PREP_PHASE),
                     task.repeatStage({ workerIndex: workerIndex + 1 }),
                 );
             } else {
@@ -573,10 +575,8 @@ const callMethodTask: TaskDef<MethodInvocation, null> = {
                     return task.returnValue(null);
                 }
                 if (task.context.preppingWorkers.has(worker)) {
-                    return task.awaitMember(
+                    return task.awaitPhase(
                         worker,
-                        symbols.PHASE,
-                        new NotEqualFunc(symbols.PREP_PHASE),
                         task.returnValue(null),
                     );
                 }
@@ -691,9 +691,12 @@ export const handleExcepTask: TaskDef<{ exception: PetValue }, null> = {
                 scheduler.scheduleAction(evalState.actionToResume, false);
             } else if (excepType === symbols.AWAIT_EXCEP) {
                 const bunch = exception.getMember(symbols.BUNCH).getObservableBunch();
-                const location = exception.getMember(symbols.LOC);
+                const location = exception.getMember(symbols.LOC).getKnownValue();
                 const condition = exception.getMember(symbols.COND).getFunc();
-                bunch.observatory.addObserver(scheduler, location, condition, evalState);
+                const message = exception.getMember(symbols.MESSAGE).getPetString();
+                bunch.observatory.addObserver(
+                    scheduler, location, condition, message, evalState,
+                );
             } else {
                 task.context.handleUncaughtExcep(exception);
             }
@@ -732,6 +735,45 @@ export const setProcPrepTask: TaskDef<{ stmt: PetMap, parts: SetProcParts }, nul
                 valueComp, symbols.PREP, [],
                 (value) => task.returnValue(null),
             );
+        },
+    ],
+};
+
+interface AwaitProcEvalParams {
+    worker: PetMap;
+    varSpace: PetMap;
+}
+
+interface AwaitProcEvalState {
+    bunch: ObservableBunch | null;
+    location: KnownValue | null;
+}
+
+export const awaitProcEvalTask: TaskDef<AwaitProcEvalParams, AwaitProcEvalState> = {
+    getInitState: (params) => ({ bunch: null, location: null }),
+    stages: [
+        (task) => {
+            const { worker, varSpace } = task.params;
+            const comps = worker.getMember(symbols.COMPS).getList();
+            const exprsComp = comps.getMember(1).getMap();
+            return task.callMethod(
+                exprsComp, symbols.EVAL, [varSpace],
+                (values) => {
+                    const valueList = values.getList();
+                    const bunch = valueList.getMember(0).getObservableBunch();
+                    const location = valueList.getMember(1).getKnownValue();
+                    const condition = valueList.getMember(2).getFunc();
+                    const message = valueList.getMember(3).getPetString();
+                    return task.awaitMember(
+                        bunch, location, condition, message,
+                        task.advanceStage({ bunch, location }),
+                    );
+                },
+            );
+        },
+        (task) => {
+            const { bunch, location } = task.state;
+            return task.returnValue(bunch.getMember(location));
         },
     ],
 };
