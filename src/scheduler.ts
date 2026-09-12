@@ -2,7 +2,7 @@
 import "./task.js";
 
 import { symbols } from "./symbol.js";
-import { EvalState } from "./value.js";
+import { MemberObserver, EvalState } from "./value.js";
 import { ConstantFunc } from "./builtInFunc.js";
 import { PetException, CoroEndException } from "./exception.js";
 import { Action, TaskDef, handleExcepTask } from "./task.js";
@@ -90,11 +90,13 @@ export class Scheduler {
     context: PetContext;
     highPrioCoros: CoroQueue;
     lowPrioCoros: CoroQueue;
+    waitingObservers: Set<MemberObserver>;
     
     constructor(context: PetContext) {
         this.context = context;
         this.highPrioCoros = new CoroQueue();
         this.lowPrioCoros = new CoroQueue();
+        this.waitingObservers = new Set();
     }
     
     scheduleAction(action: Action, highPriority: boolean = true): void {

@@ -3,7 +3,7 @@ import "./scheduler.js";
 
 import * as pathUtils from "path";
 import { symbols } from "./symbol.js";
-import { PetValue, KnownValue, PetString, PetList, PetMap } from "./value.js";
+import { PetValue, KnownValue, PetString, MemberObserver, PetList, PetMap } from "./value.js";
 import { BuiltInFunc, DefFunc, globalFuncDefs } from "./builtInFunc.js";
 import { createProcedure, globalProcDefs } from "./procedure.js";
 import { CoroEndException, excepToString } from "./exception.js";
@@ -22,7 +22,7 @@ export class PetContext {
     globalScope: PetMap;
     isPrepping: boolean;
     aggregatedExceps: PetMap[];
-    hasReportedExcep: boolean;
+    hasReportedProblem: boolean;
     
     constructor(entryPackagePath: string, applicationArgs: string[]) {
         this.applicationArgs = applicationArgs;
@@ -33,7 +33,7 @@ export class PetContext {
         this.globalScope = this.createGlobalScope();
         this.isPrepping = true;
         this.aggregatedExceps = [];
-        this.hasReportedExcep = false;
+        this.hasReportedProblem = false;
         const packageResolver = new PackageResolver(entryPackagePath, this.globalScope);
         const entryPackage = packageResolver.resolvePackages();
         const mainModule = entryPackage.getMember(symbols.MAIN_MODULE).getMap();
@@ -86,10 +86,22 @@ export class PetContext {
     
     run(): void {
         this.scheduler.scheduleTask(mainTask, null);
-        while (!this.hasReportedExcep) {
+        while (!this.hasReportedProblem) {
             const hasRun = this.scheduler.runNextCoro();
             if (!hasRun) {
                 break;
+            }
+        }
+        const { waitingObservers } = this.scheduler;
+        if (!this.hasReportedProblem && waitingObservers.size > 0) {
+            if (this.aggregatedExceps.length > 0) {
+                for (const exception of this.aggregatedExceps) {
+                    this.reportException(exception);
+                }
+            } else {
+                for (const observer of waitingObservers) {
+                    this.reportObserver(observer);
+                }
             }
         }
     }
@@ -147,13 +159,21 @@ export class PetContext {
         }
     }
     
-    reportException(exception: PetMap): void {
-        if (!this.hasReportedExcep) {
+    reportProblem(description: string): void {
+        if (!this.hasReportedProblem) {
             console.log("");
         }
-        console.log(excepToString(exception));
+        console.log(description);
         console.log("");
-        this.hasReportedExcep = true;
+        this.hasReportedProblem = true;
+    }
+    
+    reportException(exception: PetMap): void {
+        this.reportProblem(excepToString(exception));
+    }
+    
+    reportObserver(observer: MemberObserver): void {
+        this.reportProblem(observer.toString());
     }
 }
 

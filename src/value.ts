@@ -311,11 +311,18 @@ export class MemberObserver {
     getMemberValue(): PetValue | undefined {
         return this.bunch.getMember(this.location);
     }
+    
+    toString(): string {
+        // TODO: Add stack trace.
+        
+        // TODO: Put await exception message here.
+        return "Stuck awaiting member: ...";
+    }
 }
 
 class MemberObservatory {
     bunch: ObservableBunch;
-    observers: Map<MapKey, Set<MemberObserver>>;
+    observers: Map<MapKey, MemberObserver[]>;
     scheduler: Scheduler;
     
     constructor(bunch: ObservableBunch) {
@@ -334,11 +341,12 @@ class MemberObservatory {
         const mapKey = valueToMapKey(location);
         let observers = this.observers.get(mapKey);
         if (typeof observers === "undefined") {
-            observers = new Set();
+            observers = [];
             this.observers.set(mapKey, observers);
         }
         const observer = new MemberObserver(this.bunch, location, condition, evalState);
-        observers.add(observer);
+        observers.push(observer);
+        this.scheduler.waitingObservers.add(observer);
     }
     
     handleMemberChange(location: KnownValue): void {
@@ -349,6 +357,7 @@ class MemberObservatory {
         }
         this.observers.delete(mapKey);
         for (const observer of observers) {
+            this.scheduler.waitingObservers.delete(observer);
             this.scheduler.scheduleTask(awaitCondTask, { observer });
         }
     }
