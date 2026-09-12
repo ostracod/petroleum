@@ -13,5 +13,8 @@ const applicationArgs = process.argv.slice(3);
 
 const context = new PetContext(entryPackagePath, applicationArgs);
 context.run();
+if (context.hasReportedExcep) {
+    process.exit(1);
+}
 
 

@@ -234,6 +234,11 @@ export const mainTask: TaskDef<null, { moduleIndex: number }> = {
                     task.repeatStage({ moduleIndex: moduleIndex + 1 }),
                 );
             } else {
+                const { context } = task;
+                for (const exception of context.aggregatedExceps) {
+                    context.reportException(exception);
+                }
+                context.isPrepping = false;
                 for (const module of userModules) {
                     const scope = module.getMember(symbols.SCOPE).getMap();
                     const frame = createFrame(scope, null);
@@ -690,8 +695,7 @@ export const handleExcepTask: TaskDef<{ exception: PetValue }, null> = {
                 const condition = exception.getMember(symbols.COND).getFunc();
                 bunch.observatory.addObserver(scheduler, location, condition, evalState);
             } else {
-                // TODO: Handle unexpected exception.
-                
+                task.context.handleUncaughtExcep(exception);
             }
             return task.returnValue(null);
         },

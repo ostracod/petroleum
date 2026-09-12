@@ -6,7 +6,7 @@ import { symbols } from "./symbol.js";
 import { PetValue, KnownValue, PetString, PetList, PetMap } from "./value.js";
 import { BuiltInFunc, DefFunc, globalFuncDefs } from "./builtInFunc.js";
 import { createProcedure, globalProcDefs } from "./procedure.js";
-import { CoroEndException } from "./exception.js";
+import { CoroEndException, excepToString } from "./exception.js";
 import { ModuleParser } from "./moduleParser.js";
 import { PackageResolver } from "./package.js";
 import { Action, TaskDef, TaskMembers, Task, mainTask, prepModuleTask } from "./task.js";
@@ -20,6 +20,9 @@ export class PetContext {
     userModuleIndexes: Map<string, number>;
     preppingWorkers: Set<PetMap>;
     globalScope: PetMap;
+    isPrepping: boolean;
+    aggregatedExceps: PetMap[];
+    hasReportedExcep: boolean;
     
     constructor(entryPackagePath: string, applicationArgs: string[]) {
         this.applicationArgs = applicationArgs;
@@ -28,6 +31,9 @@ export class PetContext {
         this.userModuleIndexes = new Map();
         this.preppingWorkers = new Set();
         this.globalScope = this.createGlobalScope();
+        this.isPrepping = true;
+        this.aggregatedExceps = [];
+        this.hasReportedExcep = false;
         const packageResolver = new PackageResolver(entryPackagePath, this.globalScope);
         const entryPackage = packageResolver.resolvePackages();
         const mainModule = entryPackage.getMember(symbols.MAIN_MODULE).getMap();
@@ -80,7 +86,7 @@ export class PetContext {
     
     run(): void {
         this.scheduler.scheduleTask(mainTask, null);
-        while (true) {
+        while (!this.hasReportedExcep) {
             const hasRun = this.scheduler.runNextCoro();
             if (!hasRun) {
                 break;
@@ -131,6 +137,23 @@ export class PetContext {
         const module = moduleParser.parseModule();
         this.addUserModule(module);
         return module;
+    }
+    
+    handleUncaughtExcep(exception: PetMap): void {
+        if (this.isPrepping) {
+            this.aggregatedExceps.push(exception);
+        } else {
+            this.reportException(exception);
+        }
+    }
+    
+    reportException(exception: PetMap): void {
+        if (!this.hasReportedExcep) {
+            console.log("");
+        }
+        console.log(excepToString(exception));
+        console.log("");
+        this.hasReportedExcep = true;
     }
 }
 

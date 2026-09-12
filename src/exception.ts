@@ -2,7 +2,7 @@
 import "./procedure.js";
 
 import { symbols } from "./symbol.js";
-import { KnownValue, PetValue, toPetValue, PetString, ObservableBunch, PetMap, PetFunc, EvalState } from "./value.js";
+import { KnownValue, PetValue, toPetValue, valueToString, PetString, ObservableBunch, PetMap, PetFunc, EvalState } from "./value.js";
 import { ConstantFunc } from "./builtInFunc.js";
 import { Action } from "./task.js";
 
@@ -77,5 +77,20 @@ export class CoroEndException extends Error {
 export class PetTypeError extends Error {
     
 }
+
+export const excepToString = (exception: PetMap): string => {
+    const excepType = exception.getMember(symbols.EXCEP_TYPE).getKnownValue();
+    const lines: string[] = [];
+    if (excepType === symbols.ERROR_EXCEP) {
+        const errorType = exception.getMember(symbols.ERROR_TYPE);
+        const message = exception.getMember(symbols.MESSAGE).toString();
+        lines.push(`Encountered ${errorType.toString()} error: ` + message);
+    } else {
+        lines.push(`Encountered ${valueToString(excepType)} exception.`);
+    }
+    // TODO: Add stack trace.
+    
+    return lines.join("\n");
+};
 
 
