@@ -319,7 +319,7 @@ export class MemberObserver {
         return this.bunch.getMember(this.location);
     }
     
-    toString(): string {
+    getStuckReport(): string {
         const message = (this.message instanceof PetString)
             ? this.message.toString()
             : this.message;

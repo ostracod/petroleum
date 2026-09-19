@@ -689,7 +689,8 @@ export const handleExcepTask: TaskDef<{ exception: PetValue }, null> = {
             const evalState = exception.getMember(symbols.EVAL_STATE).getEvalState();
             if (excepType === symbols.PASS_EXCEP) {
                 const passSymbol = exception.getMember(symbols.SYMBOL).getSymbol();
-                scheduler.scheduleAction(evalState.actionToResume, passSymbol);
+                const message = exception.getMember(symbols.MESSAGE).getPetString();
+                scheduler.scheduleAction(evalState.actionToResume, passSymbol, message);
             } else if (excepType === symbols.AWAIT_EXCEP) {
                 const bunch = exception.getMember(symbols.BUNCH).getObservableBunch();
                 const location = exception.getMember(symbols.LOC).getKnownValue();

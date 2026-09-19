@@ -2,7 +2,7 @@
 import "./task.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { MemberObserver, EvalState } from "./value.js";
+import { PetString, MemberObserver, EvalState } from "./value.js";
 import { ConstantFunc } from "./builtInFunc.js";
 import { PetException, CoroEndException } from "./exception.js";
 import { Action, TaskDef, handleExcepTask } from "./task.js";
@@ -12,12 +12,19 @@ export class Coroutine {
     context: PetContext;
     action: Action;
     passSymbol: PetSymbol | null;
+    passMessage: PetString | null;
     nextCoro: Coroutine | null;
     
-    constructor(context: PetContext, action: Action, passSymbol: PetSymbol | null) {
+    constructor(
+        context: PetContext,
+        action: Action,
+        passSymbol: PetSymbol | null,
+        passMessage: PetString | null,
+    ) {
         this.context = context;
         this.action = action;
         this.passSymbol = passSymbol;
+        this.passMessage = passMessage;
         this.nextCoro = null;
     }
     
@@ -50,6 +57,12 @@ export class Coroutine {
             }
             this.action = nextAction;
         }
+    }
+    
+    getStuckReport(): string {
+        // TODO: Add stack trace.
+        
+        return "Stuck passing: " + this.passMessage.toString();
     }
 }
 
@@ -158,11 +171,15 @@ export class Scheduler {
         this.lastPassEntry = passEntry;
     }
     
-    scheduleAction(action: Action, passSymbol: PetSymbol | null = null): void {
+    scheduleAction(
+        action: Action,
+        passSymbol: PetSymbol | null = null,
+        passMessage: PetString | null = null,
+    ): void {
         if (passSymbol !== null) {
             this.registerPassSymbol(passSymbol);
         }
-        const coroutine = new Coroutine(this.context, action, passSymbol);
+        const coroutine = new Coroutine(this.context, action, passSymbol, passMessage);
         const coroQueue = (passSymbol === null) ? this.nonPassCoros : this.passCoros;
         coroQueue.pushRight(coroutine);
     }
@@ -171,9 +188,10 @@ export class Scheduler {
         taskDef: TaskDef<ParamsT, StateT>,
         params: ParamsT,
         passSymbol: PetSymbol | null = null,
+        passMessage: PetString | null = null,
     ): void {
         const action = this.context.runTask(taskDef, params);
-        this.scheduleAction(action, passSymbol);
+        this.scheduleAction(action, passSymbol, passMessage);
     }
     
     runNextCoro(): boolean {
@@ -185,6 +203,21 @@ export class Scheduler {
             return false;
         }
         coroutine.run();
+        return true;
+    }
+    
+    isStuckPassing(): boolean {
+        if (this.passCoros.length <= 0 || this.nonPassCoros.length > 0) {
+            return false;
+        }
+        let coroutine = this.passCoros.firstCoro;
+        while (coroutine !== null) {
+            const passEntry = this.passEntries.get(coroutine.passSymbol);
+            if ((passEntry?.passCount ?? 0) < 3) {
+                return false;
+            }
+            coroutine = coroutine.nextCoro;
+        }
         return true;
     }
 }
