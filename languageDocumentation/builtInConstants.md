@@ -35,7 +35,7 @@ Exception types include the following symbols:
 * `#BREAK_EXCEP` symbolizes a break exception.
 * `#CONT_EXCEP` symbolizes a continue exception.
 * `#RET_EXCEP` symbolizes a return exception.
-* `#PASS_EXCEP` symbolizes a pass exception.
+* `#SPIN_EXCEP` symbolizes a spin exception.
 * `#AWAIT_EXCEP` symbolizes an await exception.
 * `#ERROR_EXCEP` symbolizes an error exception.
 

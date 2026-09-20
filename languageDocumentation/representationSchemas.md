@@ -265,7 +265,7 @@ The user may define methods with other keys if desired. The user is responsible 
 
 Exceptions are represented as maps. All exceptions have the following fields:
 
-* The `#EXCEP_TYPE` field stores the type of the exception. The type may be `#BREAK_EXCEP`, `#CONT_EXCEP`, `#RET_EXCEP`, `#PASS_EXCEP`, `#AWAIT_EXCEP`, or `#ERROR_EXCEP`.
+* The `#EXCEP_TYPE` field stores the type of the exception. The type may be `#BREAK_EXCEP`, `#CONT_EXCEP`, `#RET_EXCEP`, `#SPIN_EXCEP`, `#AWAIT_EXCEP`, or `#ERROR_EXCEP`.
     * The user may also define their own exception types.
 * The `#EVAL_STATE` field stores the evaluation state from when the exception was first thrown.
 
@@ -280,10 +280,11 @@ Return exceptions have the following fields:
     * Otherwise if the level is above 0, the function invocation will decrement the level and rethrow the exception.
 * Return exceptions also have the `#EVAL_STATE` field which is common to all exceptions.
 
-Pass exceptions have the following fields:
+Spin exceptions have the following fields:
 
-* The `#EXCEP_TYPE` field stores `#PASS_EXCEP`.
-* The `#SYMBOL` field stores a symbol which represents the reason why the coroutine paused.
+* The `#EXCEP_TYPE` field stores `#SPIN_EXCEP`.
+* The `#COND` field stores a function which determines the condition for resuming.
+    * The function accepts no arguments and returns a boolean.
 * The `#MESSAGE` field stores a human-readable string explaining why the coroutine paused.
 * The `#EVAL_STATE` field stores the evaluation state which the scheduler will resume.
 
@@ -293,7 +294,8 @@ Await exceptions have the following fields:
 * The `#BUNCH` field stores a list or a map.
 * The `#LOC` field stores a list index or field key.
 * The `#COND` field stores a function which determines the condition for resuming.
-    * See the description of the `AWAIT` procedure for details.
+    * The function accepts a single argument and returns a boolean.
+    * The scheduler will read the member in the `#BUNCH` field value at the location determined by the `#LOC` field value. Then the scheduler will pass the member as the argument to the function.
 * The `#MESSAGE` field stores a human-readable string explaining why the coroutine paused.
 * The `#EVAL_STATE` field stores the evaluation state which the scheduler will resume.
 

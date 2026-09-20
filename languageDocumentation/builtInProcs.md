@@ -124,16 +124,16 @@ SCHED {$body}
 Schedules `$body` to be evaluated in a new coroutine at a later time. The current coroutine will continue to run.
 
 ```
-PASS ($symbol, $message)
+SPIN ($condition, $message)
 ```
 
-Throws a pass exception which pauses the current coroutine. Petroleum will resume the coroutine at a later time. See the section on coroutines for details.
+Invokes `$condition`. `$condition` is a function which accepts no arguments and returns a boolean. If `$condition` returns false, this procedure throws a spin exception containing `$condition` and `$message`. This effectively pauses the coroutine until `$condition` returns true. See the section on coroutines for details.
 
 ```
 AWAIT ($bunch, $loc, $condition, $message)
 ```
 
-Pauses the current coroutine until a member exists in `$bunch` at `$loc` which satisifes `$condition`, then returns the member. `$bunch` is a list or a map. `$loc` is a list index or field key. `$condition` is a function which accepts the member as an argument and returns a boolean. Petroleum checks the condition upon invocation of this procedure and whenever the member in `$bunch` at `$loc` changes. If the condition is initially true, this procedure will not pause the coroutine. This procedure pauses the coroutine by throwing an await exception.
+Invokes `$condition` with the member of `$bunch` at `$loc` as the argument. `$bunch` is a list or a map. `$loc` is a list index or field key. `$condition` is a function which accepts a single argument and returns a boolean. If `$condition` returns false or no such member exists, this procedure throws an await exception containing `$bunch`, `$loc`, `$condition` and `$message`. This effectively pauses the coroutine until the member of `$bunch` at `$loc` satisfies `$condition`. See the section on coroutines for details. This procedure returns the member of `$bunch` at `$loc`.
 
 ```
 ABORT ($errorType, $message)
@@ -152,6 +152,12 @@ TRY {$body1} CATCH {[EXCEP @$excep], $body2}
 ```
 
 Evaluates `$body1`. If `$body1` throws an exception, `$body2` will be evaluated. If `[EXCEP @$excep]` is included, this procedure stores the thrown exception in work-var `$excep`.
+
+```
+WITH_CALLER ($node) {$body}
+```
+
+Evaluates `$body`. If `$body` throws an exception, the stack trace will include the file path and line number of `$node`.
 
 ```
 RESUME ($evalState)

@@ -108,30 +108,40 @@ The example below demonstrates usage of coroutines:
 
 ```
 WORK_VAR @myMap = (MAP [FIELDS []])
+WORK_VAR @shouldResume = (FALSE)
 WORK_VAR @myList = (LIST ())
+
 SCHED {
     COMMENT "This statement sequence runs in a new coroutine."
     ADD_ELEM(myList, 10)
-    PASS (SYMBOL("#myPass1"), "First pass")
+    SET_MEMBER(myMap, "flag", 999)
     ADD_ELEM(myList, 11)
-    SET_MEMBER(myMap, "flag", TRUE)
-    PASS (SYMBOL("#myPass2"), "Second pass")
+    SPIN (
+        FUNC {
+            RET (shouldResume)
+        },
+        "Waiting for shouldResume to be set"
+    )
+    COMMENT "Evaluation only reaches this statement when `shouldResume` is TRUE."
     ADD_ELEM(myList, 12)
-    COMMENT "Prints LIST (20, 10, 11, 21, 12)."
+    COMMENT "Prints LIST (20, 10, 11, 21, 22, 12)."
     PRINT(myList)
 }
+
 ADD_ELEM(myList, 20)
 AWAIT (
     myMap, "flag",
     FUNC {
         [ARGS [@member]]
-        RET (EQUAL(member, TRUE))
+        RET (EQUAL(member, 999))
     },
     "Waiting for flag to be set"
 )
 COMMENT "Evaluation only reaches this statement when the"
-COMMENT "\"flag\" field in `myMap` is set to TRUE."
+COMMENT "\"flag\" field in `myMap` is set to 999."
 ADD_ELEM(myList, 21)
+SET shouldResume = (TRUE)
+ADD_ELEM(myList, 22)
 ```
 
 The example below demonstrates usage of evaluation state:

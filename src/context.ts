@@ -6,7 +6,7 @@ import { symbols } from "./symbol.js";
 import { PetValue, KnownValue, PetString, MemberObserver, PetList, PetMap } from "./value.js";
 import { BuiltInFunc, DefFunc, globalFuncDefs } from "./builtInFunc.js";
 import { createProcedure, globalProcDefs } from "./procedure.js";
-import { CoroEndException, excepToString } from "./exception.js";
+import { CoroEndException, getExcepReport } from "./exception.js";
 import { ModuleParser } from "./moduleParser.js";
 import { PackageResolver } from "./package.js";
 import { Action, TaskDef, TaskMembers, Task, mainTask, prepModuleTask } from "./task.js";
@@ -182,7 +182,7 @@ export class PetContext {
     }
     
     reportException(exception: PetMap): void {
-        this.reportProblem(excepToString(exception));
+        this.reportProblem(getExcepReport(exception));
     }
     
     reportObserver(observer: MemberObserver): void {

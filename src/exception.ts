@@ -78,7 +78,7 @@ export class PetTypeError extends Error {
     
 }
 
-export const excepToString = (exception: PetMap): string => {
+export const getExcepReport = (exception: PetMap): string => {
     const excepType = exception.getMember(symbols.EXCEP_TYPE).getKnownValue();
     const lines: string[] = [];
     if (excepType === symbols.ERROR_EXCEP) {

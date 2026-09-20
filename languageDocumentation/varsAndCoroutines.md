@@ -90,14 +90,14 @@ To achieve flexible order of prep-var initialization, Petroleum schedules code t
 
 If a coroutine throws particular types of exceptions to the scheduler, the scheduler will pause the coroutine. Such exceptions include the following:
 
-* **Pass exception**
-    * A pass exception stores a symbol which represents the reason why the coroutine paused.
-    * The scheduler will resume the coroutine after some delay.
-    * If the coroutine throws a pass exception with the same symbol many times, the scheduler may conclude that the coroutine has become stuck.
+* **Spin exception**
+    * A spin exception stores a condition function.
+    * The scheduler will periodically call the condition function. If the function returns true, the scheduler will resume the coroutine.
+    * If all coroutines are stuck spinning, the scheduler will terminate the application and report the coroutines to the user.
 * **Await exception**
-    * An await exception stores a condition function.
-    * The scheduler will only resume the coroutine when the function returns true.
-    * Using an await exception is more efficient than repetitive polling with pass exceptions.
+    * An await exception stores a condition function and the location of a member in a list or map.
+    * Whenever the member changes, the scheduler will call the condition function with the member as the argument. If the function returns true, the scheduler will resume the coroutine.
+    * Using an await exception is more efficient than repetitive polling with spin exceptions.
 
 When a coroutine throws an unexpected exception, Petroleum responds in one of the following ways:
 
