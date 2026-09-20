@@ -367,26 +367,6 @@ export const globalProcDefs: ProcDef[] = [
         },
     },
     {
-        name: "PASS",
-        eval: (task, stmt, varSpace) => {
-            const comps = stmt.getMember(symbols.COMPS).getList();
-            const exprsComp = comps.getMember(1).getMap();
-            return task.callMethod(
-                exprsComp, symbols.EVAL, [varSpace],
-                (values) => {
-                    const valueList = values.getList();
-                    const passSymbol = valueList.getMember(0);
-                    const message = valueList.getMember(1);
-                    throw new PetException(new PetMap([
-                        [symbols.EXCEP_TYPE, symbols.PASS_EXCEP],
-                        [symbols.SYMBOL, passSymbol],
-                        [symbols.MESSAGE, message],
-                    ]));
-                },
-            );
-        },
-    },
-    {
         name: "AWAIT",
         eval: (task, worker, varSpace) => task.runTask(
             awaitProcEvalTask, { worker, varSpace },

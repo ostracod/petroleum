@@ -687,10 +687,9 @@ export const handleExcepTask: TaskDef<{ exception: PetValue }, null> = {
             const exception = task.params.exception.getMap();
             const excepType = exception.getMember(symbols.EXCEP_TYPE).getKnownValue();
             const evalState = exception.getMember(symbols.EVAL_STATE).getEvalState();
-            if (excepType === symbols.PASS_EXCEP) {
-                const passSymbol = exception.getMember(symbols.SYMBOL).getSymbol();
-                const message = exception.getMember(symbols.MESSAGE).getPetString();
-                scheduler.scheduleAction(evalState.actionToResume, passSymbol, message);
+            if (excepType === symbols.SPIN_EXCEP) {
+                // TODO: Schedule spinCondTask.
+                
             } else if (excepType === symbols.AWAIT_EXCEP) {
                 const bunch = exception.getMember(symbols.BUNCH).getObservableBunch();
                 const location = exception.getMember(symbols.LOC).getKnownValue();

@@ -10,7 +10,7 @@ import { CoroEndException, getExcepReport } from "./exception.js";
 import { ModuleParser } from "./moduleParser.js";
 import { PackageResolver } from "./package.js";
 import { Action, TaskDef, TaskMembers, Task, mainTask, prepModuleTask } from "./task.js";
-import { Coroutine, Scheduler } from "./scheduler.js";
+import { Spinner, Coroutine, Scheduler } from "./scheduler.js";
 
 export class PetContext {
     applicationArgs: string[];
@@ -86,19 +86,19 @@ export class PetContext {
     
     run(): void {
         this.scheduler.scheduleTask(mainTask, null);
-        let isStuckPassing = false;
+        let isStuckSpinning = false;
         while (!this.hasReportedProblem) {
             const hasRun = this.scheduler.runNextCoro();
             if (!hasRun) {
                 break;
             }
-            isStuckPassing = this.scheduler.isStuckPassing();
-            if (isStuckPassing) {
+            isStuckSpinning = this.scheduler.isStuckSpinning();
+            if (isStuckSpinning) {
                 break;
             }
         }
         const { waitingObservers } = this.scheduler;
-        const isStuck = (isStuckPassing || waitingObservers.size > 0);
+        const isStuck = (isStuckSpinning || waitingObservers.size > 0);
         if (!this.hasReportedProblem && isStuck) {
             if (this.aggregatedExceps.length > 0) {
                 for (const exception of this.aggregatedExceps) {
@@ -108,10 +108,10 @@ export class PetContext {
                 for (const observer of waitingObservers) {
                     this.reportObserver(observer);
                 }
-                if (isStuckPassing) {
-                    let coroutine = this.scheduler.passCoros.firstCoro;
+                if (isStuckSpinning) {
+                    let coroutine = this.scheduler.spinCoros.firstCoro;
                     while (coroutine !== null) {
-                        this.reportPass(coroutine);
+                        this.reportSpinner(coroutine.spinner);
                         coroutine = coroutine.nextCoro;
                     }
                 }
@@ -189,8 +189,8 @@ export class PetContext {
         this.reportProblem(observer.getStuckReport());
     }
     
-    reportPass(coroutine: Coroutine): void {
-        this.reportProblem(coroutine.getStuckReport());
+    reportSpinner(spinner: Spinner): void {
+        this.reportProblem(spinner.getStuckReport());
     }
 }
 

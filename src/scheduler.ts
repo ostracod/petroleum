@@ -2,29 +2,47 @@
 import "./task.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { PetString, MemberObserver, EvalState } from "./value.js";
+import { PetString, MemberObserver, PetFunc, EvalState } from "./value.js";
 import { ConstantFunc } from "./builtInFunc.js";
 import { PetException, CoroEndException } from "./exception.js";
 import { Action, TaskDef, handleExcepTask } from "./task.js";
 import { PetContext } from "./context.js";
 
+export class Spinner {
+    condition: PetFunc;
+    message: PetString;
+    evalState: EvalState;
+    spinCount: number;
+    
+    constructor(
+        condition: PetFunc,
+        message: PetString,
+        evalState: EvalState,
+        spinCount: number,
+    ) {
+        this.condition = condition;
+        this.message = message;
+        this.evalState = evalState;
+        this.spinCount = spinCount;
+    }
+    
+    getStuckReport(): string {
+        // TODO: Add stack trace.
+        
+        return "Stuck spinning: " + this.message.toString();
+    }
+}
+
 export class Coroutine {
     context: PetContext;
     action: Action;
-    passSymbol: PetSymbol | null;
-    passMessage: PetString | null;
+    spinner: Spinner | null;
     nextCoro: Coroutine | null;
     
-    constructor(
-        context: PetContext,
-        action: Action,
-        passSymbol: PetSymbol | null,
-        passMessage: PetString | null,
-    ) {
+    constructor(context: PetContext, action: Action, spinner: Spinner | null) {
         this.context = context;
         this.action = action;
-        this.passSymbol = passSymbol;
-        this.passMessage = passMessage;
+        this.spinner = spinner;
         this.nextCoro = null;
     }
     
@@ -57,12 +75,6 @@ export class Coroutine {
             }
             this.action = nextAction;
         }
-    }
-    
-    getStuckReport(): string {
-        // TODO: Add stack trace.
-        
-        return "Stuck passing: " + this.passMessage.toString();
     }
 }
 
@@ -100,104 +112,40 @@ class CoroQueue {
     }
 }
 
-class PassEntry {
-    passSymbol: PetSymbol;
-    passCount: number;
-    previousEntry: PassEntry | null;
-    nextEntry: PassEntry | null;
-    
-    constructor(passSymbol: PetSymbol) {
-        this.passSymbol = passSymbol;
-        this.passCount = 1;
-        this.previousEntry = null;
-        this.nextEntry = null;
-    }
-}
-
 export class Scheduler {
     context: PetContext;
-    nonPassCoros: CoroQueue;
-    passCoros: CoroQueue;
+    nonSpinCoros: CoroQueue;
+    spinCoros: CoroQueue;
     waitingObservers: Set<MemberObserver>;
-    passEntries: Map<PetSymbol, PassEntry>;
-    firstPassEntry: PassEntry | null;
-    lastPassEntry: PassEntry | null;
+    stuckSpinningDelay: number;
     
     constructor(context: PetContext) {
         this.context = context;
-        this.nonPassCoros = new CoroQueue();
-        this.passCoros = new CoroQueue();
+        this.nonSpinCoros = new CoroQueue();
+        this.spinCoros = new CoroQueue();
         this.waitingObservers = new Set();
-        this.passEntries = new Map();
-        this.firstPassEntry = null;
-        this.lastPassEntry = null;
+        this.stuckSpinningDelay = 0;
     }
     
-    registerPassSymbol(passSymbol: PetSymbol): void {
-        // If you call it a "heuristic", it makes you sound smarter.
-        const maxEntryAmount = (this.nonPassCoros.length + this.passCoros.length) * 3 + 50;
-        while (this.passEntries.size > maxEntryAmount) {
-            this.passEntries.delete(this.firstPassEntry.passSymbol);
-            this.firstPassEntry = this.firstPassEntry.nextEntry;
-            this.firstPassEntry.previousEntry = null;
-        }
-        let passEntry = this.passEntries.get(passSymbol);
-        if (typeof passEntry === "undefined") {
-            passEntry = new PassEntry(passSymbol);
-            this.passEntries.set(passSymbol, passEntry);
-        } else {
-            passEntry.passCount += 1;
-            if (passEntry.previousEntry !== null) {
-                passEntry.previousEntry.nextEntry = passEntry.nextEntry;
-            }
-            if (passEntry.nextEntry !== null) {
-                passEntry.nextEntry.previousEntry = passEntry.previousEntry;
-            }
-            if (this.firstPassEntry === passEntry) {
-                this.firstPassEntry = passEntry.nextEntry;
-            }
-            if (this.lastPassEntry === passEntry) {
-                this.lastPassEntry = passEntry.previousEntry;
-            }
-            passEntry.previousEntry = null;
-            passEntry.nextEntry = null;
-        }
-        if (this.lastPassEntry === null) {
-            this.firstPassEntry = passEntry;
-        } else {
-            passEntry.previousEntry = this.lastPassEntry;
-            this.lastPassEntry.nextEntry = passEntry;
-        }
-        this.lastPassEntry = passEntry;
-    }
-    
-    scheduleAction(
-        action: Action,
-        passSymbol: PetSymbol | null = null,
-        passMessage: PetString | null = null,
-    ): void {
-        if (passSymbol !== null) {
-            this.registerPassSymbol(passSymbol);
-        }
-        const coroutine = new Coroutine(this.context, action, passSymbol, passMessage);
-        const coroQueue = (passSymbol === null) ? this.nonPassCoros : this.passCoros;
+    scheduleAction(action: Action, spinner: Spinner | null = null): void {
+        const coroutine = new Coroutine(this.context, action, spinner);
+        const coroQueue = (spinner === null) ? this.nonSpinCoros : this.spinCoros;
         coroQueue.pushRight(coroutine);
     }
     
     scheduleTask<ParamsT, StateT>(
         taskDef: TaskDef<ParamsT, StateT>,
         params: ParamsT,
-        passSymbol: PetSymbol | null = null,
-        passMessage: PetString | null = null,
+        spinner: Spinner | null = null,
     ): void {
         const action = this.context.runTask(taskDef, params);
-        this.scheduleAction(action, passSymbol, passMessage);
+        this.scheduleAction(action, spinner);
     }
     
     runNextCoro(): boolean {
-        let coroutine = this.nonPassCoros.popLeft();
+        let coroutine = this.nonSpinCoros.popLeft();
         if (coroutine === null) {
-            coroutine = this.passCoros.popLeft();
+            coroutine = this.spinCoros.popLeft();
         }
         if (coroutine === null) {
             return false;
@@ -206,19 +154,30 @@ export class Scheduler {
         return true;
     }
     
-    isStuckPassing(): boolean {
-        if (this.passCoros.length <= 0 || this.nonPassCoros.length > 0) {
+    allCorosAreDizzy(): boolean {
+        if (this.spinCoros.length <= 0 || this.nonSpinCoros.length > 0) {
             return false;
         }
-        let coroutine = this.passCoros.firstCoro;
+        let coroutine = this.spinCoros.firstCoro;
         while (coroutine !== null) {
-            const passEntry = this.passEntries.get(coroutine.passSymbol);
-            if ((passEntry?.passCount ?? 0) < 3) {
+            if (coroutine.spinner.spinCount < 3) {
                 return false;
             }
             coroutine = coroutine.nextCoro;
         }
         return true;
+    }
+    
+    isStuckSpinning(): boolean {
+        if (this.allCorosAreDizzy()) {
+            this.stuckSpinningDelay += 1;
+            if (this.stuckSpinningDelay > this.spinCoros.length * 3) {
+                return true;
+            }
+        } else {
+            this.stuckSpinningDelay = 0;
+        }
+        return false;
     }
 }
 
