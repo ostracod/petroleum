@@ -2,28 +2,32 @@
 import "./task.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { PetString, MemberObserver, PetFunc, EvalState } from "./value.js";
+import { PetString, MemberObserver, PetMap, PetFunc, EvalState } from "./value.js";
 import { ConstantFunc } from "./builtInFunc.js";
-import { PetException, CoroEndException } from "./exception.js";
-import { Action, TaskDef, handleExcepTask } from "./task.js";
+import { PetException, CoroEndException, createSpinExcep } from "./exception.js";
+import { Action, TaskDef, handleExcepTask, spinCondTask } from "./task.js";
 import { PetContext } from "./context.js";
 
 export class Spinner {
     condition: PetFunc;
     message: PetString;
     evalState: EvalState;
-    spinCount: number;
+    spinCount?: number;
     
     constructor(
         condition: PetFunc,
         message: PetString,
         evalState: EvalState,
-        spinCount: number,
+        spinCount?: number,
     ) {
         this.condition = condition;
         this.message = message;
         this.evalState = evalState;
         this.spinCount = spinCount;
+    }
+    
+    createSpinExcep(): PetMap {
+        return createSpinExcep(this.condition, this.message, this.evalState, this.spinCount);
     }
     
     getStuckReport(): string {
@@ -139,6 +143,11 @@ export class Scheduler {
         spinner: Spinner | null = null,
     ): void {
         const action = this.context.runTask(taskDef, params);
+        this.scheduleAction(action, spinner);
+    }
+    
+    scheduleSpinner(spinner: Spinner): void {
+        const action = this.context.runTask(spinCondTask, { spinner });
         this.scheduleAction(action, spinner);
     }
     

@@ -2,7 +2,7 @@
 import "./symbol.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { DeferralException, PetTypeError } from "./exception.js";
+import { DeferralException, PetTypeError, createAwaitExcep } from "./exception.js";
 import { createFrame, findVarValue, getVarSpaceType, VarSpaceType, getSignatureVars, pruneFrames } from "./variable.js";
 import { Action, Task, awaitCondTask } from "./task.js";
 import { Scheduler } from "./scheduler.js";
@@ -317,6 +317,12 @@ export class MemberObserver {
     
     getMemberValue(): PetValue | undefined {
         return this.bunch.getMember(this.location);
+    }
+    
+    createAwaitExcep(): PetMap {
+        return createAwaitExcep(
+            this.bunch, this.location, this.condition, this.message, this.evalState,
+        );
     }
     
     getStuckReport(): string {

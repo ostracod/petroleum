@@ -34,5 +34,7 @@ for (const name of symbolNames) {
     const symbol = new PetSymbol("#" + name)
     symbols[name] = symbol;
 }
+// Shhhh... It's a secret to everybody
+export const spinCountSymbol = new PetSymbol("#SPIN_COUNT");
 
 

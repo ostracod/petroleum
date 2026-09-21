@@ -1,7 +1,7 @@
 
 import "./procedure.js";
 
-import { symbols } from "./symbol.js";
+import { symbols, spinCountSymbol } from "./symbol.js";
 import { KnownValue, PetValue, toPetValue, toPetString, valueToString, PetString, ObservableBunch, PetMap, PetFunc, EvalState } from "./value.js";
 import { ConstantFunc } from "./builtInFunc.js";
 import { Action } from "./task.js";
@@ -38,6 +38,26 @@ export const createAwaitExcep = (
     ]);
     if (typeof evalState !== "undefined") {
         output.setMember(symbols.EVAL_STATE, evalState);
+    }
+    return output;
+};
+
+export const createSpinExcep = (
+    condition: PetFunc,
+    message: PetString,
+    evalState?: EvalState,
+    spinCount?: number | bigint,
+): PetMap => {
+    const output = new PetMap([
+        [symbols.EXCEP_TYPE, symbols.SPIN_EXCEP],
+        [symbols.COND, condition],
+        [symbols.MESSAGE, toPetString(message)],
+    ]);
+    if (typeof evalState !== "undefined") {
+        output.setMember(symbols.EVAL_STATE, evalState);
+    }
+    if (typeof spinCount !== "undefined") {
+        output.setMember(spinCountSymbol, BigInt(spinCount));
     }
     return output;
 };

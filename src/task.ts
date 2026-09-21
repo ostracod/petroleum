@@ -1,14 +1,14 @@
 
 import "./node.js";
 
-import { PetSymbol, symbols } from "./symbol.js";
+import { PetSymbol, symbols, spinCountSymbol } from "./symbol.js";
 import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
 import { getMethodWithDefault } from "./method.js";
 import { SetProcParts } from "./procedure.js";
-import { createAwaitExcep } from "./exception.js";
 import { workerIsInvocation, getWorkerMethodMap, getFuncArgsComp } from "./node.js";
 import { createFrame, VarSpaceType, getVarSpaceType, findVariable, getVarValue, getScope } from "./variable.js";
+import { Spinner } from "./scheduler.js";
 import { PetContext } from "./context.js";
 
 export interface Action {
@@ -139,14 +139,6 @@ export class Task<ParamsT = any, StateT = any> {
             0,
         );
         return task.getStageAction();
-    }
-    
-    throwObserverAwait(observer: MemberObserver): Action {
-        const { bunch, location, condition, message, evalState } = observer;
-        const exception = createAwaitExcep(
-            bunch, location, condition, message, evalState,
-        );
-        return this.throwException(exception);
     }
     
     awaitMember(
@@ -514,7 +506,7 @@ export const awaitCondTask: TaskDef<{ observer: MemberObserver }, null> = {
             const { observer } = task.params;
             const memberValue = observer.getMemberValue();
             if (typeof memberValue === "undefined") {
-                return task.throwObserverAwait(observer);
+                return task.throwException(observer.createAwaitExcep());
             }
             return task.callFunction(
                 observer.condition, [memberValue],
@@ -524,10 +516,29 @@ export const awaitCondTask: TaskDef<{ observer: MemberObserver }, null> = {
                         if (valueMayHaveChanged(memberValue, newMemberValue)) {
                             return task.repeatStage(null);
                         } else {
-                            return task.throwObserverAwait(observer);
+                            return task.throwException(observer.createAwaitExcep());
                         }
                     } else {
                         return observer.evalState.actionToResume;
+                    }
+                },
+            );
+        },
+    ],
+};
+
+export const spinCondTask: TaskDef<{ spinner: Spinner }, null> = {
+    getInitState: (params) => null,
+    stages: [
+        (task) => {
+            const { spinner } = task.params;
+            return task.callFunction(
+                spinner.condition, [],
+                (returnValue) => {
+                    if (returnValue.getInt() === 0n) {
+                        return task.throwException(spinner.createSpinExcep());
+                    } else {
+                        return spinner.evalState.actionToResume;
                     }
                 },
             );
@@ -688,8 +699,12 @@ export const handleExcepTask: TaskDef<{ exception: PetValue }, null> = {
             const excepType = exception.getMember(symbols.EXCEP_TYPE).getKnownValue();
             const evalState = exception.getMember(symbols.EVAL_STATE).getEvalState();
             if (excepType === symbols.SPIN_EXCEP) {
-                // TODO: Schedule spinCondTask.
-                
+                const condition = exception.getMember(symbols.COND).getFunc();
+                const message = exception.getMember(symbols.MESSAGE).getPetString();
+                const countValue = exception.getMember(spinCountSymbol);
+                const count = (countValue?.toNumber() ?? 0) + 1;
+                const spinner = new Spinner(condition, message, evalState, count);
+                scheduler.scheduleSpinner(spinner);
             } else if (excepType === symbols.AWAIT_EXCEP) {
                 const bunch = exception.getMember(symbols.BUNCH).getObservableBunch();
                 const location = exception.getMember(symbols.LOC).getKnownValue();

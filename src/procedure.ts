@@ -7,7 +7,8 @@ import { MethodDict, createMethodMap } from "./method.js";
 import { PetException } from "./exception.js";
 import { getPackage } from "./node.js";
 import { findVariable, findVarValue, getModuleFrameEntry, getScope, varIsInScope, getSignatureVars } from "./variable.js";
-import { Action, setProcPrepTask, awaitProcEvalTask } from "./task.js";
+import { Action, setProcPrepTask, awaitProcEvalTask, spinCondTask } from "./task.js";
+import { Spinner } from "./scheduler.js";
 
 interface ProcDef extends MethodDict {
     name: string;
@@ -362,6 +363,28 @@ export const globalProcDefs: ProcDef[] = [
                         retLevel = values.getMember(1).getInt();
                     }
                     throw createRetExcep();
+                },
+            );
+        },
+    },
+    {
+        name: "SPIN",
+        eval: (task, stmt, varSpace) => {
+            const comps = stmt.getMember(symbols.COMPS).getList();
+            const exprsComp = comps.getMember(1).getMap();
+            return task.callMethod(
+                exprsComp, symbols.EVAL, [varSpace],
+                (values) => {
+                    const valueList = values.getList();
+                    const condition = valueList.getMember(0).getFunc();
+                    const message = valueList.getMember(1).getPetString();
+                    const nextAction = task.returnValue(null);
+                    const evalState = new EvalState(task, nextAction);
+                    const spinner = new Spinner(condition, message, evalState);
+                    return task.runTask(
+                        spinCondTask, { spinner },
+                        (value) => nextAction,
+                    );
                 },
             );
         },
