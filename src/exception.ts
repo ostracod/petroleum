@@ -100,17 +100,16 @@ export class PetTypeError extends Error {
 
 export const getExcepReport = (exception: PetMap): string => {
     const excepType = exception.getMember(symbols.EXCEP_TYPE).getKnownValue();
-    const lines: string[] = [];
+    let header: string;
     if (excepType === symbols.ERROR_EXCEP) {
         const errorType = exception.getMember(symbols.ERROR_TYPE);
         const message = exception.getMember(symbols.MESSAGE).toString();
-        lines.push(`Encountered ${errorType.toString()} error: ` + message);
+        header = `Encountered ${errorType.toString()} error: ` + message;
     } else {
-        lines.push(`Encountered ${valueToString(excepType)} exception.`);
+        header = `Encountered ${valueToString(excepType)} exception.`;
     }
-    // TODO: Add stack trace.
-    
-    return lines.join("\n");
+    const stackTrace = exception.getMember(symbols.EVAL_STATE).getEvalState().toString();
+    return header + "\n" + stackTrace;
 };
 
 

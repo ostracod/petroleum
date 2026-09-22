@@ -31,9 +31,8 @@ export class Spinner {
     }
     
     getStuckReport(): string {
-        // TODO: Add stack trace.
-        
-        return "Stuck spinning: " + this.message.toString();
+        const header = "Stuck spinning: " + this.message.toString();
+        return header + "\n" + this.evalState.toString();
     }
 }
 

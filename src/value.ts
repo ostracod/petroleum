@@ -3,6 +3,7 @@ import "./symbol.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
 import { DeferralException, PetTypeError, createAwaitExcep } from "./exception.js";
+import { getModule } from "./node.js";
 import { createFrame, findVarValue, getVarSpaceType, VarSpaceType, getSignatureVars, pruneFrames } from "./variable.js";
 import { Action, Task, awaitCondTask } from "./task.js";
 import { Scheduler } from "./scheduler.js";
@@ -329,9 +330,8 @@ export class MemberObserver {
         const message = (this.message instanceof PetString)
             ? this.message.toString()
             : this.message;
-        // TODO: Add stack trace.
-        
-        return "Stuck awaiting member: " + message;
+        const header = "Stuck awaiting member: " + message;
+        return header + "\n" + this.evalState.toString();
     }
 }
 
@@ -620,6 +620,13 @@ export class UserFunc extends PetFunc {
     }
 }
 
+const nodeToCodeLoc = (node: PetMap): string => {
+    const lineNumber = node.getMember(symbols.LINE_NUM).toNumber();
+    const module = getModule(node);
+    const modulePath = module.getMember(symbols.FILE_PATH).toString();
+    return `line ${lineNumber} of ${modulePath}`;
+};
+
 export class EvalState {
     currentTask: Task;
     actionToResume: Action;
@@ -630,7 +637,25 @@ export class EvalState {
     }
     
     toString(): string {
-        throw new Error("Not yet implemented");
+        const lines: string[] = [];
+        let task = this.currentTask;
+        let topNode: PetMap | null = null;
+        while (task !== null) {
+            if (topNode === null) {
+                const { taskNode } = task.members;
+                if (typeof taskNode !== "undefined") {
+                    topNode = taskNode;
+                    lines.push("On " + nodeToCodeLoc(taskNode));
+                }
+            } else {
+                const { callerNode } = task.members;
+                if (typeof callerNode !== "undefined") {
+                    lines.push("Called from " + nodeToCodeLoc(callerNode));
+                }
+            }
+            task = task.members.parentTask;
+        }
+        return lines.join("\n");
     }
 }
 

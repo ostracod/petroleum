@@ -119,25 +119,35 @@ export class PetContext {
         }
     }
     
-    runTask<ParamsT, StateT>(taskDef: TaskDef<ParamsT, StateT>, params: ParamsT): Action {
+    startTask<ParamsT, StateT>(
+        taskDef: TaskDef<ParamsT, StateT>,
+        params: ParamsT,
+        parentTask: Task | null,
+        acceptReturnValue: (value: PetValue) => Action,
+        handleException: (exception: PetValue) => Action,
+    ): Action {
         const members: TaskMembers<ParamsT, StateT> = {
-            parentTask: null,
+            parentTask,
             stages: taskDef.stages,
-            acceptReturnValue: (value) => {
+            acceptReturnValue,
+            handleException,
+            ...taskDef.getNodes?.(params),
+        };
+        const initState = taskDef.getInitState(params)
+        const task = new Task<ParamsT, StateT>(this, members, params, initState, 0);
+        return task.getStageAction();
+    };
+    
+    runTask<ParamsT, StateT>(taskDef: TaskDef<ParamsT, StateT>, params: ParamsT): Action {
+        return this.startTask(
+            taskDef, params, null,
+            (value) => {
                 throw new CoroEndException(null);
             },
-            handleException: (exception) => {
+            (exception) => {
                 throw new CoroEndException(exception);
             },
-        };
-        const task = new Task<ParamsT, StateT>(
-            this,
-            members,
-            params,
-            taskDef.getInitState(params),
-            0,
         );
-        return task.getStageAction();
     }
     
     hasUserModule(absModulePath: string): boolean {

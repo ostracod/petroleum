@@ -20,6 +20,7 @@ export type Stage<ParamsT, StateT> = (task: Task<ParamsT, StateT>) => Action;
 
 export interface TaskDef<ParamsT, StateT> {
     getInitState: (params: ParamsT) => StateT;
+    getNodes?: (params: ParamsT) => { taskNode?: PetMap, callerNode?: PetMap };
     stages: Stage<ParamsT, StateT>[];
 }
 
@@ -28,6 +29,8 @@ export interface TaskMembers<ParamsT, StateT> {
     stages: Stage<ParamsT, StateT>[];
     acceptReturnValue: (value: PetValue) => Action;
     handleException: (exception: PetValue) => Action;
+    taskNode?: PetMap;
+    callerNode?: PetMap;
 }
 
 interface MethodInvocation {
@@ -125,20 +128,10 @@ export class Task<ParamsT = any, StateT = any> {
         if (typeof handleException === "undefined") {
             handleException = (exception) => this.throwException(exception);
         }
-        const members: TaskMembers<T1, T2> = {
-            parentTask: this,
-            stages: taskDef.stages,
-            acceptReturnValue,
-            handleException,
-        };
-        const task = new Task<T1, T2>(
-            this.context,
-            members,
-            params,
-            taskDef.getInitState(params),
-            0,
+        return this.context.startTask(
+            taskDef, params, this,
+            acceptReturnValue, handleException,
         );
-        return task.getStageAction();
     }
     
     awaitMember(
@@ -175,9 +168,10 @@ export class Task<ParamsT = any, StateT = any> {
         func: PetFunc,
         args: (KnownValue | PetValue)[] | PetList,
         acceptReturnValue: (value: PetValue) => Action,
+        callerNode?: PetMap,
     ): Action {
         return this.runTask(
-            callFuncTask, { func, args: toPetList(args) },
+            callFuncTask, { func, args: toPetList(args), callerNode },
             acceptReturnValue,
         );
     }
@@ -490,8 +484,15 @@ export const evalExprsTask: TaskDef<EvalExprsParams, EvalExprsState> = {
     ],
 };
 
-const callFuncTask: TaskDef<{ func: PetFunc, args: PetList }, null> = {
+interface CallFuncParams {
+    func: PetFunc;
+    args: PetList;
+    callerNode?: PetMap;
+}
+
+const callFuncTask: TaskDef<CallFuncParams, null> = {
     getInitState: (params) => null,
+    getNodes: (params) => ({ callerNode: params.callerNode }),
     stages: [
         (task) => {
             return task.params.func.call(task, task.params.args);
@@ -574,6 +575,7 @@ const checkGradeForEval = (worker: PetMap): void => {
 
 const callMethodTask: TaskDef<MethodInvocation, null> = {
     getInitState: (params) => null,
+    getNodes: (params) => ({ taskNode: params.worker }),
     stages: [
         (task) => {
             const { worker, key: methodKey } = task.params;
@@ -669,6 +671,7 @@ interface EvalFuncParams {
 
 export const evalFuncTask: TaskDef<EvalFuncParams, { args: PetValue[] | null }> = {
     getInitState: (params) => ({ args: null }),
+    getNodes: (params) => ({ taskNode: params.invocNode }),
     stages: [
         (task) => {
             const argsComp = getFuncArgsComp(task.params.invocNode);
@@ -685,6 +688,7 @@ export const evalFuncTask: TaskDef<EvalFuncParams, { args: PetValue[] | null }> 
             return task.callFunction(
                 func, task.state.args,
                 (value) => task.returnValue(value),
+                task.params.invocNode,
             );
         },
     ],
