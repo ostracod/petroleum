@@ -6,6 +6,7 @@ import * as os from "os";
 import * as pathUtils from "path";
 import { symbols } from "./symbol.js";
 import { PetString, PetMap } from "./value.js";
+import { PetException } from "./exception.js";
 import { ModuleParser } from "./moduleParser.js";
 
 const packageStorePath = pathUtils.join(pathUtils.resolve(os.homedir()), "petroleumPackages");
@@ -554,12 +555,23 @@ export class PackageResolver {
         return keys.join(" ");
     }
     
-    // Returns the map representation of the entry package.
-    convertSelsToMaps(): PetMap {
+    convertSelsToMaps(): { entryPackage: PetMap | null, exceptions: PetMap[] } {
         // Map from package key to map representation of package.
         const packMap = new Map<string, PetMap>();
+        const exceptions: PetMap[] = [];
         for (const selection of this.getAllSelections()) {
-            packMap.set(selection.pack.key, selection.toMap());
+            try {
+                packMap.set(selection.pack.key, selection.toMap());
+            } catch (error) {
+                if (error instanceof PetException) {
+                    exceptions.push(error.mapValue.getMap());
+                } else {
+                    throw error;
+                }
+            }
+        }
+        if (exceptions.length > 0) {
+            return { entryPackage: null, exceptions };
         }
         for (const selection of this.getAllSelections()) {
             const pack = packMap.get(selection.pack.key);
@@ -571,11 +583,11 @@ export class PackageResolver {
                 depMap.setMember(specifier, depPack);
             }
         }
-        return packMap.get(this.entryPackage.key);
+        const entryPackage = packMap.get(this.entryPackage.key);
+        return { entryPackage, exceptions };
     }
     
-    // Returns the map representation of the entry package.
-    resolvePackages(): PetMap {
+    resolvePackages(): { entryPackage: PetMap | null, exceptions: PetMap[] } {
         this.selections = new Map();
         this.dependencies = new Map();
         this.unsatisfiedSelections = new Set();

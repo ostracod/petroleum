@@ -35,9 +35,15 @@ export class PetContext {
         this.aggregatedExceps = [];
         this.hasReportedProblem = false;
         const packageResolver = new PackageResolver(entryPackagePath, this.globalScope);
-        const entryPackage = packageResolver.resolvePackages();
-        const mainModule = entryPackage.getMember(symbols.MAIN_MODULE).getMap();
-        this.addUserModule(mainModule);
+        const { entryPackage, exceptions } = packageResolver.resolvePackages();
+        if (entryPackage === null) {
+            for (const exception of exceptions) {
+                this.reportException(exception);
+            }
+        } else {
+            const mainModule = entryPackage.getMember(symbols.MAIN_MODULE).getMap();
+            this.addUserModule(mainModule);
+        }
     }
     
     createGlobalScope(): PetMap {
@@ -85,6 +91,9 @@ export class PetContext {
     };
     
     run(): void {
+        if (this.hasReportedProblem) {
+            return;
+        }
         this.scheduler.scheduleTask(mainTask, null);
         let isStuckSpinning = false;
         while (!this.hasReportedProblem) {

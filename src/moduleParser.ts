@@ -4,6 +4,7 @@ import "./exception.js";
 import * as fs from "fs";
 import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, KnownValue, toPetValue, escapeChars, PetString, PetList, PetMap } from "./value.js";
+import { ErrorException } from "./exception.js";
 
 interface ContentPos {
     lineNumber: bigint;
@@ -182,7 +183,7 @@ export class ModuleParser {
         if (typeof pos === "undefined") {
             pos = this.getPos();
         }
-        throw new Error(`Syntax error on line ${pos.lineNumber}, column ${pos.columnNumber} of ${this.modulePath}: ${message}`);
+        throw new ErrorException(symbols.SYNTAX_ERROR, `${message} (Line ${pos.lineNumber}, column ${pos.columnNumber} of ${this.modulePath})`);
     }
     
     parseIntComp(): PetMap {
@@ -392,7 +393,7 @@ export class ModuleParser {
         const firstCompType = firstComp.getMember(symbols.COMP_TYPE).getSymbol();
         if (components.length > 1) {
             if (!invocCompIsValid(firstComp)) {
-                this.throwError("Invalid invocable component", pos);
+                this.throwError("Invalid invocable component.", pos);
             }
             expression = new PetMap([
                 [symbols.EXPR_TYPE, symbols.INVOC_EXPR],
@@ -419,7 +420,7 @@ export class ModuleParser {
                 ...commonFields,
             ]);
         } else {
-            this.throwError("Unknown expression type", pos);
+            this.throwError("Unknown expression type.", pos);
         }
         setParents(components, expression);
         return expression;
@@ -461,7 +462,7 @@ export class ModuleParser {
             const firstComp = components[0];
             const pos = getCompPos(firstComp);
             if (!invocCompIsValid(firstComp)) {
-                this.throwError("Invalid invocable component", pos);
+                this.throwError("Invalid invocable component.", pos);
             }
             const statement = new PetMap([
                 [symbols.NODE_TYPE, symbols.STMT],
@@ -488,7 +489,7 @@ export class ModuleParser {
         const stmtSeqResult = this.parseStmtSequence();
         const character = this.peekText(1);
         if (character !== null) {
-            this.throwError(`Unexpected character "${character}"`);
+            this.throwError(`Unexpected character "${character}".`);
         }
         const dummyPos: ContentPos = { lineNumber: 0n, columnNumber: 0n };
         const stmtsComp = createStmtsComp(stmtSeqResult, dummyPos);

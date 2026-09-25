@@ -1,7 +1,7 @@
 
 import "./procedure.js";
 
-import { symbols, spinCountSymbol } from "./symbol.js";
+import { PetSymbol, symbols, spinCountSymbol } from "./symbol.js";
 import { KnownValue, PetValue, toPetValue, toPetString, valueToString, PetString, ObservableBunch, PetMap, PetFunc, EvalState } from "./value.js";
 import { ConstantFunc } from "./builtInFunc.js";
 import { Action } from "./task.js";
@@ -85,6 +85,17 @@ export class DeferralException extends AwaitException {
     }
 }
 
+export class ErrorException extends PetException {
+    
+    constructor(errorType: PetSymbol, message: string) {
+        super(new PetMap([
+            [symbols.EXCEP_TYPE, symbols.ERROR_EXCEP],
+            [symbols.ERROR_TYPE, errorType],
+            [symbols.MESSAGE, new PetString(message)],
+        ]));
+    }
+}
+
 export class CoroEndException extends Error {
     unhandledExcep: PetValue | null;
     
@@ -108,7 +119,13 @@ export const getExcepReport = (exception: PetMap): string => {
     } else {
         header = `Encountered ${valueToString(excepType)} exception.`;
     }
-    const stackTrace = exception.getMember(symbols.EVAL_STATE).getEvalState().toString();
+    const evalStateValue = exception.getMember(symbols.EVAL_STATE);
+    if (typeof evalStateValue === "undefined") {
+        // Eval state is missing if there is a syntax error in
+        // the main module of any package.
+        return header;
+    }
+    const stackTrace = evalStateValue.getEvalState().toString();
     return header + "\n" + stackTrace;
 };
 
