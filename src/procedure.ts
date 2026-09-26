@@ -151,7 +151,7 @@ export const globalProcDefs: ProcDef[] = [
         eval: (task, expr, varSpace) => {
             const comps = expr.getMember(symbols.COMPS).getList();
             const stmtsComp = comps.getMember(1).getMap();
-            const fieldValue = expr.getMember(symbols.ACCESSED_VARS);
+            const fieldValue = expr.getOptionalMember(symbols.ACCESSED_VARS);
             const createFunc = (varsValue: PetValue): Action => {
                 const accessedVars = varsValue.getMap();
                 const userFunc = new UserFunc(stmtsComp, varSpace, accessedVars);

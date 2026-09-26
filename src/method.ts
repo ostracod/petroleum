@@ -2,7 +2,7 @@
 import "./builtInFunc.js";
 
 import { symbols } from "./symbol.js";
-import { KnownValue, valueToString, PetMap, PetFunc } from "./value.js";
+import { KnownValue, knownValueToString, PetMap, PetFunc } from "./value.js";
 import { DefFunc } from "./builtInFunc.js";
 import { ValueError } from "./exception.js";
 import { getChildWorkers, getFuncArgsComp } from "./node.js";
@@ -86,7 +86,7 @@ export const defaultVarsMethod = new AccessedVarsMethod((task, worker, scope) =>
 });
 
 export const getMethodWithDefault = (methodMap: PetMap, methodKey: KnownValue): PetFunc => {
-    const method = methodMap.getMember(methodKey);
+    const method = methodMap.getOptionalMember(methodKey);
     if (typeof method !== "undefined") {
         return method.getFunc();
     }
@@ -99,7 +99,7 @@ export const getMethodWithDefault = (methodMap: PetMap, methodKey: KnownValue): 
     if (methodKey === symbols.ACCESSED_VARS) {
         return defaultVarsMethod;
     }
-    throw new ValueError("Missing method key: " + valueToString(methodKey));
+    throw new ValueError("Missing method key: " + knownValueToString(methodKey));
 };
 
 export const createMethodMap = (methodDict: MethodDict): PetMap => {
@@ -213,6 +213,9 @@ export const identExprMethods = createMethodMap({
         const scope = getScope(expr);
         const varName = expr.getMember(symbols.IDENT).getPetString();
         const variable = findVariable(scope, varName);
+        if (variable === null) {
+            throw new ValueError(`Could not find variable with name "${varName.toString()}".`);
+        }
         expr.setMember(symbols.VAR, variable);
         return task.returnValue(null);
     },

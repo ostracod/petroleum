@@ -38,7 +38,7 @@ export const nodeIsInvocation = (node: PetMap, nodeType: PetSymbol): boolean => 
 };
 
 export const workerIsInvocation = (worker: PetMap): boolean => {
-    const nodeTypeValue = worker.getMember(symbols.NODE_TYPE);
+    const nodeTypeValue = worker.getOptionalMember(symbols.NODE_TYPE);
     if (typeof nodeTypeValue === "undefined") {
         return false;
     }
@@ -47,7 +47,7 @@ export const workerIsInvocation = (worker: PetMap): boolean => {
 };
 
 export const getWorkerMethodMap = (worker: PetMap): PetMap => {
-    const nodeTypeValue = worker.getMember(symbols.NODE_TYPE);
+    const nodeTypeValue = worker.getOptionalMember(symbols.NODE_TYPE);
     if (typeof nodeTypeValue !== "undefined") {
         const nodeType = nodeTypeValue.getSymbol();
         if (nodeIsInvocation(worker, nodeType)) {
@@ -70,7 +70,7 @@ export const getWorkerMethodMap = (worker: PetMap): PetMap => {
         }
         throw new Error("Not yet implemented");
     }
-    const compTypeValue = worker.getMember(symbols.COMP_TYPE);
+    const compTypeValue = worker.getOptionalMember(symbols.COMP_TYPE);
     if (typeof compTypeValue !== "undefined") {
         const compType = compTypeValue.getSymbol();
         if (compType === symbols.STMTS_COMP) {
@@ -87,12 +87,12 @@ export const getWorkerMethodMap = (worker: PetMap): PetMap => {
 // `entity` is a node or a component.
 export const getModule = (entity: PetMap): PetMap => {
     while (true) {
-        const parent = entity.getMember(symbols.PARENT);
+        const parent = entity.getOptionalMember(symbols.PARENT);
         if (typeof parent === "undefined") {
             throw new ValueError("Could not get module.");
         }
         entity = parent.getMap();
-        const moduleType = entity.getMember(symbols.MODULE_TYPE);
+        const moduleType = entity.getOptionalMember(symbols.MODULE_TYPE);
         if (typeof moduleType !== "undefined") {
             return entity;
         }

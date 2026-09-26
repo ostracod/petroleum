@@ -37,11 +37,11 @@ export const createFrame = (scope: PetMap, parentFrame: PetMap | null): PetMap =
 export enum VarSpaceType { Scope, Frame };
 
 export const getVarSpaceType = (varSpace: PetMap): VarSpaceType => {
-    const isScope = varSpace.getMember(symbols.IS_SCOPE);
+    const isScope = varSpace.getOptionalMember(symbols.IS_SCOPE);
     if (typeof isScope !== "undefined" && isScope.getInt() !== 0n) {
         return VarSpaceType.Scope;
     }
-    const isFrame = varSpace.getMember(symbols.IS_FRAME);
+    const isFrame = varSpace.getOptionalMember(symbols.IS_FRAME);
     if (typeof isFrame !== "undefined" && isFrame.getInt() !== 0n) {
         return VarSpaceType.Frame;
     }
@@ -51,11 +51,11 @@ export const getVarSpaceType = (varSpace: PetMap): VarSpaceType => {
 export const findVariable = (scope: PetMap, name: PetString): PetMap | null => {
     while (true) {
         const variables = scope.getMember(symbols.VARS).getMap();
-        const variable = variables.getMember(name);
+        const variable = variables.getOptionalMember(name);
         if (typeof variable !== "undefined") {
             return variable.getMap();
         }
-        const parentScope = scope.getMember(symbols.PARENT);
+        const parentScope = scope.getOptionalMember(symbols.PARENT);
         if (typeof parentScope === "undefined") {
             break;
         }
@@ -84,7 +84,7 @@ const getVarType = (variable: PetMap): PetSymbol => {
 export const getModuleFrameEntry = (variable: PetMap): PetMap => {
     const scope = variable.getMember(symbols.SCOPE).getMap();
     const module = scope.getMember(symbols.MODULE).getMap();
-    const frameValue = module.getMember(symbols.FRAME);
+    const frameValue = module.getOptionalMember(symbols.FRAME);
     if (typeof frameValue === "undefined") {
         throw new StateError("Cannot access work-var value without frame.");
     }
@@ -121,7 +121,7 @@ const getFrameEntry = (frame: PetMap, workVar: PetMap): PetMap => {
             const frameEntries = frame.getMember(symbols.FRAME_ENTRIES).getMap();
             return frameEntries.getMember(varName).getMap();
         }
-        const parentFrame = frame.getMember(symbols.PARENT);
+        const parentFrame = frame.getOptionalMember(symbols.PARENT);
         if (typeof parentFrame === "undefined") {
             throw new ValueError(`Could not find find frame entry for "${varName.toString()}".`);
         } else {
@@ -158,11 +158,11 @@ export const getVarValue = (varSpace: PetMap, variable: PetMap): PetValue => {
 // `entity` is a node or a component.
 export const getScope = (entity: PetMap): PetMap => {
     while (true) {
-        const scope = entity.getMember(symbols.SCOPE);
+        const scope = entity.getOptionalMember(symbols.SCOPE);
         if (typeof scope !== "undefined") {
             return scope.getMap();
         }
-        const parent = entity.getMember(symbols.PARENT);
+        const parent = entity.getOptionalMember(symbols.PARENT);
         if (typeof parent === "undefined") {
             throw new ValueError("Could not get scope.");
         }
@@ -176,7 +176,7 @@ export const varIsInScope = (variable: PetMap, scope: PetMap): boolean => {
         if (scope === varScope) {
             return true;
         }
-        const parentScope = scope.getMember(symbols.PARENT);
+        const parentScope = scope.getOptionalMember(symbols.PARENT);
         if (typeof parentScope === "undefined") {
             break
         }
@@ -255,7 +255,7 @@ export const pruneFrames = (varSpace: PetMap, accessedVars: PetMap): {
             frame = null;
             scope = varSpace;
         }
-        const moduleValue = scope.getMember(symbols.MODULE);
+        const moduleValue = scope.getOptionalMember(symbols.MODULE);
         if (typeof moduleValue !== "undefined") {
             module = moduleValue.getMap();
             break;
@@ -278,7 +278,7 @@ export const pruneFrames = (varSpace: PetMap, accessedVars: PetMap): {
             bottomFrame.setMember(symbols.PARENT, prunedFrame);
             bottomFrame = prunedFrame;
         }
-        const parentFrame = frame?.getMember(symbols.PARENT);
+        const parentFrame = frame?.getOptionalMember(symbols.PARENT);
         if (typeof parentFrame === "undefined") {
             varSpace = scope.getMember(symbols.PARENT).getMap();
             varSpaceIsFrame = false;

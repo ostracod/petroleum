@@ -2,7 +2,7 @@
 import "./symbol.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { DeferralException, PetTypeError, createAwaitExcep } from "./exception.js";
+import { DeferralException, PetTypeError, ValueError, createAwaitExcep } from "./exception.js";
 import { getModule } from "./node.js";
 import { createFrame, findVarValue, getVarSpaceType, VarSpaceType, getSignatureVars, pruneFrames } from "./variable.js";
 import { Action, Task, awaitCondTask } from "./task.js";
@@ -24,7 +24,7 @@ export class PetValue {
     
     getKnownValue(): KnownValue {
         if (typeof this.knownValue === "undefined") {
-            const value = this.bunch.getMember(this.location);
+            const value = this.bunch.getOptionalMember(this.location);
             if (typeof value === "undefined") {
                 throw new DeferralException(
                     this.bunch,
@@ -125,12 +125,12 @@ export class PetValue {
     
     toString(parents: KnownValue[] = []): string {
         const value = this.getKnownValue();
-        return valueToString(value, parents);
+        return knownValueToString(value, parents);
     };
     
     toMapKey(): MapKey {
         const value = this.getKnownValue();
-        return valueToMapKey(value);
+        return knownValueToMapKey(value);
     };
 }
 
@@ -156,7 +156,11 @@ export const toKnownValue = (value: KnownValue | PetValue): KnownValue => (
 );
 
 const toMapKey = (value: KnownValue | PetValue): MapKey => (
-    (value instanceof PetValue) ? value.toMapKey() : valueToMapKey(value)
+    (value instanceof PetValue) ? value.toMapKey() : knownValueToMapKey(value)
+);
+
+const toString = (value: KnownValue | PetValue): MapKey => (
+    (value instanceof PetValue) ? value.toString() : knownValueToString(value)
 );
 
 export const toPetString = (value: string | PetString): PetString => (
@@ -238,7 +242,7 @@ export class PetString {
     }
 }
 
-export const valueToString = (value: KnownValue, parents: KnownValue[] = []): string => {
+export const knownValueToString = (value: KnownValue, parents: KnownValue[] = []): string => {
     if (value === null) {
         return "NULL";
     } else if (value instanceof PetString) {
@@ -254,7 +258,7 @@ export const valueToString = (value: KnownValue, parents: KnownValue[] = []): st
     }
 };
 
-const valueToMapKey = (value: KnownValue): MapKey => {
+const knownValueToMapKey = (value: KnownValue): MapKey => {
     return (value instanceof PetString) ? value.toHexString() : value;
 };
 
@@ -285,13 +289,14 @@ export const valueMayHaveChanged = (oldValue: PetValue, newValue: PetValue): boo
 
 export interface ObservableBunchIface {
     observatory: MemberObservatory;
-    getMember(location: KnownValue | PetValue): PetValue | undefined;
+    getOptionalMember(location: KnownValue | PetValue): PetValue | undefined;
+    getMember(location: KnownValue | PetValue): PetValue;
 }
 
 export type ObservableBunch = KnownValue & ObservableBunchIface;
 
 const deferMember = (bunch: ObservableBunch, location: KnownValue): PetValue => {
-    const value = bunch.getMember(location);
+    const value = bunch.getOptionalMember(location);
     return (typeof value === "undefined") ? wrapDeferredValue(bunch, location) : value;
 };
 
@@ -317,7 +322,7 @@ export class MemberObserver {
     }
     
     getMemberValue(): PetValue | undefined {
-        return this.bunch.getMember(this.location);
+        return this.bunch.getOptionalMember(this.location);
     }
     
     createAwaitExcep(): PetMap {
@@ -353,7 +358,7 @@ class MemberObservatory {
         evalState: EvalState,
     ): void {
         this.scheduler = scheduler;
-        const mapKey = valueToMapKey(location);
+        const mapKey = knownValueToMapKey(location);
         let observers = this.observers.get(mapKey);
         if (typeof observers === "undefined") {
             observers = [];
@@ -367,7 +372,7 @@ class MemberObservatory {
     }
     
     handleMemberChange(location: KnownValue): void {
-        const mapKey = valueToMapKey(location);
+        const mapKey = knownValueToMapKey(location);
         const observers = this.observers.get(mapKey);
         if (typeof observers === "undefined") {
             return;
@@ -415,8 +420,17 @@ export class PetList implements ObservableBunchIface {
         this.observatory = new MemberObservatory(this);
     }
     
-    getMember(index: ListIndex): PetValue | undefined {
+    getOptionalMember(index: ListIndex): PetValue | undefined {
         return this.elements[listIndexToNumber(index)];
+    }
+    
+    getMember(index: ListIndex): PetValue {
+        const value = this.getOptionalMember(index);
+        if (typeof value === "undefined") {
+            const indexNumber = listIndexToNumber(index);
+            throw new ValueError(`Index ${indexNumber} is outside of list.`);
+        }
+        return value;
     }
     
     setMember(index: ListIndex, inputValue: KnownValue | PetValue): void {
@@ -480,16 +494,24 @@ export class PetMap implements ObservableBunchIface {
         }
     }
     
-    getMember(key: KnownValue | PetValue): PetValue | undefined {
+    getOptionalMember(key: KnownValue | PetValue): PetValue | undefined {
         const mapKey = toMapKey(key);
         const field = this.fields.get(mapKey);
         return field?.value;
     }
     
+    getMember(key: KnownValue | PetValue): PetValue {
+        const value = this.getOptionalMember(key);
+        if (typeof value === "undefined") {
+            throw new PetTypeError(`Key ${toString(key)} does not exist in map.`);
+        }
+        return value;
+    }
+    
     setMember(inputKey: KnownValue | PetValue, inputValue: KnownValue | PetValue): void {
         const key = toKnownValue(inputKey);
         const value = toPetValue(inputValue);
-        const mapKey = valueToMapKey(key);
+        const mapKey = knownValueToMapKey(key);
         let lastValue: PetValue | undefined;
         let field = this.fields.get(mapKey);
         if (typeof field === "undefined") {
@@ -509,7 +531,7 @@ export class PetMap implements ObservableBunchIface {
     }
     
     hasKey(key: KnownValue | PetValue): boolean {
-        return (typeof this.getMember(key) !== "undefined");
+        return (typeof this.getOptionalMember(key) !== "undefined");
     }
     
     deleteField(key: KnownValue | PetValue): void {
@@ -521,7 +543,7 @@ export class PetMap implements ObservableBunchIface {
         const nextParents = [...parents, this];
         const textList: string[] = [];
         this.fields.forEach(({ key, value }) => {
-            const keyString = valueToString(key, nextParents);
+            const keyString = knownValueToString(key, nextParents);
             const valueString = value.toString(nextParents);
             textList.push(`(${keyString}) = (${valueString})`);
         });

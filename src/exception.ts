@@ -2,7 +2,7 @@
 import "./procedure.js";
 
 import { PetSymbol, symbols, spinCountSymbol } from "./symbol.js";
-import { KnownValue, PetValue, toPetValue, toPetString, valueToString, PetString, ObservableBunch, PetMap, PetFunc, EvalState } from "./value.js";
+import { KnownValue, PetValue, toPetValue, toPetString, knownValueToString, PetString, ObservableBunch, PetMap, PetFunc, EvalState } from "./value.js";
 import { ConstantFunc } from "./builtInFunc.js";
 import { Action } from "./task.js";
 
@@ -141,9 +141,9 @@ export const getExcepReport = (exception: PetMap): string => {
         const message = exception.getMember(symbols.MESSAGE).toString();
         header = `Encountered ${errorType.toString()} error: ` + message;
     } else {
-        header = `Encountered ${valueToString(excepType)} exception.`;
+        header = `Encountered ${knownValueToString(excepType)} exception.`;
     }
-    const evalStateValue = exception.getMember(symbols.EVAL_STATE);
+    const evalStateValue = exception.getOptionalMember(symbols.EVAL_STATE);
     if (typeof evalStateValue === "undefined") {
         // Eval state is missing if there is a syntax error in
         // the main module of any package.

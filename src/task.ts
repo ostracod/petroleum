@@ -417,7 +417,7 @@ export const evalStmtsTask: TaskDef<EvalStmtsParams, EvalStmtsState> = {
             const { stmtsComp, varSpace } = task.params;
             const scope = stmtsComp.getMember(symbols.SCOPE).getMap();
             const parent = stmtsComp.getMember(symbols.PARENT).getMap();
-            const moduleType = parent.getMember(symbols.MODULE_TYPE);
+            const moduleType = parent.getOptionalMember(symbols.MODULE_TYPE);
             let frame: PetMap;
             if (typeof moduleType === "undefined") {
                 const varSpaceType = getVarSpaceType(varSpace);
@@ -515,7 +515,8 @@ export const awaitCondTask: TaskDef<{ observer: MemberObserver }, null> = {
                 (returnValue) => {
                     if (returnValue.getInt() === 0n) {
                         const newMemberValue = observer.getMemberValue();
-                        if (valueMayHaveChanged(memberValue, newMemberValue)) {
+                        if (typeof newMemberValue !== "undefined"
+                                && valueMayHaveChanged(memberValue, newMemberValue)) {
                             return task.repeatStage(null);
                         } else {
                             return task.throwException(observer.createAwaitExcep());
@@ -549,7 +550,7 @@ export const spinCondTask: TaskDef<{ spinner: Spinner }, null> = {
 };
 
 const checkGradeForEval = (worker: PetMap): void => {
-    if (worker.getMember(symbols.NODE_TYPE)?.getSymbol() !== symbols.EXPR) {
+    if (worker.getOptionalMember(symbols.NODE_TYPE)?.getSymbol() !== symbols.EXPR) {
         return;
     }
     const grade = worker.getMember(symbols.GRADE).getSymbol();
@@ -559,7 +560,7 @@ const checkGradeForEval = (worker: PetMap): void => {
     }
     let parent = exprsComp.getMember(symbols.PARENT).getMap();
     while (true) {
-        const phaseValue = parent.getMember(symbols.PHASE);
+        const phaseValue = parent.getOptionalMember(symbols.PHASE);
         if (typeof phaseValue !== "undefined") {
             const phase = phaseValue.getSymbol();
             if (grade === symbols.PREP_GRADE && phase === symbols.WORK_PHASE) {
@@ -706,7 +707,7 @@ export const handleExcepTask: TaskDef<{ exception: PetValue }, null> = {
             if (excepType === symbols.SPIN_EXCEP) {
                 const condition = exception.getMember(symbols.COND).getFunc();
                 const message = exception.getMember(symbols.MESSAGE).getPetString();
-                const countValue = exception.getMember(spinCountSymbol);
+                const countValue = exception.getOptionalMember(spinCountSymbol);
                 const count = (countValue?.toNumber() ?? 0) + 1;
                 const spinner = new Spinner(condition, message, evalState, count);
                 scheduler.scheduleSpinner(spinner);
