@@ -62,8 +62,7 @@ const createStmtsComp = (stmtSeqResult: StmtSeqResult, pos: ContentPos): PetMap 
         [symbols.STMTS, new PetList(statements)],
         [symbols.SCOPE, scope],
         [symbols.PHASE, symbols.PREP_PHASE],
-        [symbols.LINE_NUM, 0n],
-        [symbols.COL_NUM, 0n],
+        ...posToFields(pos),
     ]);
     setParents(attributes, stmtsComp);
     setParents(statements, stmtsComp);

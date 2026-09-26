@@ -2,6 +2,7 @@
 import "./value.js";
 
 import { KnownValue, PetValue, PetList, PetFunc, valuesAreEqual } from "./value.js";
+import { ValueError } from "./exception.js";
 import { Action, Task } from "./task.js";
 
 interface FuncDef {
@@ -85,6 +86,9 @@ export const globalFuncDefs: FuncDef[] = [
         name: "CALL",
         argAmount: null,
         call: (task, args) => {
+            if (args.length < 1 || args.length > 2) {
+                throw new ValueError("Expected 1 or 2 arguments.");
+            }
             const func = args[0].getFunc();
             const funcArgs = (args.length > 1) ? args[1].getList() : ([] as PetValue[]);
             return task.callFunction(

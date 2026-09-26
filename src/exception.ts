@@ -107,27 +107,38 @@ export interface ModulePos {
     modulePath: string;
 }
 
+const messageAtModulePos = (message: string, pos: ModulePos): string => (
+    `${message} (Line ${pos.lineNumber}, column ${pos.columnNumber} of ${pos.modulePath})`
+);
 
 export class PetSyntaxError extends ErrorException {
     
     constructor(message: string, pos?: ModulePos) {
         if (typeof pos !== "undefined") {
-            message += ` (Line ${pos.lineNumber}, column ${pos.columnNumber} of ${pos.modulePath})`;
+            message = messageAtModulePos(message, pos);
         }
         super(symbols.SYNTAX_ERROR, message);
     }
 }
 
 // `entity` is a node or a component.
-export const createSyntaxError = (message: string, entity?: PetMap): PetSyntaxError => {
-    if (typeof entity === "undefined") {
-        return new PetSyntaxError(message);
-    }
+const entityToModulePos = (entity: PetMap): ModulePos => {
     const lineNumber = entity.getMember(symbols.LINE_NUM).getInt();
     const columnNumber = entity.getMember(symbols.COL_NUM).getInt();
     const module = getModule(entity);
     const modulePath = module.getMember(symbols.FILE_PATH).toString();
-    const modulePos = { lineNumber, columnNumber, modulePath };
+    return { lineNumber, columnNumber, modulePath };
+}
+
+export const messageAtEntity = (message: string, entity?: PetMap): string => {
+    const modulePos = entityToModulePos(entity);
+    return messageAtModulePos(message, modulePos);
+};
+
+export const createSyntaxError = (message: string, entity?: PetMap): PetSyntaxError => {
+    const modulePos = (typeof entity === "undefined")
+        ? undefined
+        : entityToModulePos(entity);
     return new PetSyntaxError(message, modulePos);
 };
 

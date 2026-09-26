@@ -575,10 +575,13 @@ export abstract class PetFunc {
     abstract toString(): string;
 }
 
-interface FuncSignature {
-    argVars?: PetMap[];
-    argsVar?: PetMap;
-}
+// `entity` is a node or a component.
+const entityToCodeLoc = (entity: PetMap): string => {
+    const lineNumber = entity.getMember(symbols.LINE_NUM).toNumber();
+    const module = getModule(entity);
+    const modulePath = module.getMember(symbols.FILE_PATH).toString();
+    return `line ${lineNumber} of ${modulePath}`;
+};
 
 export class UserFunc extends PetFunc {
     // Statement sequence component which contains the function body.
@@ -637,17 +640,10 @@ export class UserFunc extends PetFunc {
     }
     
     toString(): string {
-        // TODO: Use a better string representation.
-        return "<userFunc>";
+        const codeLoc = entityToCodeLoc(this.stmtsComp);
+        return `<User function on ${codeLoc}>`;
     }
 }
-
-const nodeToCodeLoc = (node: PetMap): string => {
-    const lineNumber = node.getMember(symbols.LINE_NUM).toNumber();
-    const module = getModule(node);
-    const modulePath = module.getMember(symbols.FILE_PATH).toString();
-    return `line ${lineNumber} of ${modulePath}`;
-};
 
 export class EvalState {
     currentTask: Task;
@@ -667,12 +663,12 @@ export class EvalState {
                 const { taskNode } = task.members;
                 if (typeof taskNode !== "undefined") {
                     topNode = taskNode;
-                    lines.push("On " + nodeToCodeLoc(taskNode));
+                    lines.push("On " + entityToCodeLoc(taskNode));
                 }
             } else {
                 const { callerNode } = task.members;
                 if (typeof callerNode !== "undefined") {
-                    lines.push("Called from " + nodeToCodeLoc(callerNode));
+                    lines.push("Called from " + entityToCodeLoc(callerNode));
                 }
             }
             task = task.members.parentTask;

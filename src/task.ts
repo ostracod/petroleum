@@ -6,7 +6,7 @@ import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, PetString, P
 import { NotEqualFunc } from "./builtInFunc.js";
 import { getMethodWithDefault } from "./method.js";
 import { SetProcParts } from "./procedure.js";
-import { PetSyntaxError, PetTypeError, StateError, createSyntaxError } from "./exception.js";
+import { PetSyntaxError, PetTypeError, StateError, createSyntaxError, messageAtEntity } from "./exception.js";
 import { workerIsInvocation, getWorkerMethodMap, getFuncArgsComp } from "./node.js";
 import { createFrame, VarSpaceType, getVarSpaceType, findVariable, getVarValue, getScope } from "./variable.js";
 import { Spinner } from "./scheduler.js";
@@ -160,7 +160,7 @@ export class Task<ParamsT = any, StateT = any> {
             worker,
             symbols.PHASE,
             new NotEqualFunc(symbols.PREP_PHASE),
-            "TODO: Put message here.",
+            messageAtEntity("Waiting for worker to finish prep-phase.", worker),
             nextAction,
         );
     }
