@@ -6,7 +6,7 @@ import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, PetString, P
 import { NotEqualFunc } from "./builtInFunc.js";
 import { getMethodWithDefault } from "./method.js";
 import { SetProcParts } from "./procedure.js";
-import { PetSyntaxError, PetTypeError, StateError } from "./exception.js";
+import { PetSyntaxError, PetTypeError, StateError, createSyntaxError } from "./exception.js";
 import { workerIsInvocation, getWorkerMethodMap, getFuncArgsComp } from "./node.js";
 import { createFrame, VarSpaceType, getVarSpaceType, findVariable, getVarValue, getScope } from "./variable.js";
 import { Spinner } from "./scheduler.js";
@@ -651,6 +651,18 @@ const determineInvocTask: TaskDef<{ worker: PetMap }, null> = {
                 worker.setMember(symbols.INVOC, invocable);
                 return task.returnValue(null);
             } else if (compType === symbols.EXPRS_COMP) {
+                const grade = firstComp.getMember(symbols.GRADE).getSymbol();
+                if (grade !== symbols.PREP_GRADE) {
+                    throw createSyntaxError(
+                        "Expected prep-grade expression sequence component.", firstComp,
+                    );
+                }
+                const exprs = firstComp.getMember(symbols.EXPRS).getList();
+                if (exprs.getLength() !== 1) {
+                    throw createSyntaxError(
+                        "Expected 1 expression in sequence.", firstComp,
+                    );
+                }
                 return task.callMethod(
                     firstComp, symbols.EVAL, [scope],
                     (returnValue) => {
@@ -660,7 +672,7 @@ const determineInvocTask: TaskDef<{ worker: PetMap }, null> = {
                     },
                 );
             } else {
-                throw new PetSyntaxError("First component in invocation is invalid");
+                throw new PetSyntaxError("First component in invocation is invalid.");
             }
         },
     ],

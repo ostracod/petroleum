@@ -48,18 +48,6 @@ const getCompPosFields = (component: PetMap): [KnownValue, KnownValue][] => (
     posToFields(getCompPos(component))
 );
 
-const invocCompIsValid = (component: PetMap): boolean => {
-    const compType = component.getMember(symbols.COMP_TYPE).getSymbol();
-    if (compType === symbols.IDENT_COMP) {
-        return true;
-    }
-    if (compType !== symbols.EXPRS_COMP) {
-        return false;
-    }
-    const expressions = component.getMember(symbols.EXPRS).getList();
-    return (expressions.getLength() === 1);
-};
-
 const setParents = (maps: PetMap[], parent: KnownValue): void => {
     for (const map of maps) {
         map.setMember(symbols.PARENT, parent);
@@ -392,9 +380,6 @@ export class ModuleParser {
         let expression: PetMap;
         const firstCompType = firstComp.getMember(symbols.COMP_TYPE).getSymbol();
         if (components.length > 1) {
-            if (!invocCompIsValid(firstComp)) {
-                this.throwError("Invalid invocable component.", pos);
-            }
             expression = new PetMap([
                 [symbols.EXPR_TYPE, symbols.INVOC_EXPR],
                 [symbols.INVOC, null],
@@ -463,9 +448,6 @@ export class ModuleParser {
             const components = compsSequence[statementIndex];
             const firstComp = components[0];
             const pos = getCompPos(firstComp);
-            if (!invocCompIsValid(firstComp)) {
-                this.throwError("Invalid invocable component.", pos);
-            }
             const statement = new PetMap([
                 [symbols.NODE_TYPE, symbols.STMT],
                 [symbols.STMT_TYPE, symbols.INVOC_STMT],

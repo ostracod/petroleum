@@ -5,7 +5,7 @@ import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc, EvalState } from "./value.js";
 import { MethodDict, createMethodMap, callDefaultPrep } from "./method.js";
 import { PetException, createSyntaxError } from "./exception.js";
-import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertIdentComp, getSmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp } from "./node.js";
+import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getSmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp } from "./node.js";
 import { findVariable, findVarValue, getModuleFrameEntry, getScope, varIsInScope, getSignatureVars } from "./variable.js";
 import { Action, setProcPrepTask, awaitProcEvalTask, spinCondTask } from "./task.js";
 import { Spinner } from "./scheduler.js";
@@ -416,6 +416,12 @@ export const globalProcDefs: ProcDef[] = [
     },
     {
         name: "SPIN",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 2);
+            assertWorkGradeExprs(comps, 1, 2);
+            return callDefaultPrep(task, worker);
+        },
         eval: (task, worker, varSpace) => {
             const comps = worker.getMember(symbols.COMPS).getList();
             const exprsComp = comps.getMember(1).getMap();
@@ -438,6 +444,12 @@ export const globalProcDefs: ProcDef[] = [
     },
     {
         name: "AWAIT",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 2);
+            assertWorkGradeExprs(comps, 1, 4);
+            return callDefaultPrep(task, worker);
+        },
         eval: (task, worker, varSpace) => task.runTask(
             awaitProcEvalTask, { worker, varSpace },
             (value) => task.returnValue(value),
@@ -445,6 +457,12 @@ export const globalProcDefs: ProcDef[] = [
     },
     {
         name: "ABORT",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 2);
+            assertWorkGradeExprs(comps, 1, 2);
+            return callDefaultPrep(task, worker);
+        },
         eval: (task, worker, varSpace) => {
             const comps = worker.getMember(symbols.COMPS).getList();
             const exprsComp = comps.getMember(1).getMap();

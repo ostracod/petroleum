@@ -5,7 +5,7 @@ import { symbols } from "./symbol.js";
 import { KnownValue, knownValueToString, PetMap, PetFunc } from "./value.js";
 import { DefFunc } from "./builtInFunc.js";
 import { ValueError } from "./exception.js";
-import { getChildWorkers, getFuncArgsComp } from "./node.js";
+import { getChildWorkers, getFuncArgsComp, assertMaxCompAmount, getWorkGradeExprs } from "./node.js";
 import { getScope, findVariable, getVarValue, varIsInScope } from "./variable.js";
 import { Action, Task, prepStmtsTask, evalStmtsTask, prepExprsTask, evalExprsTask, prepWorkersTask, workersVarsTask, evalFuncTask } from "./task.js";
 
@@ -121,8 +121,10 @@ export const createMethodMap = (methodDict: MethodDict): PetMap => {
 
 export const funcInvocationMethods = createMethodMap({
     prep: (task, invocNode) => {
+        const comps = invocNode.getMember(symbols.COMPS).getList();
+        assertMaxCompAmount(comps, 2);
+        const argsComp = (comps.getLength() < 2) ? null : getWorkGradeExprs(comps, 1, null);
         const func = invocNode.getMember(symbols.INVOC).getFunc();
-        const argsComp = getFuncArgsComp(invocNode);
         const expectedArgAmount = func.getArgAmount();
         if (expectedArgAmount !== null) {
             let actualArgAmount: number;
