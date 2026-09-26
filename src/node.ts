@@ -4,6 +4,7 @@ import "./variable.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { PetMap, PetFunc } from "./value.js";
 import { funcInvocationMethods, stmtsCompMethods, exprsCompMethods, stringExprMethods, identExprMethods } from "./method.js";
+import { PetTypeError, ValueError } from "./exception.js";
 
 export const getChildWorkers = (node: PetMap): PetMap[] => {
     const output: PetMap[] = [];
@@ -53,9 +54,10 @@ export const getWorkerMethodMap = (worker: PetMap): PetMap => {
             const invocable = worker.getMember(symbols.INVOC).getKnownValue();
             if (invocable instanceof PetFunc) {
                 return funcInvocationMethods;
+            } else if (invocable instanceof PetMap) {
+                return invocable.getMember(symbols.METHODS).getMap();
             } else {
-                const procedure = invocable as PetMap;
-                return procedure.getMember(symbols.METHODS).getMap();
+                throw new PetTypeError("Invocable must be function or procedure.");
             }
         } else if (nodeType === symbols.EXPR) {
             const exprType = worker.getMember(symbols.EXPR_TYPE).getSymbol();
@@ -79,7 +81,7 @@ export const getWorkerMethodMap = (worker: PetMap): PetMap => {
         // TODO: Support calling methods on more types of components.
         throw new Error("Not yet implemented");
     }
-    throw new Error("Expected worker.");
+    throw new PetTypeError("Expected worker.");
 };
 
 // `entity` is a node or a component.
@@ -87,7 +89,7 @@ export const getModule = (entity: PetMap): PetMap => {
     while (true) {
         const parent = entity.getMember(symbols.PARENT);
         if (typeof parent === "undefined") {
-            throw new Error("Could not get module.");
+            throw new ValueError("Could not get module.");
         }
         entity = parent.getMap();
         const moduleType = entity.getMember(symbols.MODULE_TYPE);

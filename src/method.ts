@@ -4,6 +4,7 @@ import "./builtInFunc.js";
 import { symbols } from "./symbol.js";
 import { KnownValue, valueToString, PetMap, PetFunc } from "./value.js";
 import { DefFunc } from "./builtInFunc.js";
+import { ValueError } from "./exception.js";
 import { getChildWorkers, getFuncArgsComp } from "./node.js";
 import { getScope, findVariable, getVarValue, varIsInScope } from "./variable.js";
 import { Action, Task, prepStmtsTask, evalStmtsTask, prepExprsTask, evalExprsTask, prepWorkersTask, workersVarsTask, evalFuncTask } from "./task.js";
@@ -98,7 +99,7 @@ export const getMethodWithDefault = (methodMap: PetMap, methodKey: KnownValue): 
     if (methodKey === symbols.ACCESSED_VARS) {
         return defaultVarsMethod;
     }
-    throw new Error("Missing method key: " + valueToString(methodKey));
+    throw new ValueError("Missing method key: " + valueToString(methodKey));
 };
 
 export const createMethodMap = (methodDict: MethodDict): PetMap => {
@@ -130,8 +131,7 @@ export const funcInvocationMethods = createMethodMap({
                 actualArgAmount = argExprs.getLength();
             }
             if (actualArgAmount !== expectedArgAmount) {
-                // TODO: Throw a better type of error.
-                throw new Error("Incorrect number of function arguments.");
+                throw new ValueError("Incorrect number of function arguments.");
             }
         }
         if (argsComp === null) {

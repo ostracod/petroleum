@@ -4,7 +4,7 @@ import "./package.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, PetString, PetMap } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
-import { AwaitException } from "./exception.js";
+import { AwaitException, PetSyntaxError, PetTypeError, ValueError, StateError } from "./exception.js";
 
 // parentVarSpace is either a scope or a frame.
 export const createFrame = (scope: PetMap, parentFrame: PetMap | null): PetMap => {
@@ -45,7 +45,7 @@ export const getVarSpaceType = (varSpace: PetMap): VarSpaceType => {
     if (typeof isFrame !== "undefined" && isFrame.getInt() !== 0n) {
         return VarSpaceType.Frame;
     }
-    throw new Error("Invalid variable space.");
+    throw new PetTypeError("Invalid variable space.");
 };
 
 export const findVariable = (scope: PetMap, name: PetString): PetMap | null => {
@@ -76,7 +76,7 @@ const getVarType = (variable: PetMap): PetSymbol => {
     } else if (varType instanceof PetSymbol) {
         return varType;
     } else {
-        throw new Error("Unexpected variable type.");
+        throw new PetTypeError("Unexpected variable type.");
     }
 };
 
@@ -86,7 +86,7 @@ export const getModuleFrameEntry = (variable: PetMap): PetMap => {
     const module = scope.getMember(symbols.MODULE).getMap();
     const frameValue = module.getMember(symbols.FRAME);
     if (typeof frameValue === "undefined") {
-        throw new Error("Cannot access work-var value without frame.");
+        throw new StateError("Cannot access work-var value without frame.");
     }
     const frame = frameValue.getMap();
     const frameEntries = frame.getMember(symbols.FRAME_ENTRIES).getMap();
@@ -107,7 +107,7 @@ const resolveImportVar = (variable: PetMap): PetMap => {
         } else if (varType === symbols.WORK_VAR) {
             return getModuleFrameEntry(variable);
         } else {
-            throw new Error(`Unknown variable type: ${varType.toString()}`);
+            throw new PetTypeError(`Unknown variable type: ${varType.toString()}`);
         }
     }
 };
@@ -123,7 +123,7 @@ const getFrameEntry = (frame: PetMap, workVar: PetMap): PetMap => {
         }
         const parentFrame = frame.getMember(symbols.PARENT);
         if (typeof parentFrame === "undefined") {
-            throw new Error(`Could not find find frame entry for "${varName.toString()}".`);
+            throw new ValueError(`Could not find find frame entry for "${varName.toString()}".`);
         } else {
             frame = parentFrame.getMap();
         }
@@ -142,10 +142,10 @@ export const findVarValue = (varSpace: PetMap, variable: PetMap): PetMap => {
         if (getVarSpaceType(varSpace) === VarSpaceType.Frame) {
             return getFrameEntry(varSpace, variable);
         } else {
-            throw new Error("Cannot access work-var value without frame.");
+            throw new StateError("Cannot access work-var value without frame.");
         }
     } else {
-        throw new Error(`Unknown variable type: ${varType.toString()}`);
+        throw new PetTypeError(`Unknown variable type: ${varType.toString()}`);
     }
 };
 
@@ -164,7 +164,7 @@ export const getScope = (entity: PetMap): PetMap => {
         }
         const parent = entity.getMember(symbols.PARENT);
         if (typeof parent === "undefined") {
-            throw new Error("Could not get scope.");
+            throw new ValueError("Could not get scope.");
         }
         entity = parent.getMap();
     }
@@ -212,7 +212,7 @@ export const getSignatureVars = (stmtsComp: PetMap): SignatureVars => {
         const argsVar = comp.getMember(symbols.VAR).getMap();
         return { argsVar };
     } else {
-        throw new Error("Invalid function arguments.");
+        throw new PetSyntaxError("Invalid function arguments.");
     }
 };
 

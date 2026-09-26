@@ -6,7 +6,7 @@ import * as os from "os";
 import * as pathUtils from "path";
 import { symbols } from "./symbol.js";
 import { PetString, PetMap } from "./value.js";
-import { PetException } from "./exception.js";
+import { PetException, ValueError, StateError } from "./exception.js";
 import { ModuleParser } from "./moduleParser.js";
 
 const packageStorePath = pathUtils.join(pathUtils.resolve(os.homedir()), "petroleumPackages");
@@ -32,7 +32,7 @@ interface SpecifierParts {
 const splitSpecifier = (specifier: string): SpecifierParts => {
     const parts = specifier.split(".");
     if (parts.length !== 2) {
-        throw new Error(`Package specifier must have the format "$developerName.$packageName"; received "${specifier}"`);
+        throw new ValueError(`Package specifier must have the format "$developerName.$packageName"; received "${specifier}"`);
     }
     return { developerName: parts[0], packageName: parts[1] };
 };
@@ -109,7 +109,7 @@ class VersionRange {
         } else if (prefix === "=") {
             parts[2] += 1;
         } else {
-            throw new Error(`Received package dependency version ${text}, but prefix must be "^", "~", or "=".`);
+            throw new ValueError(`Received package dependency version ${text}, but prefix must be "^", "~", or "=".`);
         }
         this.maxVersion = new Version(parts);
     }
@@ -605,7 +605,7 @@ export class PackageResolver {
             const versionMap = this.getStoreVersions(dependency.specifier);
             const pack = this.getStorePackage(versionMap, dependency);
             if (pack === null) {
-                throw new Error(`Could not find ${dependency.specifier} package in store which satisfies dependency of ${selection.pack.specifier}!`);
+                throw new StateError(`Could not find ${dependency.specifier} package in store which satisfies dependency of ${selection.pack.specifier}!`);
             }
             const addedSelection = this.addSelection(pack);
             const removedRedundantPack = this.removeRedundantPacks(addedSelection);
@@ -614,7 +614,7 @@ export class PackageResolver {
             }
             const currentState = this.getCurrentState();
             if (this.previousStates.has(currentState)) {
-                throw new Error("Package resolution encountered instability!");
+                throw new StateError("Package resolution encountered instability!");
             }
             this.previousStates.add(currentState);
         }

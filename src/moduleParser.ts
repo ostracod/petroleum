@@ -4,7 +4,7 @@ import "./exception.js";
 import * as fs from "fs";
 import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, KnownValue, toPetValue, escapeChars, PetString, PetList, PetMap } from "./value.js";
-import { ErrorException } from "./exception.js";
+import { PetSyntaxError } from "./exception.js";
 
 interface ContentPos {
     lineNumber: bigint;
@@ -183,7 +183,7 @@ export class ModuleParser {
         if (typeof pos === "undefined") {
             pos = this.getPos();
         }
-        throw new ErrorException(symbols.SYNTAX_ERROR, `${message} (Line ${pos.lineNumber}, column ${pos.columnNumber} of ${this.modulePath})`);
+        throw new PetSyntaxError(`${message} (Line ${pos.lineNumber}, column ${pos.columnNumber} of ${this.modulePath})`);
     }
     
     parseIntComp(): PetMap {

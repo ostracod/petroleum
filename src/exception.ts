@@ -96,6 +96,34 @@ export class ErrorException extends PetException {
     }
 }
 
+export class PetSyntaxError extends ErrorException {
+    
+    constructor(message: string) {
+        super(symbols.SYNTAX_ERROR, message);
+    }
+}
+
+export class PetTypeError extends ErrorException {
+    
+    constructor(message: string) {
+        super(symbols.TYPE_ERROR, message);
+    }
+}
+
+export class ValueError extends ErrorException {
+    
+    constructor(message: string) {
+        super(symbols.VALUE_ERROR, message);
+    }
+}
+
+export class StateError extends ErrorException {
+    
+    constructor(message: string) {
+        super(symbols.STATE_ERROR, message);
+    }
+}
+
 export class CoroEndException extends Error {
     unhandledExcep: PetValue | null;
     
@@ -103,10 +131,6 @@ export class CoroEndException extends Error {
         super();
         this.unhandledExcep = unhandledExcep;
     }
-}
-
-export class PetTypeError extends Error {
-    
 }
 
 export const getExcepReport = (exception: PetMap): string => {

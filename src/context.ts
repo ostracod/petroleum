@@ -6,7 +6,7 @@ import { symbols } from "./symbol.js";
 import { PetValue, KnownValue, PetString, MemberObserver, PetList, PetMap } from "./value.js";
 import { BuiltInFunc, DefFunc, globalFuncDefs } from "./builtInFunc.js";
 import { createProcedure, globalProcDefs } from "./procedure.js";
-import { CoroEndException, getExcepReport } from "./exception.js";
+import { PetException, CoroEndException, getExcepReport } from "./exception.js";
 import { ModuleParser } from "./moduleParser.js";
 import { PackageResolver } from "./package.js";
 import { Action, TaskDef, TaskMembers, Task, mainTask, prepModuleTask } from "./task.js";
@@ -35,8 +35,18 @@ export class PetContext {
         this.aggregatedExceps = [];
         this.hasReportedProblem = false;
         const packageResolver = new PackageResolver(entryPackagePath, this.globalScope);
-        const { entryPackage, exceptions } = packageResolver.resolvePackages();
-        if (entryPackage === null) {
+        let entryPackage: PetMap | null;
+        let exceptions: PetMap[];
+        try {
+            ({ entryPackage, exceptions } = packageResolver.resolvePackages());
+        } catch (error) {
+            if (error instanceof PetException) {
+                exceptions = [error.mapValue.getMap()];
+            } else {
+                throw error;
+            }
+        }
+        if (exceptions.length > 0) {
             for (const exception of exceptions) {
                 this.reportException(exception);
             }

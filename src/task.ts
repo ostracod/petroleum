@@ -6,6 +6,7 @@ import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, PetString, P
 import { NotEqualFunc } from "./builtInFunc.js";
 import { getMethodWithDefault } from "./method.js";
 import { SetProcParts } from "./procedure.js";
+import { PetSyntaxError, PetTypeError, StateError } from "./exception.js";
 import { workerIsInvocation, getWorkerMethodMap, getFuncArgsComp } from "./node.js";
 import { createFrame, VarSpaceType, getVarSpaceType, findVariable, getVarValue, getScope } from "./variable.js";
 import { Spinner } from "./scheduler.js";
@@ -554,7 +555,7 @@ const checkGradeForEval = (worker: PetMap): void => {
     const grade = worker.getMember(symbols.GRADE).getSymbol();
     const exprsComp = worker.getMember(symbols.PARENT).getMap();
     if (exprsComp.getMember(symbols.COMP_TYPE).getSymbol() !== symbols.EXPRS_COMP) {
-        throw new Error("Expression must be inside expression sequence component.");
+        throw new PetTypeError("Expression must be inside expression sequence component.");
     }
     let parent = exprsComp.getMember(symbols.PARENT).getMap();
     while (true) {
@@ -562,10 +563,10 @@ const checkGradeForEval = (worker: PetMap): void => {
         if (typeof phaseValue !== "undefined") {
             const phase = phaseValue.getSymbol();
             if (grade === symbols.PREP_GRADE && phase === symbols.WORK_PHASE) {
-                throw new Error("Cannot evaluate prep-grade expression when parent is in work-phase.");
+                throw new StateError("Cannot evaluate prep-grade expression when parent is in work-phase.");
             }
             if (grade === symbols.WORK_GRADE && phase === symbols.PREP_PHASE) {
-                throw new Error("Cannot evaluate work-grade expression when parent is in prep-phase.");
+                throw new StateError("Cannot evaluate work-grade expression when parent is in prep-phase.");
             }
             break;
         }
@@ -658,7 +659,7 @@ const determineInvocTask: TaskDef<{ worker: PetMap }, null> = {
                     },
                 );
             } else {
-                throw new Error("First component in invocation is invalid");
+                throw new PetSyntaxError("First component in invocation is invalid");
             }
         },
     ],
