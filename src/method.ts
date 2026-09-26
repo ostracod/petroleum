@@ -65,13 +65,15 @@ class AccessedVarsMethod extends DefFunc {
 
 const callNopPrep: CallPrepMethod = (task, worker) => task.returnValue(null);
 
-export const defaultPrepMethod = new PrepMethod((task, worker) => {
+export const callDefaultPrep: CallPrepMethod = (task, worker) => {
     const childWorkers = getChildWorkers(worker);
     return task.runTask(
         prepWorkersTask, { workers: childWorkers },
         (value) => task.returnValue(null),
     );
-});
+};
+
+export const defaultPrepMethod = new PrepMethod(callDefaultPrep);
 
 export const defaultEvalMethod = new EvalMethod(
     (task, worker, varSpace) => task.returnValue(null),

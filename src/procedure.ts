@@ -3,9 +3,9 @@ import "./method.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc, EvalState } from "./value.js";
-import { MethodDict, createMethodMap } from "./method.js";
-import { PetException } from "./exception.js";
-import { getPackage } from "./node.js";
+import { MethodDict, createMethodMap, callDefaultPrep } from "./method.js";
+import { PetException, PetSyntaxError } from "./exception.js";
+import { getPackage, assertCompAmount, assertStmtsComp, getSmtsComp } from "./node.js";
 import { findVariable, findVarValue, getModuleFrameEntry, getScope, varIsInScope, getSignatureVars } from "./variable.js";
 import { Action, setProcPrepTask, awaitProcEvalTask, spinCondTask } from "./task.js";
 import { Spinner } from "./scheduler.js";
@@ -116,10 +116,15 @@ const setUpImportVars = (comps: PetList, module: PetMap): void => {
     }
 };
 
-// TODO: Validate node structure.
 export const globalProcDefs: ProcDef[] = [
     {
         name: "RUN",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 2);
+            assertStmtsComp(comps, 1);
+            return callDefaultPrep(task, worker);
+        },
         eval: (task, worker, varSpace) => {
             const comps = worker.getMember(symbols.COMPS).getList();
             const stmtsComp = comps.getMember(1).getMap();
@@ -132,9 +137,10 @@ export const globalProcDefs: ProcDef[] = [
     },
     {
         name: "FUNC",
-        prep: (task, expr) => {
-            const comps = expr.getMember(symbols.COMPS).getList();
-            const stmtsComp = comps.getMember(1).getMap();
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 2);
+            const stmtsComp = getSmtsComp(comps, 1);
             const { argVars, argsVar } = getSignatureVars(stmtsComp);
             if (typeof argVars === "undefined") {
                 argsVar.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
@@ -148,10 +154,10 @@ export const globalProcDefs: ProcDef[] = [
                 (value) => task.returnValue(null),
             );
         },
-        eval: (task, expr, varSpace) => {
-            const comps = expr.getMember(symbols.COMPS).getList();
+        eval: (task, worker, varSpace) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
             const stmtsComp = comps.getMember(1).getMap();
-            const fieldValue = expr.getOptionalMember(symbols.ACCESSED_VARS);
+            const fieldValue = worker.getOptionalMember(symbols.ACCESSED_VARS);
             const createFunc = (varsValue: PetValue): Action => {
                 const accessedVars = varsValue.getMap();
                 const userFunc = new UserFunc(stmtsComp, varSpace, accessedVars);
@@ -160,11 +166,11 @@ export const globalProcDefs: ProcDef[] = [
             if (typeof fieldValue !== "undefined") {
                 return createFunc(fieldValue);
             }
-            const scope = getScope(expr);
+            const scope = getScope(worker);
             return task.callMethod(
                 stmtsComp, symbols.ACCESSED_VARS, [scope],
                 (resultValue) => {
-                    expr.setMember(symbols.ACCESSED_VARS, resultValue);
+                    worker.setMember(symbols.ACCESSED_VARS, resultValue);
                     return createFunc(resultValue);
                 }
             );
@@ -172,8 +178,8 @@ export const globalProcDefs: ProcDef[] = [
     },
     {
         name: "PREP_VAR",
-        prep: (task, stmt) => {
-            const comps = stmt.getMember(symbols.COMPS).getList();
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
             const declComp = comps.getMember(1).getMap();
             const variable = declComp.getMember(symbols.VAR).getMap();
             variable.setMember(symbols.VAR_TYPE, symbols.PREP_VAR);
@@ -191,8 +197,8 @@ export const globalProcDefs: ProcDef[] = [
     },
     {
         name: "WORK_VAR",
-        prep: (task, stmt) => {
-            const { variable, exprsComp } = readWorkVarComps(stmt);
+        prep: (task, worker) => {
+            const { variable, exprsComp } = readWorkVarComps(worker);
             variable.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
             if (typeof exprsComp === "undefined") {
                 return task.returnValue(null);
@@ -202,8 +208,8 @@ export const globalProcDefs: ProcDef[] = [
                 (value) => task.returnValue(null),
             );
         },
-        eval: (task, stmt, varSpace) => {
-            const { variable, exprsComp } = readWorkVarComps(stmt);
+        eval: (task, worker, varSpace) => {
+            const { variable, exprsComp } = readWorkVarComps(worker);
             if (typeof exprsComp === "undefined") {
                 return task.returnValue(null);
             }
@@ -217,8 +223,8 @@ export const globalProcDefs: ProcDef[] = [
                 },
             );
         },
-        accessedVars: (task, stmt, scope) => {
-            const { variable, exprsComp } = readWorkVarComps(stmt);
+        accessedVars: (task, worker, scope) => {
+            const { variable, exprsComp } = readWorkVarComps(worker);
             const varMap = new PetMap();
             if (varIsInScope(variable, scope)) {
                 const varName = variable.getMember(symbols.IDENT).getPetString();
@@ -243,16 +249,16 @@ export const globalProcDefs: ProcDef[] = [
     },
     {
         name: "SET",
-        prep: (task, stmt) => {
-            const parts = readSetComps(stmt);
+        prep: (task, worker) => {
+            const parts = readSetComps(worker);
             return task.runTask(
-                setProcPrepTask, { stmt, parts },
+                setProcPrepTask, { stmt: worker, parts },
                 (value) => task.returnValue(null),
             );
         },
-        eval: (task, stmt, varSpace) => {
-            const destVar = stmt.getMember(symbols.DEST_VAR).getMap();
-            const { moduleComp, valueComp } = readSetComps(stmt);
+        eval: (task, worker, varSpace) => {
+            const destVar = worker.getMember(symbols.DEST_VAR).getMap();
+            const { moduleComp, valueComp } = readSetComps(worker);
             let frameEntry: PetMap;
             if (typeof moduleComp === "undefined") {
                 frameEntry = findVarValue(varSpace, destVar);
@@ -268,9 +274,9 @@ export const globalProcDefs: ProcDef[] = [
                 },
             );
         },
-        accessedVars: (task, stmt, scope) => {
-            const { valueComp } = readSetComps(stmt);
-            const destVar = stmt.getMember(symbols.DEST_VAR).getMap();
+        accessedVars: (task, worker, scope) => {
+            const { valueComp } = readSetComps(worker);
+            const destVar = worker.getMember(symbols.DEST_VAR).getMap();
             const varMap = new PetMap();
             if (varIsInScope(destVar, scope)) {
                 const varName = destVar.getMember(symbols.IDENT).getPetString();
@@ -292,8 +298,8 @@ export const globalProcDefs: ProcDef[] = [
     },
     {
         name: "IMPORT",
-        prep: (task, stmt) => {
-            const comps = stmt.getMember(symbols.COMPS).getList();
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
             const exprsComp = comps.getMember(1).getMap();
             const scope = getScope(exprsComp);
             return task.callMethod(
@@ -303,7 +309,7 @@ export const globalProcDefs: ProcDef[] = [
                     let module: PetMap;
                     if (specifier instanceof PetString) {
                         const path = specifier.toString();
-                        const parentPackage = getPackage(stmt);
+                        const parentPackage = getPackage(worker);
                         module = task.context.loadUserModule(parentPackage, path);
                     } else if (specifier instanceof PetSymbol) {
                         throw new Error("Built-in modules are not yet supported.");
@@ -316,15 +322,15 @@ export const globalProcDefs: ProcDef[] = [
     },
     {
         name: "IMPORT_PACK",
-        prep: (task, stmt) => {
-            const comps = stmt.getMember(symbols.COMPS).getList();
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
             const exprsComp = comps.getMember(1).getMap();
             const scope = getScope(exprsComp);
             return task.callMethod(
                 exprsComp, symbols.EVAL, [scope],
                 (values) => {
                     const specifier = values.getList().getMember(0);
-                    const parentPackage = getPackage(stmt);
+                    const parentPackage = getPackage(worker);
                     const depMap = parentPackage.getMember(symbols.DEPS).getMap();
                     const depPackage = depMap.getMember(specifier).getMap();
                     const mainModule = depPackage.getMember(symbols.MAIN_MODULE).getMap();
@@ -340,8 +346,8 @@ export const globalProcDefs: ProcDef[] = [
     },
     {
         name: "RET",
-        eval: (task, stmt, varSpace) => {
-            const comps = stmt.getMember(symbols.COMPS).getList();
+        eval: (task, worker, varSpace) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
             let retValue: PetValue;
             let retLevel = 0n;
             const createRetExcep = (): PetException => new PetException(new PetMap([
@@ -369,8 +375,8 @@ export const globalProcDefs: ProcDef[] = [
     },
     {
         name: "SPIN",
-        eval: (task, stmt, varSpace) => {
-            const comps = stmt.getMember(symbols.COMPS).getList();
+        eval: (task, worker, varSpace) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
             const exprsComp = comps.getMember(1).getMap();
             return task.callMethod(
                 exprsComp, symbols.EVAL, [varSpace],
@@ -398,8 +404,8 @@ export const globalProcDefs: ProcDef[] = [
     },
     {
         name: "ABORT",
-        eval: (task, stmt, varSpace) => {
-            const comps = stmt.getMember(symbols.COMPS).getList();
+        eval: (task, worker, varSpace) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
             const exprsComp = comps.getMember(1).getMap();
             return task.callMethod(
                 exprsComp, symbols.EVAL, [varSpace],

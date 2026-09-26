@@ -4,6 +4,7 @@ import "./procedure.js";
 import { PetSymbol, symbols, spinCountSymbol } from "./symbol.js";
 import { KnownValue, PetValue, toPetValue, toPetString, knownValueToString, PetString, ObservableBunch, PetMap, PetFunc, EvalState } from "./value.js";
 import { ConstantFunc } from "./builtInFunc.js";
+import { getModule } from "./node.js";
 import { Action } from "./task.js";
 
 export class PetException extends Error {
@@ -96,12 +97,35 @@ export class ErrorException extends PetException {
     }
 }
 
+export interface ModulePos {
+    lineNumber: bigint;
+    columnNumber: bigint;
+    modulePath: string;
+}
+
+
 export class PetSyntaxError extends ErrorException {
     
-    constructor(message: string) {
+    constructor(message: string, pos?: ModulePos) {
+        if (typeof pos !== "undefined") {
+            message += ` (Line ${pos.lineNumber}, column ${pos.columnNumber} of ${pos.modulePath})`;
+        }
         super(symbols.SYNTAX_ERROR, message);
     }
 }
+
+// `entity` is a node or a component.
+export const createSyntaxError = (message: string, entity?: PetMap): PetSyntaxError => {
+    if (typeof entity === "undefined") {
+        return new PetSyntaxError(message);
+    }
+    const lineNumber = entity.getMember(symbols.LINE_NUM).getInt();
+    const columnNumber = entity.getMember(symbols.COL_NUM).getInt();
+    const module = getModule(entity);
+    const modulePath = module.getMember(symbols.FILE_PATH).toString();
+    const modulePos = { lineNumber, columnNumber, modulePath };
+    return new PetSyntaxError(message, modulePos);
+};
 
 export class PetTypeError extends ErrorException {
     

@@ -183,7 +183,7 @@ export class ModuleParser {
         if (typeof pos === "undefined") {
             pos = this.getPos();
         }
-        throw new PetSyntaxError(`${message} (Line ${pos.lineNumber}, column ${pos.columnNumber} of ${this.modulePath})`);
+        throw new PetSyntaxError(message, { ...pos, modulePath: this.modulePath });
     }
     
     parseIntComp(): PetMap {
@@ -427,11 +427,13 @@ export class ModuleParser {
     }
     
     compsToAttribute(components: PetMap[]): PetMap {
-        return new PetMap([
+        const attribute = new PetMap([
             [symbols.NODE_TYPE, symbols.ATTR],
             [symbols.COMPS, new PetList(components)],
             ...getCompPosFields(components[0]),
         ]);
+        setParents(components, attribute);
+        return attribute;
     }
     
     parseStmtSequence(): StmtSeqResult {

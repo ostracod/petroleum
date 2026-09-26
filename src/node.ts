@@ -2,9 +2,9 @@
 import "./variable.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { PetMap, PetFunc } from "./value.js";
+import { PetList, PetMap, PetFunc } from "./value.js";
 import { funcInvocationMethods, stmtsCompMethods, exprsCompMethods, stringExprMethods, identExprMethods } from "./method.js";
-import { PetTypeError, ValueError } from "./exception.js";
+import { PetSyntaxError, PetTypeError, ValueError, createSyntaxError } from "./exception.js";
 
 export const getChildWorkers = (node: PetMap): PetMap[] => {
     const output: PetMap[] = [];
@@ -108,6 +108,78 @@ export const getPackage = (entity: PetMap): PetMap => {
 export const getFuncArgsComp = (invocNode: PetMap): PetMap | null => {
     const comps = invocNode.getMember(symbols.COMPS).getList();
     return (comps.getLength() > 1) ? comps.getMember(1).getMap() : null;
+};
+
+export const assertCompAmount = (
+    comps: PetList,
+    expectedAmount: number,
+    node?: PetMap
+): void => {
+    const actualAmount = comps.getLength();
+    if (actualAmount > expectedAmount) {
+        throw createSyntaxError("Node has too many components.", node);
+    } else if (actualAmount < expectedAmount) {
+        throw createSyntaxError("Node has too few components.", node);
+    }
+};
+
+const getCompWithType = (
+    comps: PetList,
+    index: number,
+    expectedType: PetSymbol,
+    errorMessage: string,
+): PetMap => {
+    const comp = comps.getMember(index).getMap();
+    const actualType = comp.getMember(symbols.COMP_TYPE).getSymbol();
+    if (actualType !== expectedType) {
+        throw createSyntaxError(errorMessage, comp);
+    }
+    return comp;
+}
+
+export const getSmtsComp = (comps: PetList, index: number): PetMap => getCompWithType(
+    comps, index, symbols.STMTS_COMP,
+    "Expected statement sequence component.",
+);
+
+export const getExprsComp = (comps: PetList, index: number): PetMap => getCompWithType(
+    comps, index, symbols.EXPRS_COMP,
+    "Expected expression sequence component.",
+);
+
+export const getAttrsComp = (comps: PetList, index: number): PetMap => getCompWithType(
+    comps, index, symbols.ATTRS_COMP,
+    "Expected attribute sequence component.",
+);
+
+export const getDeclComp = (comps: PetList, index: number): PetMap => getCompWithType(
+    comps, index, symbols.DECL_COMP,
+    "Expected declaration component.",
+);
+
+export const assertStmtsComp = (comps: PetList, index: number): void => {
+    getSmtsComp(comps, index);
+};
+
+export const assertExprsComp = (comps: PetList, index: number): void => {
+    getExprsComp(comps, index);
+};
+
+export const assertAttrsComp = (comps: PetList, index: number): void => {
+    getAttrsComp(comps, index);
+};
+
+export const assertIdentComp = (
+    comps: PetList,
+    index: number,
+    expectedText: string,
+): void => {
+    const comp = comps.getMember(index).getMap();
+    const compType = comp.getMember(symbols.COMP_TYPE).getSymbol();
+    if (compType !== symbols.IDENT_COMP
+            || comp.getMember(symbols.IDENT).toString() !== expectedText) {
+        throw createSyntaxError(`Expected "${expectedText}" identifier component.`, comp);
+    }
 };
 
 

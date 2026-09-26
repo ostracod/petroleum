@@ -5,6 +5,7 @@ import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, PetString, PetMap } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
 import { AwaitException, PetSyntaxError, PetTypeError, ValueError, StateError } from "./exception.js";
+import { assertCompAmount, assertIdentComp, getDeclComp } from "./node.js";
 
 // parentVarSpace is either a scope or a frame.
 export const createFrame = (scope: PetMap, parentFrame: PetMap | null): PetMap => {
@@ -192,11 +193,17 @@ export interface SignatureVars {
 
 export const getSignatureVars = (stmtsComp: PetMap): SignatureVars => {
     const attrs = stmtsComp.getMember(symbols.ATTRS).getList();
-    if (attrs.getLength() <= 0) {
+    const attrAmount = attrs.getLength();
+    if (attrAmount <= 0) {
         return { argVars: [] };
+    }
+    if (attrAmount > 1) {
+        throw new PetSyntaxError("FUNC procedure cannot have more than one block attribute.");
     }
     const attr = attrs.getMember(0).getMap();
     const comps = attr.getMember(symbols.COMPS).getList();
+    assertCompAmount(comps, 2, attr);
+    assertIdentComp(comps, 0, "ARGS");
     const comp = comps.getMember(1).getMap();
     const compType = comp.getMember(symbols.COMP_TYPE).getSymbol();
     if (compType === symbols.ATTRS_COMP) {
@@ -204,7 +211,8 @@ export const getSignatureVars = (stmtsComp: PetMap): SignatureVars => {
         const argVars = argAttrs.elements.map((attrValue) => {
             const argAttr = attrValue.getMap();
             const argComps = argAttr.getMember(symbols.COMPS).getList();
-            const declComp = argComps.getMember(0).getMap();
+            assertCompAmount(argComps, 1, argAttr);
+            const declComp = getDeclComp(argComps, 0);
             return declComp.getMember(symbols.VAR).getMap();
         });
         return { argVars };
