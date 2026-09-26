@@ -7,6 +7,10 @@ import { ConstantFunc } from "./builtInFunc.js";
 import { getModule } from "./node.js";
 import { Action } from "./task.js";
 
+export const pluralize = (amount: number, noun: string): string => (
+    amount + " " + ((amount === 1) ? noun : noun + "s")
+);
+
 export class PetException extends Error {
     mapValue: PetValue;
     

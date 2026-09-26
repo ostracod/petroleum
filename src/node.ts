@@ -4,7 +4,7 @@ import "./variable.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { PetList, PetMap, PetFunc } from "./value.js";
 import { funcInvocationMethods, stmtsCompMethods, exprsCompMethods, stringExprMethods, identExprMethods } from "./method.js";
-import { PetSyntaxError, PetTypeError, ValueError, createSyntaxError } from "./exception.js";
+import { pluralize, PetSyntaxError, PetTypeError, ValueError, createSyntaxError } from "./exception.js";
 
 export const getChildWorkers = (node: PetMap): PetMap[] => {
     const output: PetMap[] = [];
@@ -110,7 +110,18 @@ export const getFuncArgsComp = (invocNode: PetMap): PetMap | null => {
     return (comps.getLength() > 1) ? comps.getMember(1).getMap() : null;
 };
 
-export const assertCompAmount = (
+export const assertMinCompAmount = (
+    comps: PetList,
+    expectedAmount: number,
+    node?: PetMap
+): void => {
+    const actualAmount = comps.getLength();
+    if (actualAmount < expectedAmount) {
+        throw createSyntaxError("Node has too few components.", node);
+    }
+};
+
+export const assertMaxCompAmount = (
     comps: PetList,
     expectedAmount: number,
     node?: PetMap
@@ -118,9 +129,17 @@ export const assertCompAmount = (
     const actualAmount = comps.getLength();
     if (actualAmount > expectedAmount) {
         throw createSyntaxError("Node has too many components.", node);
-    } else if (actualAmount < expectedAmount) {
-        throw createSyntaxError("Node has too few components.", node);
     }
+};
+
+
+export const assertCompAmount = (
+    comps: PetList,
+    expectedAmount: number,
+    node?: PetMap
+): void => {
+    assertMinCompAmount(comps, expectedAmount, node);
+    assertMaxCompAmount(comps, expectedAmount, node);
 };
 
 const getCompWithType = (
@@ -142,10 +161,56 @@ export const getSmtsComp = (comps: PetList, index: number): PetMap => getCompWit
     "Expected statement sequence component.",
 );
 
-export const getExprsComp = (comps: PetList, index: number): PetMap => getCompWithType(
-    comps, index, symbols.EXPRS_COMP,
-    "Expected expression sequence component.",
-);
+export const getExprsComp = (
+    comps: PetList,
+    index: number,
+    expectedGrade: PetSymbol | null,
+    expectedExprAmount: number | null,
+): PetMap => {
+    const exprsComp = getCompWithType(
+        comps, index, symbols.EXPRS_COMP,
+        "Expected expression sequence component.",
+    );
+    if (expectedGrade !== null) {
+        const actualGrade = exprsComp.getMember(symbols.GRADE).getSymbol();
+        if (actualGrade !== expectedGrade) {
+            if (expectedGrade === symbols.PREP_GRADE) {
+                throw createSyntaxError(
+                    "Expected prep-grade expression sequence component.", exprsComp,
+                );
+            } else if (expectedGrade === symbols.WORK_GRADE) {
+                throw createSyntaxError(
+                    "Expected work-grade expression sequence component.", exprsComp,
+                );
+            } else {
+                throw new Error("Invalid expected grade!");
+            }
+        }
+    }
+    if (expectedExprAmount !== null) {
+        const exprs = exprsComp.getMember(symbols.EXPRS).getList();
+        const actualExprAmount = exprs.getLength();
+        if (actualExprAmount !== expectedExprAmount) {
+            throw createSyntaxError(
+                `Expected ${pluralize(expectedExprAmount, "expression")} in sequence.`,
+                exprsComp,
+            );
+        }
+    }
+    return exprsComp;
+}
+
+export const getPrepGradeExprs = (
+    comps: PetList,
+    index: number,
+    expectedExprAmount: number | null,
+): PetMap => getExprsComp(comps, index, symbols.PREP_GRADE, expectedExprAmount);
+
+export const getWorkGradeExprs = (
+    comps: PetList,
+    index: number,
+    expectedExprAmount: number | null,
+): PetMap => getExprsComp(comps, index, symbols.WORK_GRADE, expectedExprAmount);
 
 export const getAttrsComp = (comps: PetList, index: number): PetMap => getCompWithType(
     comps, index, symbols.ATTRS_COMP,
@@ -157,12 +222,38 @@ export const getDeclComp = (comps: PetList, index: number): PetMap => getCompWit
     "Expected declaration component.",
 );
 
+export const getIdentComp = (comps: PetList, index: number): PetMap => getCompWithType(
+    comps, index, symbols.IDENT_COMP,
+    "Expected identifier component.",
+);
+
 export const assertStmtsComp = (comps: PetList, index: number): void => {
     getSmtsComp(comps, index);
 };
 
-export const assertExprsComp = (comps: PetList, index: number): void => {
-    getExprsComp(comps, index);
+export const assertExprsComp = (
+    comps: PetList,
+    index: number,
+    expectedGrade: PetSymbol | null,
+    expectedExprAmount: number | null,
+): void => {
+    getExprsComp(comps, index, expectedGrade, expectedExprAmount);
+};
+
+export const assertPrepGradeExprs = (
+    comps: PetList,
+    index: number,
+    expectedExprAmount: number | null,
+): void => {
+    getPrepGradeExprs(comps, index, expectedExprAmount);
+};
+
+export const assertWorkGradeExprs = (
+    comps: PetList,
+    index: number,
+    expectedExprAmount: number | null,
+): void => {
+    getWorkGradeExprs(comps, index, expectedExprAmount);
 };
 
 export const assertAttrsComp = (comps: PetList, index: number): void => {
