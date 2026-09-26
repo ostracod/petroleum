@@ -450,7 +450,7 @@ export class ModuleParser {
         let statementIndex = 0;
         const firstComps = compsSequence[statementIndex];
         let attributes: PetMap[] = [];
-        if (firstComps.length === 1) {
+        if (typeof firstComps !== "undefined" && firstComps.length === 1) {
             const firstComp = firstComps[0];
             if (firstComp.getMember(symbols.COMP_TYPE).getSymbol() === symbols.ATTRS_COMP) {
                 const attrsList = firstComp.getMember(symbols.ATTRS).getList();

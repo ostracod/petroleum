@@ -4,8 +4,8 @@ import "./method.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc, EvalState } from "./value.js";
 import { MethodDict, createMethodMap, callDefaultPrep } from "./method.js";
-import { PetException, PetSyntaxError } from "./exception.js";
-import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertIdentComp, getSmtsComp, getPrepGradeExprs, getWorkGradeExprs, getDeclComp, getIdentComp } from "./node.js";
+import { PetException, createSyntaxError } from "./exception.js";
+import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertIdentComp, getSmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp } from "./node.js";
 import { findVariable, findVarValue, getModuleFrameEntry, getScope, varIsInScope, getSignatureVars } from "./variable.js";
 import { Action, setProcPrepTask, awaitProcEvalTask, spinCondTask } from "./task.js";
 import { Spinner } from "./scheduler.js";
@@ -53,18 +53,26 @@ const readSetComps = (stmt: PetMap): SetProcParts => {
     return output;
 };
 
-const setUpImportVar = (comps: PetList, moduleVars: PetMap): void => {
+const setUpImportVar = (varAttr: PetMap, moduleVars: PetMap): void => {
+    const comps = varAttr.getMember(symbols.COMPS).getList();
     const firstComp = comps.getMember(0).getMap();
+    const firstCompType = firstComp.getMember(symbols.COMP_TYPE).getSymbol();
     let externVarName: PetString;
     let internVar: PetMap;
-    if (firstComp.getMember(symbols.COMP_TYPE).getSymbol() === symbols.DECL_COMP) {
+    if (firstCompType === symbols.DECL_COMP) {
+        assertCompAmount(comps, 1, varAttr);
         internVar = firstComp.getMember(symbols.VAR).getMap();
         externVarName = internVar.getMember(symbols.IDENT).getPetString();
-    } else {
+    } else if (firstCompType === symbols.IDENT_COMP) {
+        assertCompAmount(comps, 3, varAttr);
         externVarName = firstComp.getMember(symbols.IDENT).getPetString();
-        // comps.getMember(1) should be "AS".
-        const declComp = comps.getMember(2).getMap();
+        assertIdentComp(comps, 1, "AS");
+        const declComp = getDeclComp(comps, 2);
         internVar = declComp.getMember(symbols.VAR).getMap();
+    } else {
+        throw createSyntaxError(
+            "Expected declaration component or identifier component.", firstComp,
+        );
     }
     const externVar = moduleVars.getMember(externVarName);
     internVar.setMember(symbols.VAR_TYPE, symbols.IMPORT_VAR);
@@ -79,32 +87,34 @@ const setUpImportVars = (comps: PetList, module: PetMap): void => {
     }
     const comp = comps.getMember(compIndex).getMap();
     const compType = comp.getMember(symbols.COMP_TYPE).getSymbol();
-    if (compType === symbols.IDENT_COMP && comp.getMember(symbols.IDENT).toString() == "AS") {
-        const declComp = comps.getMember(compIndex + 1).getMap();
+    if (compType === symbols.IDENT_COMP) {
+        if (comp.getMember(symbols.IDENT).toString() !== "AS") {
+            throw createSyntaxError("Expected \"AS\" identifier component.", comp);
+        }
+        const nextCompIndex = compIndex + 2;
+        assertMinCompAmount(comps, nextCompIndex);
+        const declComp = getDeclComp(comps, compIndex + 1);
         const variable = declComp.getMember(symbols.VAR).getMap();
         variable.setMember(symbols.VAR_TYPE, symbols.PREP_VAR);
         variable.setMember(symbols.VALUE, module);
-        compIndex += 2;
+        compIndex = nextCompIndex;
     }
     if (compIndex >= compAmount) {
         return;
     }
+    assertMaxCompAmount(comps, compIndex + 1);
     const moduleScope = module.getMember(symbols.SCOPE).getMap();
     const moduleVars = moduleScope.getMember(symbols.VARS).getMap();
-    const attrsComp = comps.getMember(compIndex).getMap();
+    const attrsComp = getAttrsComp(comps, compIndex);
     const attrs = attrsComp.getMember(symbols.ATTRS).getList();
     for (const attr of attrs.elements) {
         const attrComps = attr.getMap().getMember(symbols.COMPS).getList();
-        const firstComp = attrComps.getMember(0).getMap();
-        const firstCompType = firstComp.getMember(symbols.COMP_TYPE).getSymbol();
-        if (firstCompType === symbols.IDENT_COMP
-                && firstComp.getMember(symbols.IDENT).toString() == "VARS") {
-            const varAttrsComp = attrComps.getMember(1).getMap();
-            const varAttrs = varAttrsComp.getMember(symbols.ATTRS).getList();
-            for (const varAttr of varAttrs.elements) {
-                const varAttrComps = varAttr.getMap().getMember(symbols.COMPS).getList();
-                setUpImportVar(varAttrComps, moduleVars);
-            }
+        assertCompAmount(attrComps, 2);
+        assertIdentComp(attrComps, 0, "VARS");
+        const varAttrsComp = getAttrsComp(attrComps, 1);
+        const varAttrs = varAttrsComp.getMember(symbols.ATTRS).getList();
+        for (const varAttrValue of varAttrs.elements) {
+            setUpImportVar(varAttrValue.getMap(), moduleVars);
         }
     }
 };
@@ -314,7 +324,8 @@ export const globalProcDefs: ProcDef[] = [
         name: "IMPORT",
         prep: (task, worker) => {
             const comps = worker.getMember(symbols.COMPS).getList();
-            const exprsComp = comps.getMember(1).getMap();
+            assertMinCompAmount(comps, 2);
+            const exprsComp = getPrepGradeExprs(comps, 1, 1);
             const scope = getScope(exprsComp);
             return task.callMethod(
                 exprsComp, symbols.EVAL, [scope],
@@ -338,7 +349,8 @@ export const globalProcDefs: ProcDef[] = [
         name: "IMPORT_PACK",
         prep: (task, worker) => {
             const comps = worker.getMember(symbols.COMPS).getList();
-            const exprsComp = comps.getMember(1).getMap();
+            assertMinCompAmount(comps, 2);
+            const exprsComp = getPrepGradeExprs(comps, 1, 1);
             const scope = getScope(exprsComp);
             return task.callMethod(
                 exprsComp, symbols.EVAL, [scope],
@@ -360,6 +372,21 @@ export const globalProcDefs: ProcDef[] = [
     },
     {
         name: "RET",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertMaxCompAmount(comps, 2);
+            if (comps.getLength() === 2) {
+                const exprsComp = getWorkGradeExprs(comps, 1, null);
+                const exprs = exprsComp.getMember(symbols.EXPRS).getList();
+                const exprAmount = exprs.getLength();
+                if (exprAmount < 1 || exprAmount > 2) {
+                    throw createSyntaxError(
+                        "Expected 1 or 2 expressions in sequence.", exprsComp,
+                    );
+                }
+            }
+            return callDefaultPrep(task, worker);
+        },
         eval: (task, worker, varSpace) => {
             const comps = worker.getMember(symbols.COMPS).getList();
             let retValue: PetValue;
