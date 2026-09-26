@@ -3,8 +3,8 @@ import "./exception.js";
 
 import * as fs from "fs";
 import { PetSymbol, symbols } from "./symbol.js";
-import { PetValue, KnownValue, toPetValue, escapeChars, PetString, PetList, PetMap } from "./value.js";
-import { PetSyntaxError } from "./exception.js";
+import { maxIntValue, PetValue, KnownValue, toPetValue, escapeChars, PetString, PetList, PetMap } from "./value.js";
+import { PetSyntaxError, ValueError, messageAtModulePos } from "./exception.js";
 
 interface ContentPos {
     lineNumber: bigint;
@@ -174,13 +174,20 @@ export class ModuleParser {
     }
     
     parseIntComp(): PetMap {
-        const posFields = this.getPosFields();
+        const pos = this.getPos();
         const intText = this.matchChars(isDigit);
-        const intValue = parseInt(intText, 10);
+        const intValue = BigInt(intText);
+        if (intValue > maxIntValue) {
+            const message = messageAtModulePos(
+                "Signed integer literal exceeds 64 bits.",
+                { ...pos, modulePath: this.modulePath },
+            );
+            throw new ValueError(message);
+        }
         return new PetMap([
             [symbols.COMP_TYPE, symbols.INT_COMP],
-            [symbols.INT, BigInt(intValue)],
-            ...posFields,
+            [symbols.INT, intValue],
+            ...posToFields(pos),
         ]);
     }
     

@@ -13,6 +13,8 @@ export type PetValueAndKey = null | bigint | PetSymbol | PetList | PetMap | PetF
 export type KnownValue = PetString | PetValueAndKey;
 export type MapKey = string | PetValueAndKey;
 
+export const maxIntValue = (1n << 63n) - 1n;
+
 export class PetValue {
     knownValue?: KnownValue;
     bunch?: ObservableBunch;

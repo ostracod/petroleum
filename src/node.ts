@@ -3,7 +3,7 @@ import "./variable.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
 import { PetList, PetMap, PetFunc } from "./value.js";
-import { funcInvocationMethods, stmtsCompMethods, exprsCompMethods, stringExprMethods, identExprMethods } from "./method.js";
+import { funcInvocationMethods, stmtsCompMethods, exprsCompMethods, intExprMethods, stringExprMethods, identExprMethods } from "./method.js";
 import { pluralize, PetSyntaxError, PetTypeError, ValueError, createSyntaxError } from "./exception.js";
 
 export const getChildWorkers = (node: PetMap): PetMap[] => {
@@ -61,14 +61,15 @@ export const getWorkerMethodMap = (worker: PetMap): PetMap => {
             }
         } else if (nodeType === symbols.EXPR) {
             const exprType = worker.getMember(symbols.EXPR_TYPE).getSymbol();
-            if (exprType === symbols.STR_EXPR) {
+            if (exprType === symbols.INT_EXPR) {
+                return intExprMethods;
+            } else if (exprType === symbols.STR_EXPR) {
                 return stringExprMethods;
             } else if (exprType === symbols.IDENT_EXPR) {
                 return identExprMethods;
             }
-            // TODO: Support calling methods on more types of expressions.
         }
-        throw new Error("Not yet implemented");
+        throw new PetTypeError("Cannot call method on node which is not a worker.");
     }
     const compTypeValue = worker.getOptionalMember(symbols.COMP_TYPE);
     if (typeof compTypeValue !== "undefined") {
@@ -77,9 +78,9 @@ export const getWorkerMethodMap = (worker: PetMap): PetMap => {
             return stmtsCompMethods;
         } else if (compType === symbols.EXPRS_COMP) {
             return exprsCompMethods;
+        } else {
+            throw new PetTypeError("Cannot call method on component which is not a worker.");
         }
-        // TODO: Support calling methods on more types of components.
-        throw new Error("Not yet implemented");
     }
     throw new PetTypeError("Expected worker.");
 };

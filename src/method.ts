@@ -204,6 +204,14 @@ export const exprsCompMethods = createMethodMap({
     },
 });
 
+export const intExprMethods = createMethodMap({
+    prep: callNopPrep,
+    eval: (task, expr, varSpace) => {
+        const intValue = expr.getMember(symbols.INT).getInt();
+        return task.returnValue(intValue);
+    },
+});
+
 export const stringExprMethods = createMethodMap({
     prep: callNopPrep,
     eval: (task, expr, varSpace) => {

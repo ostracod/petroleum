@@ -107,7 +107,7 @@ export interface ModulePos {
     modulePath: string;
 }
 
-const messageAtModulePos = (message: string, pos: ModulePos): string => (
+export const messageAtModulePos = (message: string, pos: ModulePos): string => (
     `${message} (Line ${pos.lineNumber}, column ${pos.columnNumber} of ${pos.modulePath})`
 );
 
