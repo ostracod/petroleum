@@ -17,6 +17,7 @@ export class PetValue {
     knownValue?: KnownValue;
     bunch?: ObservableBunch;
     location?: KnownValue;
+    deferralMessage?: string;
     
     constructor() {
         // Do nothing.
@@ -26,15 +27,12 @@ export class PetValue {
         if (typeof this.knownValue === "undefined") {
             const value = this.bunch.getOptionalMember(this.location);
             if (typeof value === "undefined") {
-                throw new DeferralException(
-                    this.bunch,
-                    this.location,
-                    "TODO: Put exception message here.",
-                );
+                throw new DeferralException(this.bunch, this.location, this.deferralMessage);
             }
             this.knownValue = value.getKnownValue();
             delete this.bunch;
             delete this.location;
+            delete this.deferralMessage;
         }
         return this.knownValue;
     }
@@ -140,10 +138,15 @@ const wrapKnownValue = (knownValue: KnownValue): PetValue => {
     return value;
 };
 
-const wrapDeferredValue = (bunch: ObservableBunch, location: KnownValue): PetValue => {
+const wrapDeferredValue = (
+    bunch: ObservableBunch,
+    location: KnownValue,
+    message: string,
+): PetValue => {
     const value = new PetValue();
     value.bunch = bunch;
     value.location = location;
+    value.deferralMessage = message;
     return value;
 };
 
@@ -295,9 +298,15 @@ export interface ObservableBunchIface {
 
 export type ObservableBunch = KnownValue & ObservableBunchIface;
 
-const deferMember = (bunch: ObservableBunch, location: KnownValue): PetValue => {
+const deferMember = (
+    bunch: ObservableBunch,
+    location: KnownValue,
+    message: string,
+): PetValue => {
     const value = bunch.getOptionalMember(location);
-    return (typeof value === "undefined") ? wrapDeferredValue(bunch, location) : value;
+    return (typeof value === "undefined")
+        ? wrapDeferredValue(bunch, location, message)
+        : value;
 };
 
 export class MemberObserver {
@@ -443,8 +452,8 @@ export class PetList implements ObservableBunchIface {
         }
     }
     
-    deferMember(index: ListIndex): PetValue {
-        return deferMember(this, listIndexToBigInt(index));
+    deferMember(index: ListIndex, message: string): PetValue {
+        return deferMember(this, listIndexToBigInt(index), message);
     }
     
     getLength(): number {
@@ -526,8 +535,8 @@ export class PetMap implements ObservableBunchIface {
         }
     }
     
-    deferMember(key: KnownValue | PetValue): PetValue {
-        return deferMember(this, toKnownValue(key));
+    deferMember(key: KnownValue | PetValue, message: string): PetValue {
+        return deferMember(this, toKnownValue(key), message);
     }
     
     hasKey(key: KnownValue | PetValue): boolean {

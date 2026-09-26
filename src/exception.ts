@@ -128,7 +128,7 @@ const entityToModulePos = (entity: PetMap): ModulePos => {
     const module = getModule(entity);
     const modulePath = module.getMember(symbols.FILE_PATH).toString();
     return { lineNumber, columnNumber, modulePath };
-}
+};
 
 export const messageAtEntity = (message: string, entity?: PetMap): string => {
     const modulePos = entityToModulePos(entity);

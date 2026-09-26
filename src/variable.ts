@@ -154,7 +154,10 @@ export const findVarValue = (varSpace: PetMap, variable: PetMap): PetMap => {
 // varSpace is either a frame or a scope.
 export const getVarValue = (varSpace: PetMap, variable: PetMap): PetValue => {
     const result = findVarValue(varSpace, variable);
-    return result.deferMember(symbols.VALUE);
+    const varName = variable.getMember(symbols.IDENT).toString();
+    return result.deferMember(
+        symbols.VALUE, `Waiting for value of variable "${varName}" to be assigned.`,
+    );
 };
 
 // `entity` is a node or a component.
