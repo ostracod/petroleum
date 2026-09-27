@@ -739,6 +739,80 @@ export const handleExcepTask: TaskDef<{ exception: PetValue }, null> = {
     ],
 };
 
+export interface MapFieldComps {
+    keyComp: PetMap;
+    valueComp: PetMap;
+}
+
+interface MapFieldEvalParams {
+    comps: MapFieldComps;
+    varSpace: PetMap;
+}
+
+const mapFieldEvalTask: TaskDef<MapFieldEvalParams, { key: PetValue | null }> = {
+    getInitState: (params) => ({ key: null }),
+    stages: [
+        (task) => {
+            const { comps, varSpace } = task.params;
+            return task.callMethod(
+                comps.keyComp, symbols.EVAL, [varSpace],
+                (listValue) => {
+                    const key = listValue.getList().getMember(0);
+                    return task.advanceStage({ key });
+                },
+            );
+        },
+        (task) => {
+            const { comps, varSpace } = task.params;
+            return task.callMethod(
+                comps.valueComp, symbols.EVAL, [varSpace],
+                (listValue) => {
+                    const value = listValue.getList().getMember(0);
+                    const fieldParts = new PetList([task.state.key, value]);
+                    return task.returnValue(fieldParts);
+                },
+            );
+        },
+    ],
+};
+
+interface MapProcEvalParams {
+    compsList: MapFieldComps[];
+    varSpace: PetMap;
+}
+
+interface MapProcEvalState {
+    map: PetMap;
+    compsIndex: number;
+}
+
+export const mapProcEvalTask: TaskDef<MapProcEvalParams, MapProcEvalState> = {
+    getInitState: (params) => ({ map: new PetMap(), compsIndex: 0 }),
+    stages: [
+        (task) => {
+            const { compsList, varSpace } = task.params;
+            const { map, compsIndex } = task.state;
+            if (compsIndex < compsList.length) {
+                const comps = compsList[compsIndex];
+                return task.runTask(
+                    mapFieldEvalTask, { comps, varSpace },
+                    (listValue) => {
+                        const values = listValue.getList();
+                        const fieldKey = values.getMember(0);
+                        const fieldValue = values.getMember(1);
+                        // Something something quadratic time complexity whatever who cares
+                        const nextMap = map.shallowCopy();
+                        nextMap.setMember(fieldKey, fieldValue);
+                        return task.repeatStage({ map: nextMap, compsIndex: compsIndex + 1 });
+                    },
+                );
+            } else {
+                return task.returnValue(map);
+            }
+        },
+    ],
+};
+
 export const setProcPrepTask: TaskDef<{ stmt: PetMap, parts: SetProcParts }, null> = {
     getInitState: (params) => null,
     stages: [

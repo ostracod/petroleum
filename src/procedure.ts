@@ -7,7 +7,7 @@ import { MethodDict, createMethodMap, callDefaultPrep } from "./method.js";
 import { PetException, PetTypeError, createSyntaxError } from "./exception.js";
 import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getSmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp } from "./node.js";
 import { findVarValue, getModuleFrameEntry, getScope, varIsInScope, getSignatureVars } from "./variable.js";
-import { Action, setProcPrepTask, awaitProcEvalTask, spinCondTask } from "./task.js";
+import { Action, setProcPrepTask, awaitProcEvalTask, spinCondTask, MapFieldComps, mapProcEvalTask} from "./task.js";
 import { Spinner } from "./scheduler.js";
 
 interface ProcDef extends MethodDict {
@@ -20,6 +20,38 @@ export const createProcedure = (procDef: ProcDef): PetMap => {
         [symbols.IS_PROC, 1n],
         [symbols.METHODS, methodMap],
     ]);
+};
+
+const validateMapAttr = (attr: PetMap): void => {
+    const comps = attr.getMember(symbols.COMPS).getList();
+    assertCompAmount(comps, 2, attr);
+    assertIdentComp(comps, 0, "FIELDS");
+    const attrsComp = getAttrsComp(comps, 1);
+    const fieldAttrs = attrsComp.getMember(symbols.ATTRS).getList();
+    for (const fieldAttrValue of fieldAttrs.elements) {
+        const fieldAttr = fieldAttrValue.getMap();
+        const fieldComps = fieldAttr.getMember(symbols.COMPS).getList();
+        assertCompAmount(fieldComps, 3, fieldAttr);
+        assertWorkGradeExprs(fieldComps, 0, 1);
+        assertIdentComp(fieldComps, 1, "=");
+        assertWorkGradeExprs(fieldComps, 2, 1);
+    }
+};
+
+const getMapFieldComps = (attr: PetMap): MapFieldComps[] => {
+    const comps = attr.getMember(symbols.COMPS).getList();
+    const attrsComp = comps.getMember(1).getMap();
+    const fieldAttrs = attrsComp.getMember(symbols.ATTRS).getList();
+    const output: MapFieldComps[] = [];
+    for (const fieldAttrValue of fieldAttrs.elements) {
+        const fieldAttr = fieldAttrValue.getMap();
+        const fieldComps = fieldAttr.getMember(symbols.COMPS).getList();
+        output.push({
+            keyComp: fieldComps.getMember(0).getMap(),
+            valueComp: fieldComps.getMember(2).getMap(),
+        });
+    }
+    return output;
 };
 
 const readWorkVarComps = (stmt: PetMap): { variable: PetMap, exprsComp?: PetMap } => {
@@ -120,6 +152,48 @@ const setUpImportVars = (comps: PetList, module: PetMap): void => {
 };
 
 export const globalProcDefs: ProcDef[] = [
+    {
+        name: "LIST",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 2);
+            assertWorkGradeExprs(comps, 1, null);
+            return callDefaultPrep(task, worker);
+        },
+        eval: (task, worker, varSpace) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            const exprsComp = comps.getMember(1).getMap();
+            return task.callMethod(
+                exprsComp, symbols.EVAL, [varSpace],
+                (value) => task.returnValue(value),
+            );
+        },
+    },
+    {
+        name: "MAP",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 2);
+            const attrs = getAttrsComp(comps, 1).getMember(symbols.ATTRS).getList();
+            for (const attr of attrs.elements) {
+                validateMapAttr(attr.getMap());
+            }
+            return callDefaultPrep(task, worker);
+        },
+        eval: (task, worker, varSpace) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            const attrsComp = comps.getMember(1).getMap();
+            const attrs = attrsComp.getMember(symbols.ATTRS).getList();
+            const compsList: MapFieldComps[] = [];
+            for (const attr of attrs.elements) {
+                compsList.push(...getMapFieldComps(attr.getMap()));
+            }
+            return task.runTask(
+                mapProcEvalTask, { compsList, varSpace },
+                (value) => task.returnValue(value),
+            );
+        },
+    },
     {
         name: "RUN",
         prep: (task, worker) => {
