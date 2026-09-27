@@ -6,7 +6,7 @@ import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc, EvalState } 
 import { MethodDict, createMethodMap, callDefaultPrep } from "./method.js";
 import { PetException, PetTypeError, createSyntaxError } from "./exception.js";
 import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getSmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp } from "./node.js";
-import { findVarValue, getModuleFrameEntry, getScope, varIsInScope, getSignatureVars } from "./variable.js";
+import { findVarValue, getVarValue, getModuleFrameEntry, getScope, varIsInScope, getSignatureVars } from "./variable.js";
 import { Action, setProcPrepTask, awaitProcEvalTask, spinCondTask, MapFieldComps, mapProcEvalTask} from "./task.js";
 import { Spinner } from "./scheduler.js";
 
@@ -334,6 +334,56 @@ export const globalProcDefs: ProcDef[] = [
         },
     },
     {
+        name: "PREP_SYMBOL",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 2);
+            const declComp = getDeclComp(comps, 1);
+            const variable = declComp.getMember(symbols.VAR).getMap();
+            const varName = variable.getMember(symbols.IDENT).toString();
+            const symbol = new PetSymbol(varName);
+            variable.setMember(symbols.VAR_TYPE, symbols.PREP_VAR);
+            variable.setMember(symbols.VALUE, symbol);
+            return task.returnValue(null);
+        },
+    },
+    {
+        name: "GET",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 3);
+            const moduleComp = getPrepGradeExprs(comps, 1, 1);
+            const varNameComp = getIdentComp(comps, 2);
+            const varName = varNameComp.getMember(symbols.IDENT).getPetString();
+            const scope = getScope(worker);
+            return task.callMethod(
+                moduleComp, symbols.EVAL, [scope],
+                (listValue) => {
+                    const module = listValue.getList().getMember(0).getMap();
+                    const moduleScope = module.getMember(symbols.SCOPE).getMap();
+                    const moduleVars = moduleScope.getMember(symbols.VARS).getMap();
+                    const srcVar = moduleVars.getMember(varName);
+                    worker.setMember(symbols.SRC_VAR, srcVar);
+                    return task.returnValue(null);
+                },
+            );
+        },
+        eval: (task, worker, varSpace) => {
+            const srcVar = worker.getMember(symbols.SRC_VAR).getMap();
+            const value = getVarValue(varSpace, srcVar);
+            return task.returnValue(value);
+        },
+        accessedVars: (task, worker, scope) => {
+            const srcVar = worker.getMember(symbols.SRC_VAR).getMap();
+            const varMap = new PetMap();
+            if (varIsInScope(srcVar, scope)) {
+                const varName = srcVar.getMember(symbols.IDENT).getPetString();
+                varMap.setMember(varName, srcVar);
+            }
+            return task.returnValue(varMap);
+        },
+    },
+    {
         name: "SET",
         prep: (task, worker) => {
             const comps = worker.getMember(symbols.COMPS).getList();
@@ -343,7 +393,7 @@ export const globalProcDefs: ProcDef[] = [
             const moduleComp = (compAmount === 4) ? null : getPrepGradeExprs(comps, 1, 1);
             const varNameComp = getIdentComp(comps, compAmount - 3);
             const varName = varNameComp.getMember(symbols.IDENT).getPetString();
-            assertIdentComp(comps, compAmount - 2, "=")
+            assertIdentComp(comps, compAmount - 2, "=");
             const valueComp = getWorkGradeExprs(comps, compAmount - 1, 1);
             const parts: SetProcParts = { varName, valueComp };
             if (moduleComp !== null) {
