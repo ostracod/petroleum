@@ -12,6 +12,7 @@ export class Spinner {
     condition: PetFunc;
     message: PetString;
     evalState: EvalState;
+    // When `Spinner` is held by a `Coroutine`, `spinCount` will always be defined.
     spinCount?: number;
     
     constructor(
@@ -64,7 +65,8 @@ export class Coroutine {
                         const evalState = error.createEvalState(this.action);
                         exception.setMember(symbols.EVAL_STATE, evalState);
                     }
-                    nextAction = task.throwException(mapValue);
+                    // If `task` is null, the action can only thow `CoroEndException`.
+                    nextAction = task!.throwException(mapValue);
                 } else if (error instanceof CoroEndException) {
                     const exception = error.unhandledExcep;
                     if (exception === null) {
@@ -168,7 +170,7 @@ export class Scheduler {
         }
         let coroutine = this.spinCoros.firstCoro;
         while (coroutine !== null) {
-            if (coroutine.spinner.spinCount < 3) {
+            if (coroutine.spinner!.spinCount! < 3) {
                 return false;
             }
             coroutine = coroutine.nextCoro;

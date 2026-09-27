@@ -78,7 +78,7 @@ export class ModuleParser {
     contentIndex: number;
     lineNumber: number;
     columnNumber: number;
-    scope: PetMap | null;
+    scope: PetMap;
     
     // `modulePath` must be an absolute path.
     constructor(parentPackage: PetMap | PetValue, modulePath: string, globalScope: PetMap) {
@@ -131,7 +131,7 @@ export class ModuleParser {
     skipChars(charsToSkip: string[]): void {
         while (true) {
             const character = this.peekText(1);
-            if (!charsToSkip.includes(character)) {
+            if (character === null || !charsToSkip.includes(character)) {
                 break;
             }
             this.advance(1);
@@ -166,11 +166,11 @@ export class ModuleParser {
         return posToFields(this.getPos());
     }
     
-    throwError(message: string, pos?: ContentPos): void {
+    createError(message: string, pos?: ContentPos): PetSyntaxError {
         if (typeof pos === "undefined") {
             pos = this.getPos();
         }
-        throw new PetSyntaxError(message, { ...pos, modulePath: this.modulePath });
+        return new PetSyntaxError(message, { ...pos, modulePath: this.modulePath });
     }
     
     parseIntComp(): PetMap {
@@ -199,18 +199,20 @@ export class ModuleParser {
         while (true) {
             let character = this.readText(1);
             if (character === null) {
-                this.throwError("Missing end quotation mark.");
+                throw this.createError("Missing end quotation mark.");
             } else if (character === "\"") {
                 break;
             } else if (character === "\\") {
                 const pos = this.getPos();
                 const escape = this.readText(1);
                 if (escape === null) {
-                    this.throwError("Missing escaped string character.", pos);
+                    throw this.createError("Missing escaped string character.", pos);
                 }
                 character = escapeChars[escape];
                 if (typeof character === "undefined") {
-                    this.throwError(`Unknown escaped string character "${escape}".`, pos);
+                    throw this.createError(
+                        `Unknown escaped string character "${escape}".`, pos,
+                    );
                 }
             }
             chars.push(character);
@@ -260,7 +262,7 @@ export class ModuleParser {
         const endBracePos = this.getPos();
         const character = this.readText(1);
         if (character !== "}") {
-            this.throwError("Expected close curly brace.", endBracePos);
+            throw this.createError("Expected close curly brace.", endBracePos);
         }
         return createStmtsComp(stmtSeqResult, pos);
     }
@@ -288,7 +290,7 @@ export class ModuleParser {
         const endBracketPos = this.getPos();
         const character = this.readText(1);
         if (character !== endBracket) {
-            this.throwError(`Expected close ${bracketName}.`, endBracketPos);
+            throw this.createError(`Expected close ${bracketName}.`, endBracketPos);
         }
         const exprsComp = new PetMap([
             [symbols.COMP_TYPE, symbols.EXPRS_COMP],
@@ -310,7 +312,7 @@ export class ModuleParser {
         const endBracketPos = this.getPos();
         const character = this.readText(1);
         if (character !== "]") {
-            this.throwError("Expected close bracket.", endBracketPos);
+            throw this.createError("Expected close bracket.", endBracketPos);
         }
         const attrsComp = new PetMap([
             [symbols.COMP_TYPE, symbols.ATTRS_COMP],
@@ -411,7 +413,7 @@ export class ModuleParser {
                 ...commonFields,
             ]);
         } else {
-            this.throwError("Unknown expression type.", pos);
+            throw this.createError("Unknown expression type.", pos);
         }
         setParents(components, expression);
         return expression;
@@ -432,10 +434,8 @@ export class ModuleParser {
         const scope = new PetMap([
             [symbols.IS_SCOPE, 1n],
             [symbols.VARS, new PetMap()],
+            [symbols.PARENT, lastScope],
         ]);
-        if (lastScope !== null) {
-            scope.setMember(symbols.PARENT, lastScope);
-        }
         this.scope = scope;
         const compsSequence = this.parseCompsSequence();
         let statementIndex = 0;
@@ -479,7 +479,7 @@ export class ModuleParser {
         const stmtSeqResult = this.parseStmtSequence();
         const character = this.peekText(1);
         if (character !== null) {
-            this.throwError(`Unexpected character "${character}".`);
+            throw this.createError(`Unexpected character "${character}".`);
         }
         const dummyPos: ContentPos = { lineNumber: 0n, columnNumber: 0n };
         const stmtsComp = createStmtsComp(stmtSeqResult, dummyPos);

@@ -16,6 +16,8 @@ export type MapKey = string | PetValueAndKey;
 export const maxIntValue = (1n << 63n) - 1n;
 
 export class PetValue {
+    // Either `knownValue` is defined, or
+    // `bunch` + `location` + `deferralMessage` are defined.
     knownValue?: KnownValue;
     bunch?: ObservableBunch;
     location?: KnownValue;
@@ -27,9 +29,11 @@ export class PetValue {
     
     getKnownValue(): KnownValue {
         if (typeof this.knownValue === "undefined") {
-            const value = this.bunch.getOptionalMember(this.location);
+            const value = this.bunch!.getOptionalMember(this.location!);
             if (typeof value === "undefined") {
-                throw new DeferralException(this.bunch, this.location, this.deferralMessage);
+                throw new DeferralException(
+                    this.bunch!, this.location!, this.deferralMessage!,
+                );
             }
             this.knownValue = value.getKnownValue();
             delete this.bunch;
@@ -192,6 +196,7 @@ for (const escape in escapeChars) {
 }
 
 export class PetString {
+    // Either `text` or `buffer` are non-null.
     text: string | null;
     buffer: Buffer | null;
     // `hexString` is used as a key in Maps.
@@ -210,14 +215,14 @@ export class PetString {
     
     toString(): string {
         if (this.text === null) {
-            this.text = this.buffer.toString("utf8");
+            this.text = this.buffer!.toString("utf8");
         }
         return this.text;
     }
     
     toBuffer(): Buffer {
         if (this.buffer === null) {
-            this.buffer = Buffer.from(this.text, "utf8");
+            this.buffer = Buffer.from(this.text!, "utf8");
         }
         return this.buffer;
     }
@@ -283,8 +288,8 @@ export const valueMayHaveChanged = (oldValue: PetValue, newValue: PetValue): boo
     const oldValueIsDeferred = (typeof oldKnownValue === "undefined");
     const newValueIsDeferred = (typeof newKnownValue === "undefined");
     if (oldValueIsDeferred && newValueIsDeferred) {
-        return !(valuesAreEqual(oldValue.bunch, newValue.bunch)
-            && valuesAreEqual(oldValue.location, newValue.location));
+        return !(valuesAreEqual(oldValue.bunch!, newValue.bunch!)
+            && valuesAreEqual(oldValue.location!, newValue.location!));
     } else if (oldValueIsDeferred || newValueIsDeferred) {
         return true;
     } else {
@@ -630,7 +635,7 @@ export class UserFunc extends PetFunc {
         const scope = this.stmtsComp.getMember(symbols.SCOPE).getMap();
         const bodyFrame = createFrame(scope, this.topFrame);
         if (typeof this.argVars === "undefined") {
-            const frameEntry = findVarValue(bodyFrame, this.argsVar);
+            const frameEntry = findVarValue(bodyFrame, this.argsVar!);
             frameEntry.setMember(symbols.VALUE, args);
         } else {
             for (let index = 0; index < this.argVars.length; index++) {
@@ -667,7 +672,7 @@ export class EvalState {
     
     toString(): string {
         const lines: string[] = [];
-        let task = this.currentTask;
+        let task: Task | null = this.currentTask;
         let topNode: PetMap | null = null;
         while (task !== null) {
             if (topNode === null) {

@@ -6,7 +6,7 @@ import { KnownValue, knownValueToString, PetMap, PetFunc } from "./value.js";
 import { DefFunc } from "./builtInFunc.js";
 import { ValueError } from "./exception.js";
 import { getChildWorkers, getFuncArgsComp, assertMaxCompAmount, getWorkGradeExprs } from "./node.js";
-import { getScope, findVariable, getVarValue, varIsInScope } from "./variable.js";
+import { getScope, getVariable, getVarValue, varIsInScope } from "./variable.js";
 import { Action, Task, prepStmtsTask, evalStmtsTask, prepExprsTask, evalExprsTask, prepWorkersTask, workersVarsTask, evalFuncTask } from "./task.js";
 
 export type CallPrepMethod = (task: Task, worker: PetMap) => Action;
@@ -224,10 +224,7 @@ export const identExprMethods = createMethodMap({
     prep: (task, expr) => {
         const scope = getScope(expr);
         const varName = expr.getMember(symbols.IDENT).getPetString();
-        const variable = findVariable(scope, varName);
-        if (variable === null) {
-            throw new ValueError(`Could not find variable with name "${varName.toString()}".`);
-        }
+        const variable = getVariable(scope, varName);
         expr.setMember(symbols.VAR, variable);
         return task.returnValue(null);
     },

@@ -4,9 +4,9 @@ import "./method.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc, EvalState } from "./value.js";
 import { MethodDict, createMethodMap, callDefaultPrep } from "./method.js";
-import { PetException, createSyntaxError } from "./exception.js";
+import { PetException, PetTypeError, createSyntaxError } from "./exception.js";
 import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getSmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp } from "./node.js";
-import { findVariable, findVarValue, getModuleFrameEntry, getScope, varIsInScope, getSignatureVars } from "./variable.js";
+import { findVarValue, getModuleFrameEntry, getScope, varIsInScope, getSignatureVars } from "./variable.js";
 import { Action, setProcPrepTask, awaitProcEvalTask, spinCondTask } from "./task.js";
 import { Spinner } from "./scheduler.js";
 
@@ -146,7 +146,7 @@ export const globalProcDefs: ProcDef[] = [
             const stmtsComp = getSmtsComp(comps, 1);
             const { argVars, argsVar } = getSignatureVars(stmtsComp);
             if (typeof argVars === "undefined") {
-                argsVar.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
+                argsVar!.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
             } else {
                 for (const argVar of argVars) {
                     argVar.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
@@ -338,6 +338,8 @@ export const globalProcDefs: ProcDef[] = [
                         module = task.context.loadUserModule(parentPackage, path);
                     } else if (specifier instanceof PetSymbol) {
                         throw new Error("Built-in modules are not yet supported.");
+                    } else {
+                        throw new PetTypeError("Module specifier must be string or symbol.");
                     }
                     setUpImportVars(comps, module);
                     return task.returnValue(null);

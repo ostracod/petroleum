@@ -187,7 +187,10 @@ class VersionMap<T> {
     }
     
     getNewestValue(): T {
-        return this.entries.at(-1).value;
+        if (this.entries.length <= 0) {
+            throw new Error("Cannot get newest value in empty VersionMap!");
+        }
+        return this.entries.at(-1)!.value;
     }
     
     findSmallestAtLeast(version: Version): number {
@@ -302,7 +305,7 @@ class PackageSelection {
     // by other packages with the same specifier.
     isRedundant(): boolean {
         for (const dependentSel of this.dependents.values()) {
-            const { compatibleSels } = dependentSel.dependencies.get(this.pack.specifier);
+            const { compatibleSels } = dependentSel.dependencies.get(this.pack.specifier)!;
             if (compatibleSels.getLength() <= 1) {
                 return false;
             }
@@ -435,7 +438,7 @@ export class PackageResolver {
         
         // Remove `selection` from dependencies of other selections.
         for (const dependentSel of selection.dependents.values()) {
-            const dependency = dependentSel.dependencies.get(specifier);
+            const dependency = dependentSel.dependencies.get(specifier)!;
             dependency.compatibleSels.remove(version);
         }
         
@@ -448,12 +451,12 @@ export class PackageResolver {
         
         // Remove dependencies of `selection` from this.dependencies.
         for (const dependency of selection.dependencies.values()) {
-            const dependencySet = this.dependencies.get(dependency.specifier);
+            const dependencySet = this.dependencies.get(dependency.specifier)!;
             dependencySet.delete(dependency);
         }
         
         // Remove `selection` from this.selections.
-        this.selections.get(specifier).remove(version);
+        this.selections.get(specifier)!.remove(version);
     }
     
     getStorePackage(
@@ -477,7 +480,7 @@ export class PackageResolver {
         const { specifier } = addedSelection.pack;
         const candidateSels = new Set<PackageSelection>();
         for (const dependentSel of addedSelection.dependents.values()) {
-            const { compatibleSels } = dependentSel.dependencies.get(specifier);
+            const { compatibleSels } = dependentSel.dependencies.get(specifier)!;
             for (const selection of compatibleSels.getValues()) {
                 if (selection !== addedSelection) {
                     candidateSels.add(selection);
@@ -574,16 +577,16 @@ export class PackageResolver {
             return { entryPackage: null, exceptions };
         }
         for (const selection of this.getAllSelections()) {
-            const pack = packMap.get(selection.pack.key);
+            const pack = packMap.get(selection.pack.key)!;
             const depMap = pack.getMember(symbols.DEPS).getMap();
             for (const { compatibleSels } of selection.dependencies.values()) {
                 const depSelection = compatibleSels.getNewestValue();
-                const depPack = packMap.get(depSelection.pack.key);
+                const depPack = packMap.get(depSelection.pack.key)!;
                 const specifier = depPack.getMember(symbols.SPECIFIER);
                 depMap.setMember(specifier, depPack);
             }
         }
-        const entryPackage = packMap.get(this.entryPackage.key);
+        const entryPackage = packMap.get(this.entryPackage.key)!;
         return { entryPackage, exceptions };
     }
     

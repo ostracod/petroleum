@@ -65,6 +65,14 @@ export const findVariable = (scope: PetMap, name: PetString): PetMap | null => {
     return null;
 };
 
+export const getVariable = (scope: PetMap, name: PetString): PetMap => {
+    const result = findVariable(scope, name);
+    if (result === null) {
+        throw new ValueError(`Could not find variable with name "${name.toString()}".`);
+    }
+    return result;
+};
+
 const getVarType = (variable: PetMap): PetSymbol => {
     const varType = variable.getMember(symbols.VAR_TYPE).getKnownValue();
     if (varType === null) {
@@ -287,7 +295,7 @@ export const pruneFrames = (varSpace: PetMap, accessedVars: PetMap): {
             topFrame = prunedFrame;
             bottomFrame = prunedFrame;
         } else {
-            bottomFrame.setMember(symbols.PARENT, prunedFrame);
+            bottomFrame!.setMember(symbols.PARENT, prunedFrame);
             bottomFrame = prunedFrame;
         }
         const parentFrame = frame?.getOptionalMember(symbols.PARENT);

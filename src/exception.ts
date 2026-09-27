@@ -22,7 +22,7 @@ export class PetException extends Error {
     }
     
     createEvalState(currentAction: Action): EvalState {
-        const { task } = currentAction;
+        const task = currentAction.task!;
         return new EvalState(task, task.returnValue(null));
     }
 }
@@ -79,7 +79,7 @@ export class AwaitException extends PetException {
     }
     
     createEvalState(currentAction: Action): EvalState {
-        return new EvalState(currentAction.task, currentAction);
+        return new EvalState(currentAction.task!, currentAction);
     }
 }
 
@@ -130,7 +130,7 @@ const entityToModulePos = (entity: PetMap): ModulePos => {
     return { lineNumber, columnNumber, modulePath };
 };
 
-export const messageAtEntity = (message: string, entity?: PetMap): string => {
+export const messageAtEntity = (message: string, entity: PetMap): string => {
     const modulePos = entityToModulePos(entity);
     return messageAtModulePos(message, modulePos);
 };

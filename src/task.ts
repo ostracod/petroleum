@@ -2,13 +2,13 @@
 import "./node.js";
 
 import { PetSymbol, symbols, spinCountSymbol } from "./symbol.js";
-import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged } from "./value.js";
+import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, nullValue, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
 import { getMethodWithDefault } from "./method.js";
 import { SetProcParts } from "./procedure.js";
 import { PetSyntaxError, PetTypeError, StateError, createSyntaxError, messageAtEntity } from "./exception.js";
 import { workerIsInvocation, getWorkerMethodMap, getFuncArgsComp } from "./node.js";
-import { createFrame, VarSpaceType, getVarSpaceType, findVariable, getVarValue, getScope } from "./variable.js";
+import { createFrame, VarSpaceType, getVarSpaceType, getVariable, getVarValue, getScope } from "./variable.js";
 import { Spinner } from "./scheduler.js";
 import { PetContext } from "./context.js";
 
@@ -624,7 +624,7 @@ const callMethodTask: TaskDef<MethodInvocation, null> = {
                     }
                     let nextReturnValue: PetValue;
                     if (methodKey === symbols.PREP) {
-                        nextReturnValue = null;
+                        nextReturnValue = nullValue;
                     } else {
                         nextReturnValue = returnValue;
                     }
@@ -646,7 +646,7 @@ const determineInvocTask: TaskDef<{ worker: PetMap }, null> = {
             const compType = firstComp.getMember(symbols.COMP_TYPE).getSymbol();
             if (compType === symbols.IDENT_COMP) {
                 const identifier = firstComp.getMember(symbols.IDENT).getPetString();
-                const variable = findVariable(scope, identifier);
+                const variable = getVariable(scope, identifier);
                 const invocable = getVarValue(scope, variable);
                 worker.setMember(symbols.INVOC, invocable);
                 return task.returnValue(null);
@@ -700,7 +700,7 @@ export const evalFuncTask: TaskDef<EvalFuncParams, { args: PetValue[] | null }> 
         (task) => {
             const func = task.params.invocNode.getMember(symbols.INVOC).getFunc();
             return task.callFunction(
-                func, task.state.args,
+                func, task.state.args!,
                 (value) => task.returnValue(value),
                 task.params.invocNode,
             );
@@ -747,7 +747,7 @@ export const setProcPrepTask: TaskDef<{ stmt: PetMap, parts: SetProcParts }, nul
             const { varName, moduleComp, valueComp } = parts;
             const scope = getScope(stmt);
             if (typeof moduleComp === "undefined") {
-                const destVar = findVariable(scope, varName);
+                const destVar = getVariable(scope, varName);
                 stmt.setMember(symbols.DEST_VAR, destVar);
                 return task.advanceStage(null);
             }
@@ -807,7 +807,7 @@ export const awaitProcEvalTask: TaskDef<AwaitProcEvalParams, AwaitProcEvalState>
         },
         (task) => {
             const { bunch, location } = task.state;
-            return task.returnValue(bunch.getMember(location));
+            return task.returnValue(bunch!.getMember(location!));
         },
     ],
 };

@@ -51,7 +51,7 @@ export class PetContext {
                 this.reportException(exception);
             }
         } else {
-            const mainModule = entryPackage.getMember(symbols.MAIN_MODULE).getMap();
+            const mainModule = entryPackage!.getMember(symbols.MAIN_MODULE).getMap();
             this.addUserModule(mainModule);
         }
     }
@@ -130,7 +130,7 @@ export class PetContext {
                 if (isStuckSpinning) {
                     let coroutine = this.scheduler.spinCoros.firstCoro;
                     while (coroutine !== null) {
-                        this.reportSpinner(coroutine.spinner);
+                        this.reportSpinner(coroutine.spinner!);
                         coroutine = coroutine.nextCoro;
                     }
                 }
