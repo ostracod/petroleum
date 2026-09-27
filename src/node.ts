@@ -2,7 +2,7 @@
 import "./variable.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { PetList, PetMap, PetFunc } from "./value.js";
+import { PetString, PetList, PetMap, PetFunc } from "./value.js";
 import { funcInvocationMethods, stmtsCompMethods, exprsCompMethods, intExprMethods, stringExprMethods, identExprMethods } from "./method.js";
 import { pluralize, PetSyntaxError, PetTypeError, ValueError, createSyntaxError } from "./exception.js";
 
@@ -227,6 +227,11 @@ export const getIdentComp = (comps: PetList, index: number): PetMap => getCompWi
     comps, index, symbols.IDENT_COMP,
     "Expected identifier component.",
 );
+
+export const getCompIdent = (comps: PetList, index: number): PetString => {
+    const identComp = getIdentComp(comps, index);
+    return identComp.getMember(symbols.IDENT).getPetString();
+};
 
 export const assertStmtsComp = (comps: PetList, index: number): void => {
     getSmtsComp(comps, index);

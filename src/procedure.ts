@@ -5,9 +5,9 @@ import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc, EvalState } from "./value.js";
 import { MethodDict, createMethodMap, callDefaultPrep } from "./method.js";
 import { PetException, PetTypeError, createSyntaxError } from "./exception.js";
-import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getSmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp } from "./node.js";
+import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getSmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp, getCompIdent } from "./node.js";
 import { findVarValue, getVarValue, getModuleFrameEntry, getScope, varIsInScope, getSignatureVars } from "./variable.js";
-import { Action, setProcPrepTask, awaitProcEvalTask, spinCondTask, MapFieldComps, mapProcEvalTask} from "./task.js";
+import { Action, setProcPrepTask, awaitProcEvalTask, spinCondTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask } from "./task.js";
 import { Spinner } from "./scheduler.js";
 
 interface ProcDef extends MethodDict {
@@ -149,6 +149,32 @@ const setUpImportVars = (comps: PetList, module: PetMap): void => {
             setUpImportVar(varAttrValue.getMap(), moduleVars);
         }
     }
+};
+
+const getIfProcClauses = (stmt: PetMap): IfProcClause[] => {
+    const comps = stmt.getMember(symbols.COMPS).getList();
+    const output: IfProcClause[] = [{
+        exprsComp: comps.getMember(1).getMap(),
+        stmtsComp: comps.getMember(2).getMap(),
+    }];
+    const compAmount = comps.getLength();
+    let index = 3;
+    while (index < compAmount) {
+        const identComp = comps.getMember(index).getMap();
+        index += 1;
+        const text = identComp.getMember(symbols.IDENT).toString();
+        let exprsComp: PetMap | null;
+        if (text === "ELSE_IF") {
+            exprsComp = comps.getMember(index).getMap();
+            index += 1;
+        } else {
+            exprsComp = null;
+        }
+        const stmtsComp = comps.getMember(index).getMap();
+        index += 1;
+        output.push({ exprsComp, stmtsComp });
+    }
+    return output;
 };
 
 export const globalProcDefs: ProcDef[] = [
@@ -353,8 +379,7 @@ export const globalProcDefs: ProcDef[] = [
             const comps = worker.getMember(symbols.COMPS).getList();
             assertCompAmount(comps, 3);
             const moduleComp = getPrepGradeExprs(comps, 1, 1);
-            const varNameComp = getIdentComp(comps, 2);
-            const varName = varNameComp.getMember(symbols.IDENT).getPetString();
+            const varName = getCompIdent(comps, 2);
             const scope = getScope(worker);
             return task.callMethod(
                 moduleComp, symbols.EVAL, [scope],
@@ -391,8 +416,7 @@ export const globalProcDefs: ProcDef[] = [
             assertMaxCompAmount(comps, 5);
             const compAmount = comps.getLength();
             const moduleComp = (compAmount === 4) ? null : getPrepGradeExprs(comps, 1, 1);
-            const varNameComp = getIdentComp(comps, compAmount - 3);
-            const varName = varNameComp.getMember(symbols.IDENT).getPetString();
+            const varName = getCompIdent(comps, compAmount - 3);
             assertIdentComp(comps, compAmount - 2, "=");
             const valueComp = getWorkGradeExprs(comps, compAmount - 1, 1);
             const parts: SetProcParts = { varName, valueComp };
@@ -493,6 +517,46 @@ export const globalProcDefs: ProcDef[] = [
                     setUpImportVars(comps, mainModule);
                     return task.returnValue(null);
                 }
+            );
+        },
+    },
+    {
+        name: "IF",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertMinCompAmount(comps, 3);
+            assertWorkGradeExprs(comps, 1, 1);
+            assertStmtsComp(comps, 2);
+            const compAmount = comps.getLength();
+            let index = 3;
+            while (index < compAmount) {
+                const identComp = getIdentComp(comps, index);
+                const text = identComp.getMember(symbols.IDENT).toString();
+                let nextIndex: number;
+                if (text === "ELSE_IF") {
+                    nextIndex = index + 3;
+                    assertMinCompAmount(comps, nextIndex);
+                    assertWorkGradeExprs(comps, index + 1, 1);
+                    assertStmtsComp(comps, index + 2);
+                } else if (text === "ELSE") {
+                    nextIndex = index + 2;
+                    assertMinCompAmount(comps, nextIndex);
+                    assertStmtsComp(comps, index + 1);
+                    break;
+                } else {
+                    throw createSyntaxError(
+                        "Expected \"ELSE_IF\" or \"ELSE\" identifier component.", identComp,
+                    );
+                }
+                index = nextIndex;
+            }
+            return callDefaultPrep(task, worker);
+        },
+        eval: (task, worker, varSpace) => {
+            const clauses = getIfProcClauses(worker);
+            return task.runTask(
+                ifProcEvalTask, { clauses, varSpace },
+                (value) => task.returnValue(null),
             );
         },
     },

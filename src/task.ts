@@ -847,6 +847,79 @@ export const setProcPrepTask: TaskDef<{ stmt: PetMap, parts: SetProcParts }, nul
     ],
 };
 
+export interface IfProcClause {
+    exprsComp: PetMap | null;
+    stmtsComp: PetMap;
+}
+
+interface IfClauseEvalParams {
+    clause: IfProcClause;
+    varSpace: PetMap;
+}
+
+const ifClauseEvalTask: TaskDef<IfClauseEvalParams, null> = {
+    getInitState: (params) => null,
+    stages: [
+        (task) => {
+            const { clause: { exprsComp }, varSpace } = task.params;
+            if (exprsComp === null) {
+                return task.advanceStage(null);
+            }
+            return task.callMethod(
+                exprsComp, symbols.EVAL, [varSpace],
+                (listValue) => {
+                    const shouldRun = listValue.getList().getMember(0).getInt();
+                    if (shouldRun === 0n) {
+                        return task.returnValue(0n);
+                    } else {
+                        return task.advanceStage(null);
+                    }
+                },
+            );
+        },
+        (task) => {
+            const { clause: { stmtsComp }, varSpace } = task.params;
+            return task.callMethod(
+                stmtsComp, symbols.EVAL, [varSpace],
+                (value) => {
+                    return task.returnValue(1n);
+                },
+            );
+        },
+    ],
+};
+
+interface IfProcEvalParams {
+    clauses: IfProcClause[];
+    varSpace: PetMap;
+}
+
+export const ifProcEvalTask: TaskDef<IfProcEvalParams, { clauseIndex: number }> = {
+    getInitState: (params) => ({ clauseIndex: 0 }),
+    stages: [
+        (task) => {
+            const { clauses, varSpace } = task.params;
+            const { clauseIndex } = task.state;
+            if (clauseIndex < clauses.length) {
+                const clause = clauses[clauseIndex];
+                return task.runTask(
+                    ifClauseEvalTask, { clause, varSpace },
+                    (value) => {
+                        const hasRun = value.getInt();
+                        if (hasRun === 0n) {
+                            return task.repeatStage({ clauseIndex: clauseIndex + 1 });
+                        } else {
+                            return task.returnValue(null);
+                        }
+                    }
+                );
+            } else {
+                return task.returnValue(null);
+            }
+        },
+    ],
+};
+
 interface AwaitProcEvalParams {
     worker: PetMap;
     varSpace: PetMap;
