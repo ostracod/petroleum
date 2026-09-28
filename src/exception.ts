@@ -90,6 +90,14 @@ export class DeferralException extends AwaitException {
     }
 }
 
+export const createBreakExcep = (): PetException => new PetException(
+    new PetMap([[symbols.EXCEP_TYPE, symbols.BREAK_EXCEP]]),
+);
+
+export const createContExcep = (): PetException => new PetException(
+    new PetMap([[symbols.EXCEP_TYPE, symbols.CONT_EXCEP]]),
+);
+
 export class ErrorException extends PetException {
     
     constructor(errorType: PetSymbol, message: string) {

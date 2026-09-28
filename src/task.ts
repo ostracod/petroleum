@@ -6,7 +6,7 @@ import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, nullValue, P
 import { NotEqualFunc } from "./builtInFunc.js";
 import { getMethodWithDefault } from "./method.js";
 import { SetProcParts } from "./procedure.js";
-import { PetSyntaxError, PetTypeError, StateError, createSyntaxError, messageAtEntity } from "./exception.js";
+import { PetSyntaxError, PetTypeError, StateError, createBreakExcep, createSyntaxError, messageAtEntity } from "./exception.js";
 import { workerIsInvocation, getWorkerMethodMap, getFuncArgsComp } from "./node.js";
 import { createFrame, VarSpaceType, getVarSpaceType, getVariable, getVarValue, getScope } from "./variable.js";
 import { Spinner } from "./scheduler.js";
@@ -917,6 +917,54 @@ export const ifProcEvalTask: TaskDef<IfProcEvalParams, { clauseIndex: number }> 
                 return task.returnValue(null);
             }
         },
+    ],
+};
+
+interface WhileProcEvalParams {
+    exprsComp: PetMap;
+    stmtsComp: PetMap;
+    varSpace: PetMap;
+}
+
+export const whileIterEvalTask: TaskDef<WhileProcEvalParams, null> = {
+    getInitState: (params) => null,
+    stages: [
+        (task) => task.callMethod(
+            task.params.exprsComp, symbols.EVAL, [task.params.varSpace],
+            (listValue) => {
+                const shouldRun = listValue.getList().getMember(0).getInt();
+                if (shouldRun === 0n) {
+                    throw createBreakExcep();
+                } else {
+                    return task.advanceStage(null);
+                }
+            },
+        ),
+        (task) => task.callMethod(
+            task.params.stmtsComp, symbols.EVAL, [task.params.varSpace],
+            (value) => task.returnValue(null),
+        ),
+    ],
+};
+
+export const whileProcEvalTask: TaskDef<WhileProcEvalParams, null> = {
+    getInitState: (params) => null,
+    stages: [
+        (task) => task.runTask(
+            whileIterEvalTask, task.params,
+            (value) => task.repeatStage(null),
+            (excepValue) => {
+                const exception = excepValue.getMap();
+                const excepType = exception.getMember(symbols.EXCEP_TYPE).getSymbol();
+                if (excepType === symbols.BREAK_EXCEP) {
+                    return task.returnValue(null);
+                } else if (excepType === symbols.CONT_EXCEP) {
+                    return task.repeatStage(null);
+                } else {
+                    return task.throwException(excepValue);
+                }
+            },
+        ),
     ],
 };
 

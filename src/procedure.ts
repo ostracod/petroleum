@@ -4,10 +4,10 @@ import "./method.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc, EvalState } from "./value.js";
 import { MethodDict, createMethodMap, callDefaultPrep } from "./method.js";
-import { PetException, PetTypeError, createSyntaxError } from "./exception.js";
+import { PetException, PetTypeError, createBreakExcep, createContExcep, createSyntaxError } from "./exception.js";
 import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getSmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp, getCompIdent } from "./node.js";
 import { findVarValue, getVarValue, getModuleFrameEntry, getScope, varIsInScope, getSignatureVars } from "./variable.js";
-import { Action, setProcPrepTask, awaitProcEvalTask, spinCondTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask } from "./task.js";
+import { Action, setProcPrepTask, awaitProcEvalTask, spinCondTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask } from "./task.js";
 import { Spinner } from "./scheduler.js";
 
 interface ProcDef extends MethodDict {
@@ -558,6 +558,47 @@ export const globalProcDefs: ProcDef[] = [
                 ifProcEvalTask, { clauses, varSpace },
                 (value) => task.returnValue(null),
             );
+        },
+    },
+    {
+        name: "WHILE",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 3);
+            assertWorkGradeExprs(comps, 1, 1);
+            assertStmtsComp(comps, 2);
+            return callDefaultPrep(task, worker);
+        },
+        eval: (task, worker, varSpace) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            const exprsComp = comps.getMember(1).getMap();
+            const stmtsComp = comps.getMember(2).getMap();
+            return task.runTask(
+                whileProcEvalTask, { exprsComp, stmtsComp, varSpace },
+                (value) => task.returnValue(null),
+            );
+        },
+    },
+    {
+        name: "BREAK",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 1);
+            return task.returnValue(null);
+        },
+        eval: (task, worker, varSpace) => {
+            throw createBreakExcep();
+        },
+    },
+    {
+        name: "CONT",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 1);
+            return task.returnValue(null);
+        },
+        eval: (task, worker, varSpace) => {
+            throw createContExcep();
         },
     },
     {
