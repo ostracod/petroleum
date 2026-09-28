@@ -1,5 +1,5 @@
 
-import "./task.js";
+import "./procTask.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
 import { PetString, MemberObserver, PetMap, PetFunc, EvalState } from "./value.js";

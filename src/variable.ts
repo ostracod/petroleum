@@ -1,5 +1,5 @@
 
-import "./package.js";
+import "./node.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, PetString, PetMap } from "./value.js";

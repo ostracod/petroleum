@@ -7,7 +7,8 @@ import { MethodDict, createMethodMap, callDefaultPrep } from "./method.js";
 import { PetException, PetTypeError, createBreakExcep, createContExcep, createSyntaxError } from "./exception.js";
 import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getSmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp, getCompIdent } from "./node.js";
 import { findVarValue, getVarValue, getModuleFrameEntry, getScope, varIsInScope, getSignatureVars } from "./variable.js";
-import { Action, setProcPrepTask, awaitProcEvalTask, spinCondTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask } from "./task.js";
+import { Action, spinCondTask } from "./task.js";
+import { setProcPrepTask, awaitProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask } from "./procTask.js";
 import { Spinner } from "./scheduler.js";
 
 interface ProcDef extends MethodDict {
