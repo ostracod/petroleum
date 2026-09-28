@@ -39,7 +39,7 @@ interface MethodInvocation {
     args: PetValue[];
 }
 
-const createMethodInvocation = (
+export const createMethodInvocation = (
     worker: PetMap,
     key: PetSymbol | PetValue,
     args: (KnownValue | PetValue)[],
@@ -574,7 +574,7 @@ const checkGradeForEval = (worker: PetMap): void => {
     }
 };
 
-const callMethodTask: TaskDef<MethodInvocation, null> = {
+export const callMethodTask: TaskDef<MethodInvocation, null> = {
     getInitState: (params) => null,
     getNodes: (params) => ({ taskNode: params.worker }),
     stages: [

@@ -7,7 +7,7 @@ import { MethodDict, createMethodMap, callDefaultPrep } from "./method.js";
 import { PetException, PetTypeError, createBreakExcep, createContExcep, createSyntaxError } from "./exception.js";
 import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getSmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp, getCompIdent } from "./node.js";
 import { findVarValue, getVarValue, getModuleFrameEntry, getScope, varIsInScope, getSignatureVars } from "./variable.js";
-import { Action, spinCondTask } from "./task.js";
+import { Action, createMethodInvocation, callMethodTask, spinCondTask } from "./task.js";
 import { setProcPrepTask, awaitProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask } from "./procTask.js";
 import { Spinner } from "./scheduler.js";
 
@@ -647,6 +647,24 @@ export const globalProcDefs: ProcDef[] = [
         },
     },
     {
+        name: "SCHED",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 2);
+            assertStmtsComp(comps, 1);
+            return callDefaultPrep(task, worker);
+        },
+        eval: (task, worker, varSpace) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            const stmtsComp = comps.getMember(1).getMap();
+            const invocation = createMethodInvocation(
+                stmtsComp, symbols.EVAL, [varSpace],
+            );
+            task.context.scheduler.scheduleTask(callMethodTask, invocation);
+            return task.returnValue(null);
+        },
+    },
+    {
         name: "SPIN",
         prep: (task, worker) => {
             const comps = worker.getMember(symbols.COMPS).getList();
@@ -709,6 +727,26 @@ export const globalProcDefs: ProcDef[] = [
                         [symbols.ERROR_TYPE, errorType],
                         [symbols.MESSAGE, message],
                     ]));
+                },
+            );
+        },
+    },
+    {
+        name: "THROW",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 2);
+            assertWorkGradeExprs(comps, 1, 1);
+            return callDefaultPrep(task, worker);
+        },
+        eval: (task, worker, varSpace) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            const exprsComp = comps.getMember(1).getMap();
+            return task.callMethod(
+                exprsComp, symbols.EVAL, [varSpace],
+                (values) => {
+                    const exception = values.getList().getMember(0);
+                    throw new PetException(exception);
                 },
             );
         },
