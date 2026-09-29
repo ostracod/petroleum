@@ -138,7 +138,7 @@ export class PetValue {
     };
 }
 
-const wrapKnownValue = (knownValue: KnownValue): PetValue => {
+export const wrapKnownValue = (knownValue: KnownValue): PetValue => {
     const value = new PetValue();
     value.knownValue = knownValue;
     return value;
@@ -211,6 +211,11 @@ export class PetString {
             this.text = null;
         }
         this.hexString = null;
+    }
+    
+    getCharCode(index: number): number {
+        const buffer = this.toBuffer();
+        return buffer[index];
     }
     
     toString(): string {

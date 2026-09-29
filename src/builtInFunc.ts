@@ -1,8 +1,8 @@
 
 import "./value.js";
 
-import { KnownValue, PetValue, PetList, PetFunc, valuesAreEqual } from "./value.js";
-import { ValueError } from "./exception.js";
+import { KnownValue, PetValue, wrapKnownValue, PetString, PetList, PetMap, PetFunc, valuesAreEqual } from "./value.js";
+import { PetTypeError, ValueError } from "./exception.js";
 import { Action, Task } from "./task.js";
 
 interface FuncDef {
@@ -82,6 +82,25 @@ export class DefFunc extends BuiltInFunc {
 }
 
 export const globalFuncDefs: FuncDef[] = [
+    {
+        name: "MEMBER",
+        argAmount: 2,
+        call: (task, args) => {
+            const bunch = args[0].getKnownValue();
+            const location = args[1];
+            let member: PetValue;
+            if (bunch instanceof PetString) {
+                const index = location.toNumber();
+                const charCode = bunch.getCharCode(index);
+                member = wrapKnownValue(BigInt(charCode));
+            } else if (bunch instanceof PetList || bunch instanceof PetMap) {
+                member = bunch.getMember(location);
+            } else {
+                throw new PetTypeError("Bunch must be a string, list, or map.");
+            }
+            return task.returnValue(member);
+        },
+    },
     {
         name: "CALL",
         argAmount: null,

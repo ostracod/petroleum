@@ -806,6 +806,39 @@ export const globalProcDefs: ProcDef[] = [
             );
         },
     },
+    {
+        name: "RESUME",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 2);
+            assertWorkGradeExprs(comps, 1, 1);
+            return callDefaultPrep(task, worker);
+        },
+        eval: (task, worker, varSpace) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            const exprsComp = comps.getMember(1).getMap();
+            return task.callMethod(
+                exprsComp, symbols.EVAL, [varSpace],
+                (listValue) => {
+                    const evalState = listValue.getList().getMember(0).getEvalState();
+                    return evalState.actionToResume;
+                },
+            );
+        },
+    },
+    {
+        name: "COMMENT",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 2);
+            const comp = comps.getMember(1).getMap();
+            const compType = comp.getMember(symbols.COMP_TYPE).getSymbol();
+            if (compType !== symbols.STR_COMP) {
+                throw createSyntaxError("Expected string component.", comp);
+            }
+            return task.returnValue(null);
+        },
+    },
 ];
 
 
