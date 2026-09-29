@@ -157,7 +157,7 @@ const getCompWithType = (
     return comp;
 }
 
-export const getSmtsComp = (comps: PetList, index: number): PetMap => getCompWithType(
+export const getStmtsComp = (comps: PetList, index: number): PetMap => getCompWithType(
     comps, index, symbols.STMTS_COMP,
     "Expected statement sequence component.",
 );
@@ -234,7 +234,7 @@ export const getCompIdent = (comps: PetList, index: number): PetString => {
 };
 
 export const assertStmtsComp = (comps: PetList, index: number): void => {
-    getSmtsComp(comps, index);
+    getStmtsComp(comps, index);
 };
 
 export const assertExprsComp = (

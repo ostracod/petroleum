@@ -5,10 +5,10 @@ import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc, EvalState } from "./value.js";
 import { MethodDict, createMethodMap, callDefaultPrep } from "./method.js";
 import { PetException, PetTypeError, createBreakExcep, createContExcep, createSyntaxError } from "./exception.js";
-import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getSmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp, getCompIdent } from "./node.js";
+import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getStmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp, getCompIdent } from "./node.js";
 import { findVarValue, getVarValue, getModuleFrameEntry, getScope, varIsInScope, getSignatureVars } from "./variable.js";
 import { Action, createMethodInvocation, callMethodTask, spinCondTask } from "./task.js";
-import { setProcPrepTask, awaitProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask } from "./procTask.js";
+import { setProcPrepTask, awaitProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask, tryProcEvalTask } from "./procTask.js";
 import { Spinner } from "./scheduler.js";
 
 interface ProcDef extends MethodDict {
@@ -244,7 +244,7 @@ export const globalProcDefs: ProcDef[] = [
         prep: (task, worker) => {
             const comps = worker.getMember(symbols.COMPS).getList();
             assertCompAmount(comps, 2);
-            const stmtsComp = getSmtsComp(comps, 1);
+            const stmtsComp = getStmtsComp(comps, 1);
             const { argVars, argsVar } = getSignatureVars(stmtsComp);
             if (typeof argVars === "undefined") {
                 argsVar!.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
@@ -748,6 +748,42 @@ export const globalProcDefs: ProcDef[] = [
                     const exception = values.getList().getMember(0);
                     throw new PetException(exception);
                 },
+            );
+        },
+    },
+    {
+        name: "TRY",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 4);
+            assertStmtsComp(comps, 1);
+            assertIdentComp(comps, 2, "CATCH");
+            const catchBody = getStmtsComp(comps, 3);
+            const attrs = catchBody.getMember(symbols.ATTRS).getList();
+            const attrAmount = attrs.getLength();
+            if (attrAmount > 1) {
+                throw createSyntaxError(
+                    "CATCH body cannot have more than one block attribute.", catchBody,
+                );
+            }
+            if (attrAmount === 1) {
+                const attr = attrs.getMember(0).getMap();
+                const attrComps = attr.getMember(symbols.COMPS).getList();
+                assertCompAmount(attrComps, 2, attr);
+                assertIdentComp(attrComps, 0, "EXCEP");
+                const declComp = getDeclComp(attrComps, 1);
+                const variable = declComp.getMember(symbols.VAR).getMap();
+                variable.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
+            }
+            return callDefaultPrep(task, worker);
+        },
+        eval: (task, worker, varSpace) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            const tryBody = comps.getMember(1).getMap();
+            const catchBody = comps.getMember(3).getMap();
+            return task.runTask(
+                tryProcEvalTask, { tryBody, catchBody, varSpace },
+                (value) => task.returnValue(null),
             );
         },
     },

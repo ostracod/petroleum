@@ -5,7 +5,7 @@ import { symbols } from "./symbol.js";
 import { KnownValue, PetValue, PetList, PetMap, ObservableBunch } from "./value.js";
 import { SetProcParts } from "./procedure.js";
 import { createBreakExcep } from "./exception.js";
-import { getVariable, getScope } from "./variable.js";
+import { getVariable, findVarValue, getScope, VarSpaceType, getVarSpaceType, createFrame } from "./variable.js";
 import { TaskDef } from "./task.js";
 
 export interface MapFieldComps {
@@ -272,6 +272,51 @@ export const awaitProcEvalTask: TaskDef<AwaitProcEvalParams, AwaitProcEvalState>
         (task) => {
             const { bunch, location } = task.state;
             return task.returnValue(bunch!.getMember(location!));
+        },
+    ],
+};
+
+interface TryProcEvalParams {
+    tryBody: PetMap;
+    catchBody: PetMap;
+    varSpace: PetMap;
+}
+
+export const tryProcEvalTask: TaskDef<TryProcEvalParams, { exception: PetValue | null }> = {
+    getInitState: (params) => ({ exception: null }),
+    stages: [
+        (task) => {
+            const { tryBody, varSpace } = task.params;
+            return task.callMethod(
+                tryBody, symbols.EVAL, [varSpace],
+                (value) => task.returnValue(null),
+                (exception) => task.advanceStage({ exception }),
+            )
+        },
+        (task) => {
+            const { catchBody, varSpace } = task.params;
+            const attrs = catchBody.getMember(symbols.ATTRS).getList();
+            let excepVar: PetMap | null;
+            if (attrs.getLength() === 1) {
+                const attr = attrs.getMember(0).getMap();
+                const attrComps = attr.getMember(symbols.COMPS).getList();
+                const declComp = attrComps.getMember(1).getMap();
+                excepVar = declComp.getMember(symbols.VAR).getMap();
+            } else {
+                excepVar = null;
+            }
+            const scope = catchBody.getMember(symbols.SCOPE).getMap();
+            const varSpaceType = getVarSpaceType(varSpace);
+            const parentFrame = (varSpaceType === VarSpaceType.Frame) ? varSpace : null;
+            const frame = createFrame(scope, parentFrame);
+            if (excepVar !== null) {
+                const frameEntry = findVarValue(frame, excepVar);
+                frameEntry.setMember(symbols.VALUE, task.state.exception);
+            }
+            return task.callMethod(
+                catchBody, symbols.EVAL, [frame],
+                (value) => task.returnValue(null),
+            )
         },
     ],
 };
