@@ -321,4 +321,49 @@ export const tryProcEvalTask: TaskDef<TryProcEvalParams, { exception: PetValue |
     ],
 };
 
+interface WithCallerParams {
+    callerNode: PetMap;
+    stmtsComp: PetMap;
+    varSpace: PetMap;
+}
+
+const withCallerTask: TaskDef<WithCallerParams, null> = {
+    getInitState: (params) => null,
+    getNodes: (params) => ({ callerNode: params.callerNode }),
+    stages: [
+        (task) => task.callMethod(
+            task.params.stmtsComp, symbols.EVAL, [task.params.varSpace],
+            (value) => task.returnValue(null),
+        ),
+    ],
+};
+
+interface WithCallerProcParams {
+    exprsComp: PetMap;
+    stmtsComp: PetMap;
+    varSpace: PetMap;
+}
+
+export const withCallerProcTask: TaskDef<WithCallerProcParams, { node: PetMap | null }> = {
+    getInitState: (params) => ({ node: null }),
+    stages: [
+        (task) => task.callMethod(
+            task.params.exprsComp, symbols.EVAL, [task.params.varSpace],
+            (listValue) => {
+                const node = listValue.getList().getMember(0).getMap();
+                return task.advanceStage({ node });
+            },
+        ),
+        (task) => task.runTask(
+            withCallerTask,
+            {
+                callerNode: task.state.node,
+                stmtsComp: task.params.stmtsComp,
+                varSpace: task.params.varSpace,
+            },
+            (value) => task.returnValue(null),
+        ),
+    ],
+};
+
 
