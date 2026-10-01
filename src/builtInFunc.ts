@@ -1,7 +1,7 @@
 
 import "./value.js";
 
-import { KnownValue, PetValue, wrapKnownValue, PetString, PetList, PetMap, PetFunc, valuesAreEqual } from "./value.js";
+import { KnownValue, PetValue, wrapKnownValue, minIntValue, PetString, PetList, PetMap, PetFunc, valuesAreEqual } from "./value.js";
 import { PetTypeError, ValueError } from "./exception.js";
 import { Action, Task } from "./task.js";
 
@@ -81,7 +81,106 @@ export class DefFunc extends BuiltInFunc {
     }
 }
 
+const intMask = (1n << 63n) - 1n;
+const signMask = 1n << 63n;
+
+const toSignedInt64 = (value: bigint): bigint => {
+    if ((value & signMask) > 0n) {
+        return -((~value & intMask) + 1n);
+    } else {
+        return value & intMask;
+    }
+};
+
 export const globalFuncDefs: FuncDef[] = [
+    {
+        name: "NEG",
+        argAmount: 1,
+        call: (task, args) => {
+            const result = -args[0].getInt();
+            return task.returnValue(toSignedInt64(result));
+        },
+    },
+    {
+        name: "ADD",
+        argAmount: 2,
+        call: (task, args) => {
+            const result = args[0].getInt() + args[1].getInt();
+            return task.returnValue(toSignedInt64(result));
+        },
+    },
+    {
+        name: "SUB",
+        argAmount: 2,
+        call: (task, args) => {
+            const result = args[0].getInt() - args[1].getInt();
+            return task.returnValue(toSignedInt64(result));
+        },
+    },
+    {
+        name: "MUL",
+        argAmount: 2,
+        call: (task, args) => {
+            const result = args[0].getInt() * args[1].getInt();
+            return task.returnValue(toSignedInt64(result));
+        },
+    },
+    {
+        name: "DIV",
+        argAmount: 2,
+        call: (task, args) => {
+            const denominator = args[1].getInt();
+            if (denominator === 0n) {
+                throw new ValueError("Cannot divide by zero.");
+            }
+            const result = args[0].getInt() / denominator;
+            return task.returnValue(toSignedInt64(result));
+        },
+    },
+    {
+        name: "MOD",
+        argAmount: 2,
+        call: (task, args) => {
+            const denominator = args[1].getInt();
+            if (denominator === 0n) {
+                throw new ValueError("Cannot divide by zero.");
+            }
+            const result = args[0].getInt() % denominator;
+            return task.returnValue(toSignedInt64(result));
+        },
+    },
+    {
+        name: "NOT",
+        argAmount: 1,
+        call: (task, args) => {
+            const result = !(args[0].getInt() !== 0n);
+            return task.returnValue(result ? 1n : 0n);
+        },
+    },
+    {
+        name: "OR",
+        argAmount: 2,
+        call: (task, args) => {
+            const result = (args[0].getInt() !== 0n || args[1].getInt() !== 0n);
+            return task.returnValue(result ? 1n : 0n);
+        },
+    },
+    {
+        name: "AND",
+        argAmount: 2,
+        call: (task, args) => {
+            const result = (args[0].getInt() !== 0n && args[1].getInt() !== 0n);
+            return task.returnValue(result ? 1n : 0n);
+        },
+    },
+    {
+        name: "XOR",
+        argAmount: 2,
+        call: (task, args) => {
+            const result = ((args[0].getInt() !== 0n) !== (args[1].getInt() !== 0n));
+            return task.returnValue(result ? 1n : 0n);
+        },
+    },
     {
         name: "MEMBER",
         argAmount: 2,

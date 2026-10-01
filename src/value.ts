@@ -13,6 +13,7 @@ export type PetValueAndKey = null | bigint | PetSymbol | PetList | PetMap | PetF
 export type KnownValue = PetString | PetValueAndKey;
 export type MapKey = string | PetValueAndKey;
 
+export const minIntValue = -(1n << 63n);
 export const maxIntValue = (1n << 63n) - 1n;
 
 export class PetValue {
@@ -215,6 +216,9 @@ export class PetString {
     
     getCharCode(index: number): number {
         const buffer = this.toBuffer();
+        if (index < 0 || index >= buffer.length) {
+            throw new ValueError(`Index ${index} is outside of string.`);
+        }
         return buffer[index];
     }
     
@@ -524,7 +528,7 @@ export class PetMap implements ObservableBunchIface {
     getMember(key: KnownValue | PetValue): PetValue {
         const value = this.getOptionalMember(key);
         if (typeof value === "undefined") {
-            throw new PetTypeError(`Key ${toString(key)} does not exist in map.`);
+            throw new ValueError(`Key ${toString(key)} does not exist in map.`);
         }
         return value;
     }
