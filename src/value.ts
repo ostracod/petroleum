@@ -226,6 +226,10 @@ export class PetString {
         return buffer[index];
     }
     
+    getLength(): number {
+        return this.toBuffer().length;
+    }
+    
     toString(): string {
         if (this.text === null) {
             this.text = this.buffer!.toString("utf8");
@@ -314,6 +318,8 @@ export interface ObservableBunchIface {
     observatory: MemberObservatory;
     getOptionalMember(location: KnownValue | PetValue): PetValue | undefined;
     getMember(location: KnownValue | PetValue): PetValue;
+    setMember(location: KnownValue | PetValue, value: KnownValue | PetValue): void;
+    deferMember(location: KnownValue | PetValue, message: string): PetValue;
 }
 
 export type ObservableBunch = KnownValue & ObservableBunchIface;
@@ -456,8 +462,8 @@ export class PetList implements ObservableBunchIface {
     getMember(index: ListIndex): PetValue {
         const value = this.getOptionalMember(index);
         if (typeof value === "undefined") {
-            const indexNumber = listIndexToNumber(index);
-            throw new ValueError(`Index ${indexNumber} is outside of list.`);
+            const numberIndex = listIndexToNumber(index);
+            throw new ValueError(`Index ${numberIndex} is outside of list.`);
         }
         return value;
     }
@@ -465,6 +471,9 @@ export class PetList implements ObservableBunchIface {
     setMember(index: ListIndex, inputValue: KnownValue | PetValue): void {
         const value = toPetValue(inputValue);
         const numberIndex = listIndexToNumber(index);
+        if (numberIndex < 0 || numberIndex >= this.elements.length) {
+            throw new ValueError(`Index ${numberIndex} is outside of list.`);
+        }
         const lastValue = this.elements[numberIndex];
         this.elements[numberIndex] = value;
         if (typeof lastValue === "undefined" || valueMayHaveChanged(lastValue, value)) {
@@ -478,6 +487,16 @@ export class PetList implements ObservableBunchIface {
     
     getLength(): number {
         return this.elements.length;
+    }
+    
+    truncate(length: number): void {
+        if (length < 0) {
+            throw new ValueError("Truncation length cannot be negative.");
+        }
+        if (length > this.elements.length) {
+            throw new ValueError("Truncation length cannot be greater than list length.");
+        }
+        this.elements.length = length;
     }
     
     addElement(value: KnownValue | PetValue): void {

@@ -1,8 +1,8 @@
 
 import "./value.js";
 
-import { PetSymbol } from "./symbol.js";
-import { KnownValue, PetValue, wrapKnownValue, minIntValue, PetString, PetList, PetMap, PetFunc, valuesAreEqual } from "./value.js";
+import { PetSymbol, symbols } from "./symbol.js";
+import { KnownValue, PetValue, wrapKnownValue, minIntValue, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
 import { PetTypeError, ValueError } from "./exception.js";
 import { Action, Task } from "./task.js";
 
@@ -92,6 +92,28 @@ const toSignedInt64 = (value: bigint): bigint => {
         return value & intMask;
     }
 };
+
+const getTypeSymbol = (value: KnownValue): PetSymbol => {
+    if (value === null) {
+        return symbols.NULL;
+    } else if (typeof value === "bigint") {
+        return symbols.INT;
+    } else if (value instanceof PetSymbol) {
+        return symbols.SYMBOL;
+    } else if (value instanceof PetString) {
+        return symbols.STR;
+    } else if (value instanceof PetList) {
+        return symbols.LIST;
+    } else if (value instanceof PetMap) {
+        return symbols.MAP;
+    } else if (value instanceof PetFunc) {
+        return symbols.FUNC;
+    } else if (value instanceof EvalState) {
+        return symbols.EVAL_STATE;
+    } else {
+        throw new PetTypeError("Erm, what the sigma?");
+    }
+}
 
 export const globalFuncDefs: FuncDef[] = [
     {
@@ -287,6 +309,38 @@ export const globalFuncDefs: FuncDef[] = [
         },
     },
     {
+        name: "TYPE",
+        argAmount: 1,
+        call: (task, args) => {
+            const result = getTypeSymbol(args[0].getKnownValue());
+            return task.returnValue(result);
+        },
+    },
+    {
+        name: "LEN",
+        argAmount: 1,
+        call: (task, args) => {
+            const bunch = args[0].getKnownValue();
+            let length: number;
+            if (bunch instanceof PetString || bunch instanceof PetList) {
+                length = bunch.getLength();
+            } else if (bunch instanceof PetMap) {
+                length = bunch.fields.size;
+            } else {
+                throw new PetTypeError("Bunch must be a string, list, or map.");
+            }
+            return task.returnValue(BigInt(length));
+        },
+    },
+    {
+        name: "TRUNC",
+        argAmount: 2,
+        call: (task, args) => {
+            args[0].getList().truncate(args[1].toNumber());
+            return task.returnValue(null);
+        },
+    },
+    {
         name: "MEMBER",
         argAmount: 2,
         call: (task, args) => {
@@ -303,6 +357,23 @@ export const globalFuncDefs: FuncDef[] = [
                 throw new PetTypeError("Bunch must be a string, list, or map.");
             }
             return task.returnValue(member);
+        },
+    },
+    {
+        name: "SET_MEMBER",
+        argAmount: 3,
+        call: (task, args) => {
+            args[0].getObservableBunch().setMember(args[1], args[2]);
+            return task.returnValue(null);
+        },
+    },
+    {
+        name: "DEFER_MEMBER",
+        argAmount: 3,
+        call: (task, args) => {
+            const bunch = args[0].getObservableBunch();
+            const result = bunch.deferMember(args[1], args[2].toString());
+            return task.returnValue(result);
         },
     },
     {
