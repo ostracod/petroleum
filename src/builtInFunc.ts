@@ -1,6 +1,7 @@
 
 import "./value.js";
 
+import { PetSymbol } from "./symbol.js";
 import { KnownValue, PetValue, wrapKnownValue, minIntValue, PetString, PetList, PetMap, PetFunc, valuesAreEqual } from "./value.js";
 import { PetTypeError, ValueError } from "./exception.js";
 import { Action, Task } from "./task.js";
@@ -179,6 +180,110 @@ export const globalFuncDefs: FuncDef[] = [
         call: (task, args) => {
             const result = ((args[0].getInt() !== 0n) !== (args[1].getInt() !== 0n));
             return task.returnValue(result ? 1n : 0n);
+        },
+    },
+    {
+        name: "BIT_NOT",
+        argAmount: 1,
+        call: (task, args) => {
+            const result = ~args[0].getInt();
+            return task.returnValue(result);
+        },
+    },
+    {
+        name: "BIT_OR",
+        argAmount: 2,
+        call: (task, args) => {
+            const result = (args[0].getInt() | args[1].getInt());
+            return task.returnValue(result);
+        },
+    },
+    {
+        name: "BIT_AND",
+        argAmount: 2,
+        call: (task, args) => {
+            const result = (args[0].getInt() & args[1].getInt());
+            return task.returnValue(result);
+        },
+    },
+    {
+        name: "BIT_XOR",
+        argAmount: 2,
+        call: (task, args) => {
+            const result = (args[0].getInt() ^ args[1].getInt());
+            return task.returnValue(result);
+        },
+    },
+    {
+        name: "SHIFT_LEFT",
+        argAmount: 2,
+        call: (task, args) => {
+            const result = (args[0].getInt() << args[1].getInt());
+            return task.returnValue(toSignedInt64(result));
+        },
+    },
+    {
+        name: "SHIFT_RIGHT",
+        argAmount: 2,
+        call: (task, args) => {
+            const result = (args[0].getInt() >> args[1].getInt());
+            return task.returnValue(toSignedInt64(result));
+        },
+    },
+    {
+        name: "EQUAL",
+        argAmount: 2,
+        call: (task, args) => {
+            const result = valuesAreEqual(args[0].getKnownValue(), args[1].getKnownValue());
+            return task.returnValue(result ? 1n : 0n);
+        },
+    },
+    {
+        name: "NOT_EQUAL",
+        argAmount: 2,
+        call: (task, args) => {
+            const result = !valuesAreEqual(args[0].getKnownValue(), args[1].getKnownValue());
+            return task.returnValue(result ? 1n : 0n);
+        },
+    },
+    {
+        name: "GREATER",
+        argAmount: 2,
+        call: (task, args) => {
+            const result = (args[0].getInt() > args[1].getInt());
+            return task.returnValue(result ? 1n : 0n);
+        },
+    },
+    {
+        name: "LESS",
+        argAmount: 2,
+        call: (task, args) => {
+            const result = (args[0].getInt() < args[1].getInt());
+            return task.returnValue(result ? 1n : 0n);
+        },
+    },
+    {
+        name: "GREATER_EQUAL",
+        argAmount: 2,
+        call: (task, args) => {
+            const result = (args[0].getInt() >= args[1].getInt());
+            return task.returnValue(result ? 1n : 0n);
+        },
+    },
+    {
+        name: "LESS_EQUAL",
+        argAmount: 2,
+        call: (task, args) => {
+            const result = (args[0].getInt() <= args[1].getInt());
+            return task.returnValue(result ? 1n : 0n);
+        },
+    },
+    {
+        name: "SYMBOL",
+        argAmount: 1,
+        call: (task, args) => {
+            const result = new PetSymbol(args[0].toStringStrict());
+            return task.returnValue(result);
         },
     },
     {

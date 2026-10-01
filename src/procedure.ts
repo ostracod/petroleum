@@ -121,7 +121,7 @@ const setUpImportVars = (comps: PetList, module: PetMap): void => {
     const comp = comps.getMember(compIndex).getMap();
     const compType = comp.getMember(symbols.COMP_TYPE).getSymbol();
     if (compType === symbols.IDENT_COMP) {
-        if (comp.getMember(symbols.IDENT).toString() !== "AS") {
+        if (comp.getMember(symbols.IDENT).toStringStrict() !== "AS") {
             throw createSyntaxError("Expected \"AS\" identifier component.", comp);
         }
         const nextCompIndex = compIndex + 2;
@@ -163,7 +163,7 @@ const getIfProcClauses = (stmt: PetMap): IfProcClause[] => {
     while (index < compAmount) {
         const identComp = comps.getMember(index).getMap();
         index += 1;
-        const text = identComp.getMember(symbols.IDENT).toString();
+        const text = identComp.getMember(symbols.IDENT).toStringStrict();
         let exprsComp: PetMap | null;
         if (text === "ELSE_IF") {
             exprsComp = comps.getMember(index).getMap();
@@ -367,7 +367,7 @@ export const globalProcDefs: ProcDef[] = [
             assertCompAmount(comps, 2);
             const declComp = getDeclComp(comps, 1);
             const variable = declComp.getMember(symbols.VAR).getMap();
-            const varName = variable.getMember(symbols.IDENT).toString();
+            const varName = variable.getMember(symbols.IDENT).toStringStrict();
             const symbol = new PetSymbol(varName);
             variable.setMember(symbols.VAR_TYPE, symbols.PREP_VAR);
             variable.setMember(symbols.VALUE, symbol);
@@ -511,7 +511,7 @@ export const globalProcDefs: ProcDef[] = [
                     const depMap = parentPackage.getMember(symbols.DEPS).getMap();
                     const depPackage = depMap.getMember(specifier).getMap();
                     const mainModule = depPackage.getMember(symbols.MAIN_MODULE).getMap();
-                    const modulePath = mainModule.getMember(symbols.FILE_PATH).toString();
+                    const modulePath = mainModule.getMember(symbols.FILE_PATH).toStringStrict();
                     if (!task.context.hasUserModule(modulePath)) {
                         task.context.addUserModule(mainModule);
                     }
@@ -532,7 +532,7 @@ export const globalProcDefs: ProcDef[] = [
             let index = 3;
             while (index < compAmount) {
                 const identComp = getIdentComp(comps, index);
-                const text = identComp.getMember(symbols.IDENT).toString();
+                const text = identComp.getMember(symbols.IDENT).toStringStrict();
                 let nextIndex: number;
                 if (text === "ELSE_IF") {
                     nextIndex = index + 3;

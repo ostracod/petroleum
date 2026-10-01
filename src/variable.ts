@@ -76,7 +76,7 @@ export const getVariable = (scope: PetMap, name: PetString): PetMap => {
 const getVarType = (variable: PetMap): PetSymbol => {
     const varType = variable.getMember(symbols.VAR_TYPE).getKnownValue();
     if (varType === null) {
-        const varName = variable.getMember(symbols.IDENT).toString();
+        const varName = variable.getMember(symbols.IDENT).toStringStrict();
         throw new AwaitException(
             variable,
             symbols.VAR_TYPE,
@@ -162,7 +162,7 @@ export const findVarValue = (varSpace: PetMap, variable: PetMap): PetMap => {
 // varSpace is either a frame or a scope.
 export const getVarValue = (varSpace: PetMap, variable: PetMap): PetValue => {
     const result = findVarValue(varSpace, variable);
-    const varName = variable.getMember(symbols.IDENT).toString();
+    const varName = variable.getMember(symbols.IDENT).toStringStrict();
     return result.deferMember(
         symbols.VALUE, `Waiting for value of variable "${varName}" to be assigned.`,
     );

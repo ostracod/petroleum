@@ -134,7 +134,7 @@ const entityToModulePos = (entity: PetMap): ModulePos => {
     const lineNumber = entity.getMember(symbols.LINE_NUM).getInt();
     const columnNumber = entity.getMember(symbols.COL_NUM).getInt();
     const module = getModule(entity);
-    const modulePath = module.getMember(symbols.FILE_PATH).toString();
+    const modulePath = module.getMember(symbols.FILE_PATH).toStringStrict();
     return { lineNumber, columnNumber, modulePath };
 };
 

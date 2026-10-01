@@ -133,6 +133,10 @@ export class PetValue {
         return knownValueToString(value, parents);
     };
     
+    toStringStrict(): string {
+        return this.getPetString().toString();
+    }
+    
     toMapKey(): MapKey {
         const value = this.getKnownValue();
         return knownValueToMapKey(value);
@@ -604,7 +608,7 @@ export abstract class PetFunc {
 const entityToCodeLoc = (entity: PetMap): string => {
     const lineNumber = entity.getMember(symbols.LINE_NUM).toNumber();
     const module = getModule(entity);
-    const modulePath = module.getMember(symbols.FILE_PATH).toString();
+    const modulePath = module.getMember(symbols.FILE_PATH).toStringStrict();
     return `line ${lineNumber} of ${modulePath}`;
 };
 

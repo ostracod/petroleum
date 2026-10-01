@@ -274,7 +274,7 @@ export const assertIdentComp = (
     const comp = comps.getMember(index).getMap();
     const compType = comp.getMember(symbols.COMP_TYPE).getSymbol();
     if (compType !== symbols.IDENT_COMP
-            || comp.getMember(symbols.IDENT).toString() !== expectedText) {
+            || comp.getMember(symbols.IDENT).toStringStrict() !== expectedText) {
         throw createSyntaxError(`Expected "${expectedText}" identifier component.`, comp);
     }
 };

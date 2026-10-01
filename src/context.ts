@@ -174,14 +174,14 @@ export class PetContext {
     }
     
     addUserModule(module: PetMap): void {
-        const modulePath = module.getMember(symbols.FILE_PATH).toString();
+        const modulePath = module.getMember(symbols.FILE_PATH).toStringStrict();
         this.userModuleIndexes.set(modulePath, this.userModules.length);
         this.userModules.push(module);
         this.scheduler.scheduleTask(prepModuleTask, { module });
     }
     
     loadUserModule(parentPackage: PetMap, relModulePath: string): PetMap {
-        const packagePath = parentPackage.getMember(symbols.DIR_PATH).toString();
+        const packagePath = parentPackage.getMember(symbols.DIR_PATH).toStringStrict();
         const absModulePath = pathUtils.resolve(pathUtils.join(packagePath, relModulePath));
         const userModuleIndex = this.userModuleIndexes.get(absModulePath);
         if (typeof userModuleIndex !== "undefined") {
