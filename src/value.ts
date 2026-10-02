@@ -200,6 +200,22 @@ for (const escape in escapeChars) {
     charEscapes[character] = escape;
 }
 
+const checkSliceIndexes = (
+    bunchLength: number,
+    startIndex: number,
+    endIndex: number,
+): void => {
+    if (startIndex < 0 || startIndex > bunchLength) {
+        throw new ValueError(`Start index ${startIndex} is invalid.`);
+    }
+    if (endIndex < 0 || endIndex > bunchLength) {
+        throw new ValueError(`End index ${endIndex} is invalid.`);
+    }
+    if (startIndex > endIndex) {
+        throw new ValueError("Start index cannot be greater than end index.");
+    }
+};
+
 export class PetString {
     // Either `text` or `buffer` are non-null.
     text: string | null;
@@ -228,6 +244,13 @@ export class PetString {
     
     getLength(): number {
         return this.toBuffer().length;
+    }
+    
+    slice(startIndex: number, endIndex: number): PetString {
+        const buffer = this.toBuffer();
+        checkSliceIndexes(buffer.length, startIndex, endIndex);
+        const subBuffer = buffer.subarray(startIndex, endIndex);
+        return new PetString(subBuffer);
     }
     
     toString(): string {
@@ -489,6 +512,12 @@ export class PetList implements ObservableBunchIface {
         return this.elements.length;
     }
     
+    slice(startIndex: number, endIndex: number): PetList {
+        checkSliceIndexes(this.elements.length, startIndex, endIndex);
+        const subElements = this.elements.slice(startIndex, endIndex);
+        return new PetList(subElements);
+    }
+    
     truncate(length: number): void {
         if (length < 0) {
             throw new ValueError("Truncation length cannot be negative.");
@@ -584,6 +613,9 @@ export class PetMap implements ObservableBunchIface {
     
     deleteField(key: KnownValue | PetValue): void {
         const mapKey = toMapKey(key);
+        if (!this.fields.has(mapKey)) {
+            throw new ValueError(`Key ${toString(key)} does not exist in map.`);
+        }
         this.fields.delete(mapKey);
     }
     

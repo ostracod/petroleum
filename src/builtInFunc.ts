@@ -377,6 +377,35 @@ export const globalFuncDefs: FuncDef[] = [
         },
     },
     {
+        name: "ADD_ELEM",
+        argAmount: 2,
+        call: (task, args) => {
+            args[0].getList().addElement(args[1]);
+            return task.returnValue(null);
+        },
+    },
+    {
+        name: "DEL_FIELD",
+        argAmount: 2,
+        call: (task, args) => {
+            args[0].getMap().deleteField(args[1]);
+            return task.returnValue(null);
+        },
+    },
+    {
+        name: "SLICE",
+        argAmount: 3,
+        call: (task, args) => {
+            const bunch = args[0].getKnownValue();
+            if (bunch instanceof PetString || bunch instanceof PetList) {
+                const result = bunch.slice(args[1].toNumber(), args[2].toNumber());
+                return task.returnValue(result);
+            } else {
+                throw new PetTypeError("Bunch must be string or list.");
+            }
+        },
+    },
+    {
         name: "CALL",
         argAmount: null,
         call: (task, args) => {
