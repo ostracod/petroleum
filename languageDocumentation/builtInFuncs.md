@@ -224,7 +224,7 @@ If `$worker` is a procedure invocation, `CALL_METHOD` looks up methods to call i
 CLONE_CODE($code)
 ```
 
-Returns a copy of `$code`. `$code` may be a node or a component. This function deeply copies all nested nodes, components, scopes, and variables. The copy of `$code` will retain the same parent and will be in prep-phase. This function is useful for implementing macros and generic functions.
+Returns a copy of `$code`. `$code` may be a node or a component. This function deeply copies all nested nodes, components, scopes, and variables. The copy of `$code` will retain the same parent. The `#PREP` method must not have been called on `$code` or workers in `$code`. This function is useful for implementing macros and generic functions.
 
 ```
 SCOPE($code)

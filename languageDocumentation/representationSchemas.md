@@ -256,6 +256,7 @@ Methods are defined as functions. Petroleum recognizes methods with the followin
     * When `$worker` is an expression, the return value of the method is the return value of the expression.
 * The `#ACCESSED_VARS` method determines the frame entries which a function closure will store.
     * This method accepts two arguments: `$worker` and `$scope`.
+        * `$scope` must be outside of `$worker`.
     * This method returns a map from variable name to variable visible in `$scope`.
         * The map includes all variables which the `#EVAL` method of `$worker` may access.
 

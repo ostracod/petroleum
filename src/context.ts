@@ -34,10 +34,10 @@ export class PetContext {
         this.isPrepping = true;
         this.aggregatedExceps = [];
         this.hasReportedProblem = false;
-        const packageResolver = new PackageResolver(entryPackagePath, this.globalScope);
         let entryPackage: PetMap | null;
         let exceptions: PetMap[];
         try {
+            const packageResolver = new PackageResolver(entryPackagePath, this.globalScope);
             ({ entryPackage, exceptions } = packageResolver.resolvePackages());
         } catch (error) {
             if (error instanceof PetException) {

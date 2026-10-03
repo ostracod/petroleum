@@ -21,6 +21,7 @@ interface PackageConfig {
     specifier: string;
     version: string;
     mainModule: string;
+    petroleumVersion: string;
     dependencies: DependencyConfig[];
 }
 
@@ -94,6 +95,8 @@ class Version {
     }
 }
 
+const petroleumVersion = new Version([1, 0, 0]);
+
 class VersionRange {
     minVersion: Version; // Inclusive.
     maxVersion: Version; // Exclusive.
@@ -109,7 +112,7 @@ class VersionRange {
         } else if (prefix === "=") {
             parts[2] += 1;
         } else {
-            throw new ValueError(`Received package dependency version ${text}, but prefix must be "^", "~", or "=".`);
+            throw new ValueError(`Received version requirement ${text}, but prefix must be "^", "~", or "=".`);
         }
         this.maxVersion = new Version(parts);
     }
@@ -135,6 +138,7 @@ class PetPackage {
     config: PackageConfig;
     specifier: string;
     version: Version;
+    petroleumVersionRange: VersionRange;
     dependencies: Dependency[];
     key: string;
     
@@ -145,10 +149,15 @@ class PetPackage {
         this.config = JSON.parse(fs.readFileSync(configPath, "utf8"));
         this.specifier = this.config.specifier;
         this.version = new Version(this.config.version);
+        this.petroleumVersionRange = new VersionRange(this.config.petroleumVersion);
         this.dependencies = this.config.dependencies.map(
             (depConfig) => new Dependency(depConfig),
         );
         this.key = this.specifier + "," + this.version.key;
+    }
+    
+    petroleumIsCompatible(): boolean {
+        return this.petroleumVersionRange.contains(petroleumVersion);
     }
 }
 
@@ -350,6 +359,9 @@ export class PackageResolver {
     
     constructor(entryPackagePath: string, globalScope: PetMap) {
         this.entryPackage = new PetPackage(pathUtils.resolve(entryPackagePath));
+        if (!this.entryPackage.petroleumIsCompatible()) {
+            throw new StateError("Entry package is not compatible with this version of Petroleum.");
+        }
         this.globalScope = globalScope;
         this.packageStoreCache = new Map();
     }
@@ -463,16 +475,24 @@ export class PackageResolver {
         versionMap: VersionMap<PetPackage | null>,
         dependency: SelectionDependency,
     ): PetPackage | null {
-        const index = versionMap.findBiggestUnder(dependency.versionRange.maxVersion);
-        const entry = versionMap.entries[index];
-        if (!dependency.isCompatibleWith(entry.version)) {
-            return null;
+        let index = versionMap.findBiggestUnder(dependency.versionRange.maxVersion);
+        while (index >= 0) {
+            const entry = versionMap.entries[index];
+            if (!dependency.isCompatibleWith(entry.version)) {
+                break;
+            }
+            let pack = entry.value;
+            if (pack === null) {
+                const packagePath = getPackagePath(dependency.specifier, entry.version);
+                pack = new PetPackage(packagePath);
+                entry.value = pack;
+            }
+            if (pack.petroleumIsCompatible()) {
+                return pack;
+            }
+            index -= 1;
         }
-        if (entry.value === null) {
-            const packagePath = getPackagePath(dependency.specifier, entry.version);
-            entry.value = new PetPackage(packagePath);
-        }
-        return entry.value;
+        return null;
     }
     
     // Returns whether any redundant packages have been removed.

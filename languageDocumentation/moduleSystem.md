@@ -9,6 +9,12 @@ A "package" is a directory containing a `petroleumPackage.json` file at the top 
 * Decimal digits
 * Underscore and hyphen
 
+A "version requirement" is a semantic version number with one of the following prefixes:
+
+* `^$major.$minor.$patch` matches major versions equal to `$major` and minor versions greater than or equal to `$minor`.
+* `~$major.$minor.$patch` matches major versions equal to `$major`, minor versions equal to `$minor`, and patch versions greater than or equal to `$patch`.
+* `=$major.$minor.$patch` matches identical version numbers.
+
 The `petroleumPackage.json` file has this schema:
 
 ```
@@ -16,6 +22,7 @@ interface PetroleumPackageFile {
     specifier: string;
     version: string;
     mainModule: string;
+    petroleumVersion: string;
     dependencies: {
         specifier: string,
         version: string,
@@ -26,12 +33,10 @@ interface PetroleumPackageFile {
 * `specifier` is the specifier of the package.
 * `version` is the semantic version number of the package.
 * `mainModule` is the path of the entry point module relative to the package directory. When a dependent imports the package, the dependent accesses the main module. When the package is run as an application, the main module runs first.
+* `petroleumVersion` is the version requirement of the Petroleum interpreter.
 * `dependencies` defines all dependency packages and their compatible version numbers.
     * `specifier` is the specifier of the dependency.
-    * `version` is a semantic version number with one of the following prefixes:
-        * `^$major.$minor.$patch` matches major versions equal to `$major` and minor versions greater than or equal to `$minor`.
-        * `~$major.$minor.$patch` matches major versions equal to `$major`, minor versions equal to `$minor`, and patch versions greater than or equal to `$patch`.
-        * `=$major.$minor.$patch` matches identical version numbers.
+    * `version` is the version requirement of the dependency.
     * In the future this dictionary may specify the repository from which to download the dependency, but this mechanism has not yet been defined.
 
 Dependency packages must be installed in the "package store", which is the directory named `petroleumPackages` in the home directory of the user. Each version of package with the specifier `"$developerName.$packageName"` has the path `~/petroleumPackages/$developerName/$packageName/v$version`, where `$version` is the version number of the package.
