@@ -476,6 +476,23 @@ export const globalFuncDefs: FuncDef[] = [
         },
     },
     {
+        name: "KEYS",
+        argAmount: 1,
+        call: (task, args) => {
+            const keys = args[0].getMap().getKeys();
+            const result = new PetList(keys);
+            return task.returnValue(result);
+        },
+    },
+    {
+        name: "HAS_KEY",
+        argAmount: 2,
+        call: (task, args) => {
+            const result = args[0].getMap().hasKey(args[1]);
+            return task.returnValue(result ? 1n : 0n);
+        },
+    },
+    {
         name: "CALL",
         argAmount: null,
         call: (task, args) => {
@@ -486,6 +503,24 @@ export const globalFuncDefs: FuncDef[] = [
             const funcArgs = (args.length > 1) ? args[1].getList() : ([] as PetValue[]);
             return task.callFunction(
                 func, funcArgs,
+                (value) => task.returnValue(value),
+            );
+        },
+    },
+    {
+        name: "CALL_METHOD",
+        argAmount: null,
+        call: (task, args) => {
+            if (args.length < 2 || args.length > 3) {
+                throw new ValueError("Expected 2 or 3 arguments.");
+            }
+            const worker = args[0].getMap();
+            const methodKey = args[1];
+            const methodArgs = (args.length > 2)
+                ? args[2].getList().elements.slice()
+                : ([] as PetValue[]);
+            return task.callMethod(
+                worker, methodKey, methodArgs,
                 (value) => task.returnValue(value),
             );
         },
