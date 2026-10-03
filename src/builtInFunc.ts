@@ -2,7 +2,7 @@
 import "./value.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { KnownValue, PetValue, wrapKnownValue, minIntValue, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
+import { KnownValue, PetValue, wrapKnownValue, minIntValue, maxIntValue, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
 import { PetTypeError, ValueError } from "./exception.js";
 import { Action, Task } from "./task.js";
 
@@ -114,6 +114,8 @@ const getTypeSymbol = (value: KnownValue): PetSymbol => {
         throw new PetTypeError("Erm, what the sigma?");
     }
 }
+
+const intRegex = /^-?[0-9]+$/;
 
 export const globalFuncDefs: FuncDef[] = [
     {
@@ -403,6 +405,74 @@ export const globalFuncDefs: FuncDef[] = [
             } else {
                 throw new PetTypeError("Bunch must be string or list.");
             }
+        },
+    },
+    {
+        name: "CONCAT",
+        argAmount: 1,
+        call: (task, args) => {
+            const bunches = args[0].getList();
+            if (bunches.getLength() <= 0) {
+                throw new ValueError("Cannot concatenate empty list of bunches.");
+            }
+            const firstBunch = bunches.getMember(0).getKnownValue();
+            if (firstBunch instanceof PetString) {
+                const buffers = bunches.elements.map((element) => (
+                    element.getPetString().toBuffer()
+                ));
+                const result = new PetString(Buffer.concat(buffers));
+                return task.returnValue(result);
+            } else if (firstBunch instanceof PetList) {
+                const joinedElements: PetValue[] = [];
+                for (const listValue of bunches.elements) {
+                    const list = listValue.getList();
+                    for (const element of list.elements) {
+                        joinedElements.push(element);
+                    }
+                }
+                const result = new PetList(joinedElements);
+                return task.returnValue(result);
+            } else {
+                throw new PetTypeError("Concatenation bunches must be strings or lists.");
+            }
+        },
+    },
+    {
+        name: "STR",
+        argAmount: 1,
+        call: (task, args) => {
+            const result = new PetString(args[0].toString());
+            return task.returnValue(result);
+        },
+    },
+    {
+        name: "PARSE_INT",
+        argAmount: 1,
+        call: (task, args) => {
+            const text = args[0].toStringStrict();
+            if (!intRegex.test(text)) {
+                throw new ValueError("Cannot parse integer.");
+            }
+            const result = BigInt(text);
+            if (result < minIntValue) {
+                throw new ValueError("Integer magnitude is too big to parse.");
+            }
+            if (result > maxIntValue) {
+                throw new ValueError("Integer is too big to parse.");
+            }
+            return task.returnValue(result);
+        },
+    },
+    {
+        name: "CHAR",
+        argAmount: 1,
+        call: (task, args) => {
+            const charCode = args[0].toNumber();
+            if (charCode < 0 || charCode > 255) {
+                throw new ValueError("Invalid character code.");
+            }
+            const result = new PetString(Buffer.from([charCode]));
+            return task.returnValue(result);
         },
     },
     {
