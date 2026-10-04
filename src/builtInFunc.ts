@@ -3,9 +3,11 @@ import "./value.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
 import { KnownValue, PetValue, wrapKnownValue, minIntValue, maxIntValue, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
-import { PetTypeError, ValueError } from "./exception.js";
+import { PetTypeError, ValueError, StateError } from "./exception.js";
+import { getChildWorkers } from "./node.js";
 import { findVariable, findVarValue, getScope, createFrame } from "./variable.js";
 import { Action, Task } from "./task.js";
+import { PetContext } from "./context.js";
 
 interface FuncDef {
     name: string | null;
@@ -117,6 +119,27 @@ const getTypeSymbol = (value: KnownValue): PetSymbol => {
 }
 
 const intRegex = /^-?[0-9]+$/;
+
+const assertWorkerUnprepped = (context: PetContext, worker: PetMap): void => {
+    const phase = worker.getMember(symbols.PHASE).getSymbol();
+    if (phase !== symbols.PREP_PHASE || context.preppingWorkers.has(worker)) {
+        throw new StateError("Cannot clone code which has begun prepping.");
+    }
+};
+
+const checkCodeToClone = (context: PetContext, code: PetMap): void => {
+    if (code.hasKey(symbols.PHASE)) {
+        assertWorkerUnprepped(context, code);
+        return;
+    }
+    if (!code.hasKey(symbols.NODE_TYPE)) {
+        return;
+    }
+    const workers = getChildWorkers(code);
+    for (const worker of workers) {
+        assertWorkerUnprepped(context, code);
+    }
+};
 
 interface CloneScopes {
     original: PetMap;
@@ -638,7 +661,9 @@ export const globalFuncDefs: FuncDef[] = [
         name: "CLONE_CODE",
         argAmount: 1,
         call: (task, args) => {
-            const result = cloneCode(args[0].getMap(), null);
+            const code = args[0].getMap();
+            checkCodeToClone(task.context, code);
+            const result = cloneCode(code, null);
             return task.returnValue(result);
         },
     },
