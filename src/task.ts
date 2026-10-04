@@ -6,7 +6,7 @@ import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, nullValue, P
 import { NotEqualFunc } from "./builtInFunc.js";
 import { getMethodWithDefault } from "./method.js";
 import { PetSyntaxError, PetTypeError, ValueError, StateError, createSyntaxError, messageAtEntity } from "./exception.js";
-import { workerIsInvocation, getWorkerMethodMap, getFuncArgsComp } from "./node.js";
+import { workerIsInvocation, getWorkerMethodMap, getFuncArgsComp, assertCompAmount, assertIdentComp, getStmtsComp } from "./node.js";
 import { createFrame, VarSpaceType, getVarSpaceType, getVariable, getVarValue, getScope } from "./variable.js";
 import { Spinner } from "./scheduler.js";
 import { PetContext } from "./context.js";
@@ -262,6 +262,31 @@ export const mainTask: TaskDef<null, { moduleIndex: number }> = {
 export const prepModuleTask: TaskDef<{ module: PetMap }, null> = {
     getInitState: (params) => null,
     stages: [
+        (task) => {
+            const { module } = task.params;
+            const stmtsComp = module.getMember(symbols.STMTS_COMP).getMap();
+            const attrs = stmtsComp.getMember(symbols.ATTRS).getList();
+            const attrAmount = attrs.getLength();
+            if (attrAmount > 1) {
+                throw new PetSyntaxError("Module cannot have more than one attribute.");
+            }
+            if (attrAmount === 1) {
+                const attr = attrs.getMember(0).getMap();
+                const attrComps = attr.getMember(symbols.COMPS).getList();
+                assertCompAmount(attrComps, 2);
+                assertIdentComp(attrComps, 0, "INIT");
+                const stmtsComp = getStmtsComp(attrComps, 1);
+                const scope = stmtsComp.getMember(symbols.SCOPE).getMap();
+                const moduleScope = module.getMember(symbols.SCOPE).getMap();
+                const parentScope = moduleScope.getMember(symbols.PARENT).getMap();
+                scope.setMember(symbols.PARENT, parentScope);
+                return task.callMethod(
+                    stmtsComp, symbols.EVAL, [parentScope],
+                    (value) => task.advanceStage(null),
+                );
+            }
+            return task.advanceStage(null);
+        },
         (task) => {
             const { module } = task.params;
             const stmtsComp = module.getMember(symbols.STMTS_COMP).getMap();
