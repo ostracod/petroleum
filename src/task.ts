@@ -5,7 +5,7 @@ import { PetSymbol, symbols, spinCountSymbol } from "./symbol.js";
 import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, nullValue, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
 import { getMethodWithDefault } from "./method.js";
-import { PetSyntaxError, PetTypeError, StateError, createSyntaxError, messageAtEntity } from "./exception.js";
+import { PetSyntaxError, PetTypeError, ValueError, StateError, createSyntaxError, messageAtEntity } from "./exception.js";
 import { workerIsInvocation, getWorkerMethodMap, getFuncArgsComp } from "./node.js";
 import { createFrame, VarSpaceType, getVarSpaceType, getVariable, getVarValue, getScope } from "./variable.js";
 import { Spinner } from "./scheduler.js";
@@ -495,7 +495,12 @@ const callFuncTask: TaskDef<CallFuncParams, null> = {
     getNodes: (params) => ({ callerNode: params.callerNode }),
     stages: [
         (task) => {
-            return task.params.func.call(task, task.params.args);
+            const { func, args } = task.params;
+            const expectedArgAmount = func.getArgAmount();
+            if (expectedArgAmount !== null && expectedArgAmount !== args.getLength()) {
+                throw new ValueError("Incorrect number of function arguments.");
+            }
+            return func.call(task, args);
         },
     ],
 };

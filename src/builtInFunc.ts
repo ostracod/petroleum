@@ -4,7 +4,7 @@ import "./value.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { KnownValue, PetValue, wrapKnownValue, minIntValue, maxIntValue, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
 import { PetTypeError, ValueError } from "./exception.js";
-import { findVariable } from "./variable.js";
+import { findVariable, findVarValue, getScope, createFrame } from "./variable.js";
 import { Action, Task } from "./task.js";
 
 interface FuncDef {
@@ -35,7 +35,7 @@ export class ConstantFunc extends BuiltInFunc {
     }
     
     getArgAmount(): number | null {
-        return 0;
+        return null;
     }
     
     callBuiltIn(task: Task, args: PetValue[]): Action {
@@ -639,6 +639,42 @@ export const globalFuncDefs: FuncDef[] = [
         argAmount: 1,
         call: (task, args) => {
             const result = cloneCode(args[0].getMap(), null);
+            return task.returnValue(result);
+        },
+    },
+    {
+        name: "SCOPE",
+        argAmount: 1,
+        call: (task, args) => {
+            const result = getScope(args[0].getMap());
+            return task.returnValue(result);
+        },
+    },
+    {
+        name: "FIND_VAR",
+        argAmount: 2,
+        call: (task, args) => {
+            const result = findVariable(args[0].getMap(), args[1].getPetString());
+            return task.returnValue(result);
+        },
+    },
+    {
+        name: "FIND_VAR_VALUE",
+        argAmount: 2,
+        call: (task, args) => {
+            const result = findVarValue(args[0].getMap(), args[1].getMap());
+            return task.returnValue(result);
+        },
+    },
+    {
+        name: "NEW_FRAME",
+        argAmount: 2,
+        call: (task, args) => {
+            const parentScope = args[1].getKnownValue();
+            if (parentScope !== null && !(parentScope instanceof PetMap)) {
+                throw new PetTypeError("Parent scope must be map or null");
+            }
+            const result = createFrame(args[0].getMap(), parentScope);
             return task.returnValue(result);
         },
     },
