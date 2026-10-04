@@ -4,6 +4,7 @@ import "./value.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { KnownValue, PetValue, wrapKnownValue, minIntValue, maxIntValue, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
 import { PetTypeError, ValueError } from "./exception.js";
+import { findVariable } from "./variable.js";
 import { Action, Task } from "./task.js";
 
 interface FuncDef {
@@ -116,6 +117,114 @@ const getTypeSymbol = (value: KnownValue): PetSymbol => {
 }
 
 const intRegex = /^-?[0-9]+$/;
+
+interface CloneScopes {
+    original: PetMap;
+    copy: PetMap;
+}
+
+const cloneScopeHelper = (scope: PetMap): PetMap => {
+    const scopeCopy = scope.shallowCopy();
+    const vars = scope.getMember(symbols.VARS).getMap();
+    const varsCopy = new PetMap();
+    for (const field of vars.fields.values()) {
+        const varName = field.key;
+        const variable = field.value.getMap();
+        const variableCopy = variable.shallowCopy();
+        variableCopy.setMember(symbols.SCOPE, scopeCopy);
+        varsCopy.setMember(varName, variableCopy);
+    }
+    scopeCopy.setMember(symbols.VARS, varsCopy);
+    return scopeCopy;
+};
+
+const cloneScope = (
+    stmtsComp: PetMap,
+    scope: PetMap,
+    lastScopes: CloneScopes | null,
+): PetMap => {
+    const scopeCopy = cloneScopeHelper(scope);
+    scopeCopy.setMember(symbols.STMTS_COMP, stmtsComp);
+    if (lastScopes !== null) {
+        // Any number of scopes may be inserted between statement sequence components.
+        // We need to clone these interstitial scopes too.
+        let iterScopes: CloneScopes = { original: scope, copy: scopeCopy };
+        while (true) {
+            const parentScope = iterScopes.original.getMember(symbols.PARENT).getMap();
+            if (parentScope === lastScopes.original) {
+                iterScopes.copy.setMember(symbols.PARENT, lastScopes.copy);
+                break;
+            }
+            if (parentScope.hasKey(symbols.STMTS_COMP)) {
+                throw new ValueError("Found scope belonging to unexpected statement sequence component.");
+            }
+            const parentScopeCopy = cloneScopeHelper(parentScope);
+            iterScopes.copy.setMember(symbols.PARENT, parentScopeCopy);
+            iterScopes = { original: parentScope, copy: parentScopeCopy };
+        }
+    }
+    return scopeCopy;
+};
+
+// `parent` is a node or a component.
+// `codeList` is a list of nodes or components.
+const cloneCodeList = (
+    parent: PetMap,
+    codeList: PetList,
+    lastScopes: CloneScopes | null,
+): PetList => {
+    const codeCopies = codeList.elements.map((code) => {
+        const codeCopy = cloneCode(code.getMap(), lastScopes);
+        codeCopy.setMember(symbols.PARENT, parent);
+        return codeCopy;
+    });
+    return new PetList(codeCopies);
+};
+
+// `code` is a node or a component.
+const cloneCode = (code: PetMap, lastScopes: CloneScopes | null): PetMap => {
+    if (code.hasKey(symbols.NODE_TYPE)) {
+        const codeCopy = code.shallowCopy();
+        const comps = code.getMember(symbols.COMPS).getList();
+        const compsCopy = cloneCodeList(codeCopy, comps, lastScopes);
+        codeCopy.setMember(symbols.COMPS, compsCopy);
+        return codeCopy;
+    }
+    const compTypeValue = code.getOptionalMember(symbols.COMP_TYPE);
+    if (typeof compTypeValue !== "undefined") {
+        const codeCopy = code.shallowCopy();
+        const compType = compTypeValue.getSymbol();
+        if (compType === symbols.DECL_COMP) {
+            if (lastScopes !== null) {
+                const variable = code.getMember(symbols.VAR).getMap();
+                const varName = variable.getMember(symbols.IDENT).getPetString();
+                const variableCopy = findVariable(lastScopes.copy, varName);
+                codeCopy.setMember(symbols.VAR, variableCopy);
+            }
+        } else if (compType === symbols.ATTRS_COMP) {
+            const attrs = code.getMember(symbols.ATTRS).getList();
+            const attrsCopy = cloneCodeList(codeCopy, attrs, lastScopes);
+            codeCopy.setMember(symbols.ATTRS, attrsCopy);
+        } else if (compType === symbols.EXPRS_COMP) {
+            const exprs = code.getMember(symbols.EXPRS).getList();
+            const exprsCopy = cloneCodeList(codeCopy, exprs, lastScopes);
+            codeCopy.setMember(symbols.EXPRS, exprsCopy);
+        } else if (compType === symbols.STMTS_COMP) {
+            const scope = code.getMember(symbols.SCOPE).getMap();
+            const scopeCopy = cloneScope(codeCopy, scope, lastScopes);
+            codeCopy.setMember(symbols.SCOPE, scopeCopy);
+            const nextScopes: CloneScopes = { original: scope, copy: scopeCopy };
+            const attrs = code.getMember(symbols.ATTRS).getList();
+            const attrsCopy = cloneCodeList(codeCopy, attrs, nextScopes);
+            codeCopy.setMember(symbols.ATTRS, attrsCopy);
+            const stmts = code.getMember(symbols.STMTS).getList();
+            const stmtsCopy = cloneCodeList(codeCopy, stmts, nextScopes);
+            codeCopy.setMember(symbols.STMTS, stmtsCopy);
+        }
+        return codeCopy;
+    }
+    throw new PetTypeError("Expected node or component.");
+}
 
 export const globalFuncDefs: FuncDef[] = [
     {
@@ -523,6 +632,14 @@ export const globalFuncDefs: FuncDef[] = [
                 worker, methodKey, methodArgs,
                 (value) => task.returnValue(value),
             );
+        },
+    },
+    {
+        name: "CLONE_CODE",
+        argAmount: 1,
+        call: (task, args) => {
+            const result = cloneCode(args[0].getMap(), null);
+            return task.returnValue(result);
         },
     },
     {

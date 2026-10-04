@@ -709,9 +709,12 @@ export class UserFunc extends PetFunc {
                 frameEntry.setMember(symbols.VALUE, arg);
             }
         }
-        const moduleFrame = this.module.getMember(symbols.FRAME).getMap();
-        const bottomFrame = this.bottomFrame ?? bodyFrame;
-        bottomFrame.setMember(symbols.PARENT, moduleFrame);
+        const moduleFrameValue = this.module.getOptionalMember(symbols.FRAME);
+        if (typeof moduleFrameValue !== "undefined") {
+            const moduleFrame = moduleFrameValue.getMap();
+            const bottomFrame = this.bottomFrame ?? bodyFrame;
+            bottomFrame.setMember(symbols.PARENT, moduleFrame);
+        }
         return task.callMethod(
             this.stmtsComp, symbols.EVAL, [bodyFrame],
             (value) => task.returnValue(null),
