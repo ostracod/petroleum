@@ -182,6 +182,13 @@ Scopes are represented as maps with the following fields:
 * The `#PARENT` field stores the parent scope.
     * This field will be absent if there is no parent scope.
 
+Perma-frame scopes have the following fields:
+
+* The `#PERMA_FRAME` field stores the perma-frame.
+    * This field stores null until a frame is created for the scope.
+* Perma-frame scopes also have `#IS_SCOPE` and `#VARS` fields which are common to all scopes.
+    * Perma-frame scopes may have `#STMTS_COMP`, `#MODULE`, and `#PARENT` fields too.
+
 ### Variable Schema
 
 Variables are represented as maps. All variables have the following fields:

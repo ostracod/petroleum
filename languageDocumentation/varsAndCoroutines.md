@@ -51,9 +51,13 @@ COMMENT "This statement will not throw an error."
 WORK_VAR @myVar6 = (myVar1)
 ```
 
+The scope of the top-level statement sequence in a file is a "module scope". Every module scope has the same parent scope, which is the "global scope". The global scope contains all built-in constants, such as `TRUE`, `FALSE`, `NULL`, `ADD`, `RUN`, and many more.
+
+A "perma-frame" is a frame which persists for the lifespan of the application. A "perma-frame scope" is a scope for which a perma-frame is created. Each perma-frame scope can only have one perma-frame. The global scope and all module scopes are perma-frame scopes.
+
 When a function is created, the function stores a "closure" over all visible work-vars which the function body may access. The closure holds a pruned copy of visible frames which only contain the necessary frame entries. When the function is invoked, the pruned frames becomes accessible to the function body. To determine which variables the body may access, the function invokes the `#ACCESSED_VARS` method on the body statements. The `#ACCESSED_VARS` method returns the set of variables which a worker may access when evaluated.
 
-Note that a function may create a closure on top-level work-vars even when the top-level statement sequence is in prep-phase. This is possible because the pruned frames in the closure do not include the module frame. Instead, the closure holds a reference to the module which will acquire a frame during work-phase. However, during invocation the function body cannot access work-vars whose parent statement sequences are in prep-phase, including top-level work-vars.
+Note that a function may create a closure on top-level work-vars even when the top-level statement sequence is in prep-phase. This is possible because the pruned frames in the closure do not include perma-frames. Instead, the closure holds a reference to the module scope which will acquire a perma-frame when the top-level statement sequence enters work-phase. However, during invocation the function body cannot access work-vars whose parent statement sequences are in prep-phase, including top-level work-vars.
 
 The example below demonstrates function closures:
 

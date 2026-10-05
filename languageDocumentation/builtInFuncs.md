@@ -248,7 +248,7 @@ Returns the frame entry or prep-var which stores the value of `$var`. `$varSpace
 NEW_FRAME($scope, $parentFrame)
 ```
 
-Creates a frame with `$scope` and `$parentFrame`. If `$parentFrame` is null, the new frame has no parent. The new frame stores a frame entry for each variable in `$scope`, and the value in each frame entry is null.
+Creates a frame with `$scope` and `$parentFrame`. If `$parentFrame` is null, the new frame has no parent. The new frame stores a frame entry for each variable in `$scope`, and the value in each frame entry is null. If `$scope` is a perma-frame scope, the new frame will be stored in the `#PERMA_FRAME` field of `$scope`. If `$scope` already has a perma-frame, this function will throw an error.
 
 ```
 PRINT($value)

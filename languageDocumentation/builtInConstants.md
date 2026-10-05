@@ -1,7 +1,7 @@
 
 ## Built-In Constants
 
-Built-in constants are defined as prep-vars in the parent scope of every module scope. By convention, built-in constant identifiers are in all-caps. Some basic constants include the following:
+Built-in constants are defined as prep-vars in the global scope. By convention, built-in constant identifiers are in all-caps. Some basic constants include the following:
 
 * `NULL` is the null value.
 * `TRUE` is equal to 1.
@@ -105,6 +105,7 @@ Petroleum defines many symbols for keys and values in various data structures. S
 * `#NODE_TYPE` symbolizes the type of a node.
 * `#PACK` symbolizes a package.
 * `#PARENT` symbolizes a parent.
+* `#PERMA_FRAME` symbolizes a perma-frame.
 * `#PETROL_MODULE` symbolizes a module written in Petroleum code.
 * `#PHASE` symbolizes a phase.
 * `#PREP_GRADE` symbolizes prep-grade.

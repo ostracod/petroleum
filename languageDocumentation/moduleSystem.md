@@ -49,7 +49,7 @@ A block attributes statement in the top-level statement sequence of a module con
 INIT {$body}
 ```
 
-Petroleum evaluates `$body` before invoking the `#PREP` method of any other workers in the module. `$body` will be evaluated in such a way that the module scope is not visible, but the scope containing built-in constants is still visible. The `INIT` attribute provides the user an opportunity to replace the parent scope of the module scope, thereby concealing built-in constants from the module.
+Petroleum evaluates `$body` before invoking the `#PREP` method of any other workers in the module. `$body` will be evaluated in such a way that the module scope is not visible, but the global scope is still visible. The `INIT` attribute provides the user an opportunity to replace the parent scope of the module scope, thereby concealing built-in constants from the module.
 
 The example below demonstrates usage of the `INIT` module attribute:
 
