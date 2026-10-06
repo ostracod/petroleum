@@ -23,11 +23,11 @@ const symbolNames = [
     "INT_EXPR", "INVOC", "INVOC_EXPR", "INVOC_STMT", "IS_FRAME",
     "IS_FRAME_ENTRY", "IS_PROC", "IS_SCOPE", "LINE_NUM", "LOC", "MAIN_MODULE",
     "MESSAGE", "METHODS", "MODULE", "MODULE_TYPE", "NODE_TYPE", "PACK",
-    "PARENT", "PETROL_MODULE", "PHASE", "PREP_GRADE", "PREP_PHASE", "PREP_VAR",
-    "RET_EXCEP", "RET_LEVEL", "SCOPE", "SPECIFIER", "SPIN_EXCEP", "SRC_VAR",
-    "STMT", "STMT_TYPE", "STMTS", "STMTS_COMP", "STR_COMP", "STR_EXPR",
-    "VALUE", "VAR", "VAR_TYPE", "VARS", "VER", "WORK_GRADE", "WORK_PHASE",
-    "WORK_VAR",
+    "PARENT", "PERMA_FRAME", "PETROL_MODULE", "PHASE", "PREP_GRADE",
+    "PREP_PHASE", "PREP_VAR", "RET_EXCEP", "RET_LEVEL", "SCOPE", "SPECIFIER",
+    "SPIN_EXCEP", "SRC_VAR", "STMT", "STMT_TYPE", "STMTS", "STMTS_COMP",
+    "STR_COMP", "STR_EXPR", "VALUE", "VAR", "VAR_TYPE", "VARS", "VER",
+    "WORK_GRADE", "WORK_PHASE", "WORK_VAR",
 ];
 export const symbols: { [name: string]: PetSymbol } = {};
 for (const name of symbolNames) {

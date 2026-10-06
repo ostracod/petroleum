@@ -483,15 +483,17 @@ export class ModuleParser {
         }
         const dummyPos: ContentPos = { lineNumber: 0n, columnNumber: 0n };
         const stmtsComp = createStmtsComp(stmtSeqResult, dummyPos);
+        const moduleScope = stmtSeqResult.scope;
         const module = new PetMap([
             [symbols.MODULE_TYPE, symbols.PETROL_MODULE],
             [symbols.FILE_PATH, new PetString(this.modulePath)],
             [symbols.STMTS_COMP, stmtsComp],
             [symbols.PACK, this.parentPackage],
-            [symbols.SCOPE, stmtSeqResult.scope],
+            [symbols.SCOPE, moduleScope],
         ]);
         stmtsComp.setMember(symbols.PARENT, module);
-        stmtSeqResult.scope.setMember(symbols.MODULE, module);
+        moduleScope.setMember(symbols.MODULE, module);
+        moduleScope.setMember(symbols.PERMA_FRAME, null);
         return module;
     }
 }

@@ -233,9 +233,10 @@ export const mainTask: TaskDef<null, { moduleIndex: number }> = {
                     context.reportException(exception);
                 }
                 context.isPrepping = false;
+                const globalFrame = createFrame(task.context.globalScope, null);
                 for (const module of userModules) {
                     const scope = module.getMember(symbols.SCOPE).getMap();
-                    const frame = createFrame(scope, null);
+                    const frame = createFrame(scope, globalFrame);
                     module.setMember(symbols.FRAME, frame);
                 }
                 return task.advanceStage({ moduleIndex: userModules.length - 1 });

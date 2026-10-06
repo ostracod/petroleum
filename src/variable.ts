@@ -9,6 +9,11 @@ import { assertCompAmount, assertIdentComp, getDeclComp } from "./node.js";
 
 // parentVarSpace is either a scope or a frame.
 export const createFrame = (scope: PetMap, parentFrame: PetMap | null): PetMap => {
+    const permaFrameValue = scope.getOptionalMember(symbols.PERMA_FRAME);
+    const isPermaFrameScope = (typeof permaFrameValue !== "undefined");
+    if (isPermaFrameScope && permaFrameValue.getKnownValue() !== null) {
+        throw new StateError("Only one frame can be created for a perma-frame scope.");
+    }
     const variables = scope.getMember(symbols.VARS).getMap();
     const frameEntries: [PetValue, PetMap][] = [];
     for (const field of variables.fields.values()) {
@@ -24,15 +29,18 @@ export const createFrame = (scope: PetMap, parentFrame: PetMap | null): PetMap =
             frameEntries.push([identifier, frameEntry]);
         }
     }
-    const output = new PetMap([
+    const frame = new PetMap([
         [symbols.IS_FRAME, 1n],
         [symbols.SCOPE, scope],
         [symbols.FRAME_ENTRIES, new PetMap(frameEntries)],
     ]);
     if (parentFrame !== null) {
-        output.setMember(symbols.PARENT, parentFrame);
+        frame.setMember(symbols.PARENT, parentFrame);
     }
-    return output;
+    if (isPermaFrameScope) {
+        scope.setMember(symbols.PERMA_FRAME, frame);
+    }
+    return frame;
 };
 
 export enum VarSpaceType { Scope, Frame };
@@ -255,16 +263,16 @@ const pruneFrameEntries = (frame: PetMap, scope: PetMap, remainingVars: PetMap):
     return output;
 };
 
-export const pruneFrames = (varSpace: PetMap, accessedVars: PetMap): {
-    topFrame: PetMap | null,
-    bottomFrame: PetMap | null,
-    module: PetMap,
-} => {
+interface PrunedFrames {
+    topFrame: PetMap | null;
+    bottomFrame: PetMap | null;
+    permaFrameScope: PetMap | null;
+}
+
+export const pruneFrames = (varSpace: PetMap, accessedVars: PetMap): PrunedFrames => {
     const remainingVars = accessedVars.shallowCopy();
     let varSpaceIsFrame = (getVarSpaceType(varSpace) === VarSpaceType.Frame);
-    let topFrame: PetMap | null = null;
-    let bottomFrame: PetMap | null = null;
-    let module: PetMap;
+    const output: PrunedFrames = { topFrame: null, bottomFrame: null, permaFrameScope: null };
     while (true) {
         let frame: PetMap | null;
         let scope: PetMap;
@@ -275,9 +283,9 @@ export const pruneFrames = (varSpace: PetMap, accessedVars: PetMap): {
             frame = null;
             scope = varSpace;
         }
-        const moduleValue = scope.getOptionalMember(symbols.MODULE);
-        if (typeof moduleValue !== "undefined") {
-            module = moduleValue.getMap();
+        const permaFrame = scope.getOptionalMember(symbols.PERMA_FRAME);
+        if (typeof permaFrame !== "undefined") {
+            output.permaFrameScope = scope;
             break;
         }
         let prunedEntries: PetMap;
@@ -291,12 +299,12 @@ export const pruneFrames = (varSpace: PetMap, accessedVars: PetMap): {
             [symbols.SCOPE, scope],
             [symbols.FRAME_ENTRIES, prunedEntries],
         ]);
-        if (topFrame === null) {
-            topFrame = prunedFrame;
-            bottomFrame = prunedFrame;
+        if (output.topFrame === null) {
+            output.topFrame = prunedFrame;
+            output.bottomFrame = prunedFrame;
         } else {
-            bottomFrame!.setMember(symbols.PARENT, prunedFrame);
-            bottomFrame = prunedFrame;
+            output.bottomFrame!.setMember(symbols.PARENT, prunedFrame);
+            output.bottomFrame = prunedFrame;
         }
         const parentFrame = frame?.getOptionalMember(symbols.PARENT);
         if (typeof parentFrame === "undefined") {
@@ -307,7 +315,7 @@ export const pruneFrames = (varSpace: PetMap, accessedVars: PetMap): {
             varSpaceIsFrame = true;
         }
     }
-    return { topFrame, bottomFrame, module };
+    return output;
 };
 
 

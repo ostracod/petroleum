@@ -93,6 +93,7 @@ export class PetContext {
         const globalScope = new PetMap([
             [symbols.IS_SCOPE, 1n],
             [symbols.VARS, new PetMap(globalVarEntries)],
+            [symbols.PERMA_FRAME, null],
         ]);
         for (const globalVar of globalVars) {
             globalVar.setMember(symbols.SCOPE, globalScope);

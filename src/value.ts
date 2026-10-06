@@ -670,8 +670,8 @@ export class UserFunc extends PetFunc {
     // from `topFrame` to `bottomFrame` are pruned to only contain necessary entries.
     topFrame: PetMap | null;
     bottomFrame: PetMap | null;
-    // `bottomFrame` will be modified so its parent is the module frame.
-    module: PetMap;
+    // `bottomFrame` may be modified so its parent is the frame of `permaFrameScope`.
+    permaFrameScope: PetMap | null;
     // `argVars` and `argsVar` are mutually exclusive.
     argVars?: PetMap[];
     argsVar?: PetMap;
@@ -679,10 +679,12 @@ export class UserFunc extends PetFunc {
     constructor(stmtsComp: PetMap, varSpace: PetMap, accessedVars: PetMap) {
         super();
         this.stmtsComp = stmtsComp;
-        const { topFrame, bottomFrame, module } = pruneFrames(varSpace, accessedVars);
+        const { topFrame, bottomFrame, permaFrameScope } = pruneFrames(
+            varSpace, accessedVars,
+        );
         this.topFrame = topFrame;
         this.bottomFrame = bottomFrame;
-        this.module = module;
+        this.permaFrameScope = permaFrameScope;
         const { argVars, argsVar } = getSignatureVars(this.stmtsComp);
         if (typeof argVars === "undefined") {
             this.argsVar = argsVar;
@@ -709,11 +711,14 @@ export class UserFunc extends PetFunc {
                 frameEntry.setMember(symbols.VALUE, arg);
             }
         }
-        const moduleFrameValue = this.module.getOptionalMember(symbols.FRAME);
-        if (typeof moduleFrameValue !== "undefined") {
-            const moduleFrame = moduleFrameValue.getMap();
-            const bottomFrame = this.bottomFrame ?? bodyFrame;
-            bottomFrame.setMember(symbols.PARENT, moduleFrame);
+        if (this.permaFrameScope !== null) {
+            const permaFrame = this.permaFrameScope.getMember(symbols.PERMA_FRAME).getKnownValue();
+            if (permaFrame instanceof PetMap) {
+                const bottomFrame = this.bottomFrame ?? bodyFrame;
+                bottomFrame.setMember(symbols.PARENT, permaFrame);
+            } else if (permaFrame !== null) {
+                throw new PetTypeError("#PERMA_FRAME field must store a map or null.");
+            }
         }
         return task.callMethod(
             this.stmtsComp, symbols.EVAL, [bodyFrame],
