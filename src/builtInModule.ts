@@ -3,7 +3,7 @@ import "./exception.js";
 
 import * as fs from "fs";
 import { PetSymbol, symbols } from "./symbol.js";
-import { KnownValue, PetString, PetMap } from "./value.js";
+import { KnownValue, PetString, PetList, PetMap } from "./value.js";
 import { FuncDef, DefFunc } from "./builtInFunc.js";
 import { PetException, ErrorException } from "./exception.js";
 import { createFrame } from "./variable.js";
@@ -99,6 +99,52 @@ const fileSystemFuncDefs: FuncDef[] = [
         call: (task, args) => {
             const buffer = fs.readFileSync(args[0].toStringStrict());
             return task.returnValue(new PetString(buffer));
+        },
+    },
+    {
+        name: "READ_DIR",
+        argAmount: 1,
+        call: (task, args) => {
+            const fileNames = fs.readdirSync(args[0].toStringStrict());
+            const result = new PetList(fileNames.map((name) => new PetString(name)));
+            return task.returnValue(result);
+        },
+    },
+    {
+        name: "WRITE_FILE",
+        argAmount: 2,
+        call: (task, args) => {
+            const buffer = args[1].getPetString().toBuffer();
+            fs.writeFileSync(args[0].toStringStrict(), buffer);
+            return task.returnValue(null);
+        },
+    },
+    {
+        name: "NEW_DIR",
+        argAmount: 1,
+        call: (task, args) => {
+            fs.mkdirSync(args[0].toStringStrict());
+            return task.returnValue(null);
+        },
+    },
+    {
+        name: "DEL_FILE",
+        argAmount: 1,
+        call: (task, args) => {
+            fs.unlinkSync(args[0].toStringStrict());
+            return task.returnValue(null);
+        },
+    },
+    {
+        name: "DEL_DIR",
+        argAmount: 1,
+        call: (task, args) => {
+            const path = args[0].toStringStrict();
+            if (!fs.statSync(path).isDirectory()) {
+                throw new ErrorException(fileSystemErrorSymbol, "Expected directory.");
+            }
+            fs.rmSync(path, { recursive: true });
+            return task.returnValue(null);
         },
     },
 ];
