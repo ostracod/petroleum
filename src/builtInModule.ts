@@ -2,6 +2,7 @@
 import "./exception.js";
 
 import * as fs from "fs";
+import * as pathUtils from "path";
 import { PetSymbol, symbols } from "./symbol.js";
 import { KnownValue, PetString, PetList, PetMap } from "./value.js";
 import { FuncDef, DefFunc } from "./builtInFunc.js";
@@ -27,6 +28,13 @@ const createSymbolMap = (symbols: PetSymbol[]): { [name: string]: PetSymbol } =>
 }
 
 const fileSystemSymbols = createSymbolMap([fileSymbol, dirSymbol, fileSystemErrorSymbol]);
+
+class FileSystemError extends ErrorException {
+    
+    constructor(message: string) {
+        super(fileSystemErrorSymbol, message);
+    }
+}
 
 const createBuiltInModule = (moduleDef: BuiltInModuleDef): PetMap => {
     const varMap = new PetMap();
@@ -141,10 +149,39 @@ const fileSystemFuncDefs: FuncDef[] = [
         call: (task, args) => {
             const path = args[0].toStringStrict();
             if (!fs.statSync(path).isDirectory()) {
-                throw new ErrorException(fileSystemErrorSymbol, "Expected directory.");
+                throw new FileSystemError("Expected directory.");
             }
             fs.rmSync(path, { recursive: true });
             return task.returnValue(null);
+        },
+    },
+    {
+        name: "PATH_NAME",
+        argAmount: 1,
+        call: (task, args) => {
+            const result = pathUtils.basename(args[0].toStringStrict());
+            return task.returnValue(new PetString(result));
+        },
+    },
+    {
+        name: "PATH_PARENT",
+        argAmount: 1,
+        call: (task, args) => {
+            const argPath = args[0].toStringStrict();
+            const path = pathUtils.normalize(argPath);
+            const dirname = pathUtils.dirname(path);
+            let result: KnownValue;
+            if (pathUtils.isAbsolute(path)) {
+                result = (path === dirname) ? null : new PetString(dirname);
+            } else {
+                const pathParts = path.split(pathUtils.sep)
+                    .filter((part) => (part.length > 0));
+                if (pathParts[0] === ".." || (pathParts.length === 1 && pathParts[0] === ".")) {
+                    throw new FileSystemError(`Cannot determine parent of path "${path}".`);
+                }
+                result = new PetString(dirname)
+            }
+            return task.returnValue(result);
         },
     },
 ];
@@ -162,7 +199,7 @@ const builtInModuleDefs: BuiltInModuleDef[] = [
                     if (error instanceof PetException) {
                         throw error;
                     }
-                    throw new ErrorException(fileSystemErrorSymbol, error.message);
+                    throw new FileSystemError(error.message);
                 }
             },
         })),
