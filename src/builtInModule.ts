@@ -176,12 +176,62 @@ const fileSystemFuncDefs: FuncDef[] = [
             } else {
                 const pathParts = path.split(pathUtils.sep)
                     .filter((part) => (part.length > 0));
-                if (pathParts[0] === ".." || (pathParts.length === 1 && pathParts[0] === ".")) {
-                    throw new FileSystemError(`Cannot determine parent of path "${path}".`);
+                let parentPath: string;
+                if (pathParts.length === 1 && pathParts[0] === ".") {
+                    parentPath = "..";
+                } else if (pathParts.every((part) => (part === ".."))) {
+                    parentPath = pathUtils.join("..", path);
+                } else {
+                    parentPath = dirname;
                 }
-                result = new PetString(dirname)
+                result = new PetString(parentPath);
             }
             return task.returnValue(result);
+        },
+    },
+    {
+        name: "JOIN_PATHS",
+        argAmount: 1,
+        call: (task, args) => {
+            const pathSegments = args[0].getList().elements.map(
+                (element) => element.toStringStrict(),
+            );
+            const result = pathUtils.join(...pathSegments);
+            return task.returnValue(new PetString(result));
+        },
+    },
+    {
+        name: "NORM_PATH",
+        argAmount: 1,
+        call: (task, args) => {
+            const result = pathUtils.normalize(args[0].toStringStrict());
+            return task.returnValue(new PetString(result));
+        },
+    },
+    {
+        name: "IS_ABS_PATH",
+        argAmount: 1,
+        call: (task, args) => {
+            const result = pathUtils.isAbsolute(args[0].toStringStrict());
+            return task.returnValue(result ? 1n : 0n);
+        },
+    },
+    {
+        name: "ABS_PATH",
+        argAmount: 1,
+        call: (task, args) => {
+            const result = pathUtils.resolve(args[0].toStringStrict());
+            return task.returnValue(new PetString(result));
+        },
+    },
+    {
+        name: "REL_PATH",
+        argAmount: 2,
+        call: (task, args) => {
+            const refPath = args[0].toStringStrict();
+            const targetPath = args[1].toStringStrict();
+            const result = pathUtils.relative(refPath, targetPath);
+            return task.returnValue(new PetString(result));
         },
     },
 ];
