@@ -6,7 +6,7 @@ import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, KnownValue, PetString, MemberObserver, PetList, PetMap } from "./value.js";
 import { BuiltInFunc, DefFunc, globalFuncDefs } from "./builtInFunc.js";
 import { createProcedure, globalProcDefs } from "./procedure.js";
-import { PetException, CoroEndException, getExcepReport } from "./exception.js";
+import { PetException, ValueError, CoroEndException, getExcepReport } from "./exception.js";
 import { createBuiltInModules } from "./builtInModule.js";
 import { ModuleParser } from "./moduleParser.js";
 import { PackageResolver } from "./package.js";
@@ -171,6 +171,14 @@ export class PetContext {
                 throw new CoroEndException(exception);
             },
         );
+    }
+    
+    getBuiltInModule(specifier: PetSymbol): PetMap {
+        const module = this.builtInModules.get(specifier);
+        if (typeof module === "undefined") {
+            throw new ValueError(`Built-in module with specifier ${specifier} does not exist.`);
+        }
+        return module;
     }
     
     hasUserModule(absModulePath: string): boolean {

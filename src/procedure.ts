@@ -486,7 +486,7 @@ export const globalProcDefs: ProcDef[] = [
                         const parentPackage = getPackage(worker);
                         module = task.context.loadUserModule(parentPackage, path);
                     } else if (specifier instanceof PetSymbol) {
-                        throw new Error("Built-in modules are not yet supported.");
+                        module = task.context.getBuiltInModule(specifier);
                     } else {
                         throw new PetTypeError("Module specifier must be string or symbol.");
                     }

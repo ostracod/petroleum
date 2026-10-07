@@ -1,8 +1,11 @@
 
 import "./exception.js";
+
+import * as fs from "fs";
 import { PetSymbol, symbols } from "./symbol.js";
 import { KnownValue, PetString, PetMap } from "./value.js";
 import { FuncDef, DefFunc } from "./builtInFunc.js";
+import { PetException, ErrorException } from "./exception.js";
 import { createFrame } from "./variable.js";
 
 interface BuiltInModuleDef {
@@ -72,11 +75,51 @@ export const createBuiltInModules = (): Map<PetSymbol, PetMap> => {
     return output;
 };
 
+const fileSystemFuncDefs: FuncDef[] = [
+    {
+        name: "EXISTS",
+        argAmount: 1,
+        call: (task, args) => {
+            const result = fs.existsSync(args[0].toStringStrict());
+            return task.returnValue(result ? 1n : 0n);
+        },
+    },
+    {
+        name: "TYPE",
+        argAmount: 1,
+        call: (task, args) => {
+            const stats = fs.statSync(args[0].toStringStrict());
+            const result = stats.isDirectory() ? dirSymbol : fileSymbol;
+            return task.returnValue(result);
+        },
+    },
+    {
+        name: "READ_FILE",
+        argAmount: 1,
+        call: (task, args) => {
+            const buffer = fs.readFileSync(args[0].toStringStrict());
+            return task.returnValue(new PetString(buffer));
+        },
+    },
+];
+
 const builtInModuleDefs: BuiltInModuleDef[] = [
     {
         symbol: symbols.FILE_SYSTEM,
         createVarValues: () => fileSystemSymbols,
-        funcs: [],
+        funcs: fileSystemFuncDefs.map((funcDef) => ({
+            ...funcDef,
+            call: (task, args) => {
+                try {
+                    return funcDef.call(task, args);
+                } catch (error) {
+                    if (error instanceof PetException) {
+                        throw error;
+                    }
+                    throw new ErrorException(fileSystemErrorSymbol, error.message);
+                }
+            },
+        })),
     },
 ];
 
