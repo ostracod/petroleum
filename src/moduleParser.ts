@@ -1,5 +1,5 @@
 
-import "./exception.js";
+import "./builtInModule.js";
 
 import * as fs from "fs";
 import { PetSymbol, symbols } from "./symbol.js";

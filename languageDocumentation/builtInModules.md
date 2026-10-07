@@ -51,7 +51,7 @@ WRITE_FILE($path, $str)
 Writes `$str` into a file at `$path`. If the file exists, this function replaces the old contents of the file. If the file does not exist, this function creates a new file.
 
 ```
-ADD_DIR($path)
+NEW_DIR($path)
 ```
 
 Creates a new empty directory at `$path`. Throws an error if an entity already exists at `$path`.

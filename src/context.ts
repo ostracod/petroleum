@@ -2,11 +2,12 @@
 import "./scheduler.js";
 
 import * as pathUtils from "path";
-import { symbols } from "./symbol.js";
+import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, KnownValue, PetString, MemberObserver, PetList, PetMap } from "./value.js";
 import { BuiltInFunc, DefFunc, globalFuncDefs } from "./builtInFunc.js";
 import { createProcedure, globalProcDefs } from "./procedure.js";
 import { PetException, CoroEndException, getExcepReport } from "./exception.js";
+import { createBuiltInModules } from "./builtInModule.js";
 import { ModuleParser } from "./moduleParser.js";
 import { PackageResolver } from "./package.js";
 import { Action, TaskDef, TaskMembers, Task, mainTask, prepModuleTask } from "./task.js";
@@ -15,6 +16,7 @@ import { Spinner, Coroutine, Scheduler } from "./scheduler.js";
 export class PetContext {
     applicationArgs: string[];
     scheduler: Scheduler;
+    builtInModules: Map<PetSymbol, PetMap>;
     userModules: PetMap[];
     // Map from absolute module path to index in `userModules`.
     userModuleIndexes: Map<string, number>;
@@ -27,6 +29,7 @@ export class PetContext {
     constructor(entryPackagePath: string, applicationArgs: string[]) {
         this.applicationArgs = applicationArgs;
         this.scheduler = new Scheduler(this);
+        this.builtInModules = createBuiltInModules();
         this.userModules = [];
         this.userModuleIndexes = new Map();
         this.preppingWorkers = new Set();

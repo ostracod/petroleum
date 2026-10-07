@@ -9,7 +9,7 @@ import { findVariable, findVarValue, getScope, createFrame } from "./variable.js
 import { Action, Task } from "./task.js";
 import { PetContext } from "./context.js";
 
-interface FuncDef {
+export interface FuncDef {
     name: string | null;
     argAmount: number | null;
     call: (task: Task, args: PetValue[]) => Action;
