@@ -137,11 +137,15 @@ const getFrameEntry = (frame: PetMap, workVar: PetMap): PetMap => {
         const scope = frame.getMember(symbols.SCOPE).getMap();
         if (scope === varScope) {
             const frameEntries = frame.getMember(symbols.FRAME_ENTRIES).getMap();
-            return frameEntries.getMember(varName).getMap();
+            const frameEntry = frameEntries.getOptionalMember(varName);
+            if (typeof frameEntry === "undefined") {
+                throw new ValueError(`Frame entry does not exist for "${varName.toString()}".`);
+            }
+            return frameEntry.getMap();
         }
         const parentFrame = frame.getOptionalMember(symbols.PARENT);
         if (typeof parentFrame === "undefined") {
-            throw new ValueError(`Could not find find frame entry for "${varName.toString()}".`);
+            throw new ValueError(`Could not find find frame for "${varName.toString()}".`);
         } else {
             frame = parentFrame.getMap();
         }

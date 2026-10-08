@@ -44,7 +44,7 @@ WORK_VAR @myVar3 = (10)
 WORK_VAR @myVar4 = (ADD(myVar3, 2))
 
 COMMENT "This statement will throw an error, because work-vars"
-COMMENT "are inaccessible during prep-phase.
+COMMENT "are inaccessible during prep-phase."
 PREP_VAR @myVar5 = <myVar3>
 
 COMMENT "This statement will not throw an error."

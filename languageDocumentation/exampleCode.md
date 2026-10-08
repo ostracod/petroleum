@@ -21,11 +21,11 @@ WORK_VAR @num = (2)
 WHILE (LESS_EQUAL(num, 100)) {
     WORK_VAR @predicate
     IF (isPrime(num)) {
-        SET predicate = (" is prime!\n")
+        SET predicate = (" is prime!")
     } ELSE {
-        SET predicate = (" is not prime.\n")
+        SET predicate = (" is not prime.")
     }
-    WORK_VAR @textList = (LIST (STR(num), predicate)))
+    WORK_VAR @textList = (LIST (STR(num), predicate))
     PRINT(CONCAT(textList))
     SET num = (ADD(num, 1))
 }
