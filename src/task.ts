@@ -134,6 +134,15 @@ export class Task<ParamsT = any, StateT = any> {
         );
     }
     
+    spin(condition: PetFunc, message: PetString, nextAction: Action): Action {
+        const evalState = new EvalState(this, nextAction);
+        const spinner = new Spinner(condition, message, evalState);
+        return this.runTask(
+            spinCondTask, { spinner },
+            (value) => nextAction,
+        );
+    }
+    
     awaitMember(
         bunch: ObservableBunch,
         location: KnownValue | PetValue,

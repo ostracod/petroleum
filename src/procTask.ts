@@ -1,12 +1,16 @@
 
 import "./task.js";
 
-import { symbols } from "./symbol.js";
-import { KnownValue, PetValue, PetList, PetMap, ObservableBunch } from "./value.js";
-import { SetProcParts } from "./procedure.js";
-import { createBreakExcep } from "./exception.js";
+import * as pathUtils from "path";
+import { PetSymbol, symbols } from "./symbol.js";
+import { KnownValue, PetValue, PetString, PetList, PetMap, ObservableBunch } from "./value.js";
+import { FileExistsFunc } from "./builtInFunc.js";
+import { SetProcParts, setUpImportVars } from "./procedure.js";
+import { PetTypeError, createBreakExcep } from "./exception.js";
+import { getPackage, assertMinCompAmount, getPrepGradeExprs } from "./node.js";
 import { getVariable, findVarValue, getScope, VarSpaceType, getVarSpaceType, createFrame } from "./variable.js";
-import { TaskDef } from "./task.js";
+import { TaskDef, spinCondTask } from "./task.js";
+import { Spinner } from "./scheduler.js";
 
 export interface MapFieldComps {
     keyComp: PetMap;
@@ -363,6 +367,76 @@ export const withCallerProcTask: TaskDef<WithCallerProcParams, { node: PetMap | 
             },
             (value) => task.returnValue(null),
         ),
+    ],
+};
+
+const importUserModuleTask: TaskDef<{ pack: PetMap, absPath: string }, null> = {
+    getInitState: (params) => null,
+    stages: [
+        (task) => {
+            const { absPath } = task.params;
+            const condition = new FileExistsFunc(absPath);
+            const message = new PetString(`Waiting for ${absPath} to exist`);
+            const nextAction = task.advanceStage(null);
+            return task.spin(condition, message, nextAction);
+        },
+        (task) => {
+            const { pack, absPath } = task.params;
+            const module = task.context.loadUserModule(pack, absPath);
+            return task.returnValue(module);
+        },
+    ],
+};
+
+interface ImportProcPrepState {
+    specifier: KnownValue;
+    module: PetMap | null;
+}
+
+export const importProcPrepTask: TaskDef<{ stmt: PetMap }, ImportProcPrepState> = {
+    getInitState: (params) => ({ specifier: null, module: null }),
+    stages: [
+        (task) => {
+            const { stmt } = task.params;
+            const comps = stmt.getMember(symbols.COMPS).getList();
+            assertMinCompAmount(comps, 2);
+            const exprsComp = getPrepGradeExprs(comps, 1, 1);
+            const scope = getScope(exprsComp);
+            return task.callMethod(
+                exprsComp, symbols.EVAL, [scope],
+                (values) => {
+                    const specifier = values.getList().getMember(0).getKnownValue();
+                    return task.advanceStage({ specifier, module: null });
+                },
+            );
+        },
+        (task) => {
+            const { specifier } = task.state;
+            if (specifier instanceof PetString) {
+                const relPath = specifier.toString();
+                const pack = getPackage(task.params.stmt);
+                const packPath = pack.getMember(symbols.DIR_PATH).toStringStrict();
+                const absPath = pathUtils.resolve(pathUtils.join(packPath, relPath));
+                return task.runTask(
+                    importUserModuleTask, { pack, absPath },
+                    (value) => {
+                        const module = value.getMap();
+                        return task.advanceStage({ specifier, module });
+                    },
+                );
+            } else if (specifier instanceof PetSymbol) {
+                const module = task.context.getBuiltInModule(specifier);
+                return task.advanceStage({ specifier, module });
+            } else {
+                throw new PetTypeError("Module specifier must be string or symbol.");
+            }
+        },
+        (task) => {
+            const { stmt } = task.params;
+            const comps = stmt.getMember(symbols.COMPS).getList();
+            setUpImportVars(comps, task.state.module!);
+            return task.returnValue(null);
+        },
     ],
 };
 

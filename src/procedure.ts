@@ -4,11 +4,11 @@ import "./method.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc, EvalState } from "./value.js";
 import { MethodDict, createMethodMap, callDefaultPrep } from "./method.js";
-import { PetException, PetTypeError, createBreakExcep, createContExcep, createSyntaxError } from "./exception.js";
+import { PetException, createBreakExcep, createContExcep, createSyntaxError } from "./exception.js";
 import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getStmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp, getCompIdent } from "./node.js";
 import { findVarValue, getVarValue, getModuleFrameEntry, getScope, varIsInScope, getSignatureVars } from "./variable.js";
 import { Action, createMethodInvocation, callMethodTask, spinCondTask } from "./task.js";
-import { setProcPrepTask, awaitProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask, tryProcEvalTask, withCallerProcTask } from "./procTask.js";
+import { setProcPrepTask, awaitProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask, tryProcEvalTask, withCallerProcTask, importProcPrepTask } from "./procTask.js";
 import { Spinner } from "./scheduler.js";
 
 interface ProcDef extends MethodDict {
@@ -112,7 +112,7 @@ const setUpImportVar = (varAttr: PetMap, moduleVars: PetMap): void => {
     internVar.setMember(symbols.IMPORT_VAR, externVar);
 };
 
-const setUpImportVars = (comps: PetList, module: PetMap): void => {
+export const setUpImportVars = (comps: PetList, module: PetMap): void => {
     const compAmount = comps.getLength();
     let compIndex = 2;
     if (compIndex >= compAmount) {
@@ -471,30 +471,10 @@ export const globalProcDefs: ProcDef[] = [
     },
     {
         name: "IMPORT",
-        prep: (task, worker) => {
-            const comps = worker.getMember(symbols.COMPS).getList();
-            assertMinCompAmount(comps, 2);
-            const exprsComp = getPrepGradeExprs(comps, 1, 1);
-            const scope = getScope(exprsComp);
-            return task.callMethod(
-                exprsComp, symbols.EVAL, [scope],
-                (values) => {
-                    const specifier = values.getList().getMember(0).getKnownValue();
-                    let module: PetMap;
-                    if (specifier instanceof PetString) {
-                        const path = specifier.toString();
-                        const parentPackage = getPackage(worker);
-                        module = task.context.loadUserModule(parentPackage, path);
-                    } else if (specifier instanceof PetSymbol) {
-                        module = task.context.getBuiltInModule(specifier);
-                    } else {
-                        throw new PetTypeError("Module specifier must be string or symbol.");
-                    }
-                    setUpImportVars(comps, module);
-                    return task.returnValue(null);
-                }
-            );
-        },
+        prep: (task, worker) => task.runTask(
+            importProcPrepTask, { stmt: worker },
+            (value) => task.returnValue(null),
+        ),
     },
     {
         name: "IMPORT_PACK",
@@ -682,12 +662,7 @@ export const globalProcDefs: ProcDef[] = [
                     const condition = valueList.getMember(0).getFunc();
                     const message = valueList.getMember(1).getPetString();
                     const nextAction = task.returnValue(null);
-                    const evalState = new EvalState(task, nextAction);
-                    const spinner = new Spinner(condition, message, evalState);
-                    return task.runTask(
-                        spinCondTask, { spinner },
-                        (value) => nextAction,
-                    );
+                    return task.spin(condition, message, nextAction);
                 },
             );
         },

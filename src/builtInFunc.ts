@@ -1,6 +1,7 @@
 
 import "./value.js";
 
+import * as fs from "fs";
 import { PetSymbol, symbols } from "./symbol.js";
 import { KnownValue, PetValue, wrapKnownValue, minIntValue, maxIntValue, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
 import { PetTypeError, ValueError, StateError } from "./exception.js";
@@ -58,9 +59,27 @@ export class NotEqualFunc extends BuiltInFunc {
     }
     
     callBuiltIn(task: Task, args: PetValue[]): Action {
-        const value = args[0].getKnownValue()
+        const value = args[0].getKnownValue();
         const result = valuesAreEqual(value, this.comparisonValue) ? 0n : 1n;
         return task.returnValue(result);
+    }
+}
+
+export class FileExistsFunc extends BuiltInFunc {
+    path: string;
+    
+    constructor(path: string) {
+        super();
+        this.path = path;
+    }
+    
+    getArgAmount(): number | null {
+        return 0;
+    }
+    
+    callBuiltIn(task: Task, args: PetValue[]): Action {
+        const result = fs.existsSync(this.path);
+        return task.returnValue(result ? 1n : 0n);
     }
 }
 
