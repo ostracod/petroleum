@@ -222,6 +222,19 @@ export const globalProcDefs: ProcDef[] = [
         },
     },
     {
+        name: "PREP",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 2);
+            const exprsComp = getPrepGradeExprs(comps, 1, 1);
+            const scope = getScope(exprsComp);
+            return task.callMethod(
+                exprsComp, symbols.EVAL, [scope],
+                (values) => task.returnValue(null),
+            );
+        },
+    },
+    {
         name: "RUN",
         prep: (task, worker) => {
             const comps = worker.getMember(symbols.COMPS).getList();

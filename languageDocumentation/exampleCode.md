@@ -336,7 +336,9 @@ PREP_VAR @varMethods = <FUNC {
             WORK_VAR @expr = (MEMBER(MEMBER(exprsComp, #EXPRS), 0))
             WORK_VAR @exprIsEven = (CALL_METHOD(expr, #isEven))
             IF (NOT_EQUAL(isEven, exprIsEven)) {
-                ABORT (#TYPE_ERROR, "Invalid integer type!")
+                WITH_CALLER (worker) {
+                    ABORT (#TYPE_ERROR, "Invalid integer type!")
+                }
             }
             
             COMMENT "Stash values to use in the #EVAL method."

@@ -4,7 +4,7 @@ import "./builtInFunc.js";
 import { symbols } from "./symbol.js";
 import { KnownValue, knownValueToString, PetMap, PetFunc } from "./value.js";
 import { DefFunc } from "./builtInFunc.js";
-import { ValueError } from "./exception.js";
+import { DeferralException, ValueError } from "./exception.js";
 import { getChildWorkers, getFuncArgsComp, assertMaxCompAmount, getWorkGradeExprs } from "./node.js";
 import { getScope, getVariable, getVarValue, varIsInScope } from "./variable.js";
 import { Action, Task, prepStmtsTask, evalStmtsTask, prepExprsTask, evalExprsTask, prepWorkersTask, workersVarsTask, evalFuncTask } from "./task.js";
@@ -101,7 +101,10 @@ export const getMethodWithDefault = (methodMap: PetMap, methodKey: KnownValue): 
     if (methodKey === symbols.ACCESSED_VARS) {
         return defaultVarsMethod;
     }
-    throw new ValueError("Missing method key: " + knownValueToString(methodKey));
+    throw new DeferralException(
+        methodMap, methodKey,
+        `Waiting for method key ${knownValueToString(methodKey)} to be defined`,
+    );
 };
 
 export const createMethodMap = (methodDict: MethodDict): PetMap => {
