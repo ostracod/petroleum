@@ -16,6 +16,12 @@ MAP [FIELDS [$fields]]
 Creates a map containing `$fields`. Each attribute in `$fields` has the form `($key) = ($value)`.
 
 ```
+PREP <$expr>
+```
+
+Evaluates `$expr` during prep-phase to achieve a side-effect.
+
+```
 RUN {$body}
 ```
 

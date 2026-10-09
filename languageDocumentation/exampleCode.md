@@ -286,28 +286,32 @@ PREP_SYMBOL @#expr1
 PREP_SYMBOL @#expr2
 
 COMMENT "Define #isEven method for integer expressions."
-SET_MEMBER(INT_EXPR_METHODS, #isEven, FUNC {
-    [ARGS [@worker]]
-    WORK_VAR @value = (MEMBER(worker, #INT))
-    RET (EQUAL(MOD(value, 2), 0))
-})
+PREP <RUN {
+    SET_MEMBER(INT_EXPR_METHODS, #isEven, FUNC {
+        [ARGS [@worker]]
+        WORK_VAR @value = (MEMBER(worker, #INT))
+        RET (EQUAL(MOD(value, 2), 0))
+    })
+}>
 
 COMMENT "Define #isEven method for identifier expressions."
-SET_MEMBER(IDENT_EXPR_METHODS, #isEven, FUNC {
-    [ARGS [@worker]]
-    COMMENT "The #VAR field only stores a variable after the worker finishes prep-phase."
-    CALL_METHOD(worker, #PREP)
-    WORK_VAR @var = (MEMBER(worker, #VAR))
-    COMMENT "We may need to wait until the variable procedure"
-    COMMENT "sets the #isEven field on the variable."
-    RET (AWAIT (
-        var, #isEven,
-        FUNC {[ARGS [@member]], RET (TRUE)}
-        CONCAT(LIST (
-            "Waiting for #isEven to be set on ", MEMBER(var, #IDENT)
+PREP <RUN {
+    SET_MEMBER(IDENT_EXPR_METHODS, #isEven, FUNC {
+        [ARGS [@worker]]
+        COMMENT "The #VAR field only stores a variable after the worker finishes prep-phase."
+        CALL_METHOD(worker, #PREP)
+        WORK_VAR @var = (MEMBER(worker, #VAR))
+        COMMENT "We may need to wait until the variable procedure"
+        COMMENT "sets the #isEven field on the variable."
+        RET (AWAIT (
+            var, #isEven,
+            FUNC {[ARGS [@member]], RET (TRUE)}
+            CONCAT(LIST (
+                "Waiting for #isEven to be set on ", MEMBER(var, #IDENT)
+            ))
         ))
-    ))
-})
+    })
+}>
 
 COMMENT "The `evenIntVar` and `oddIntVar` procedures work in mostly the same way,"
 COMMENT "so we will define a function to create their methods."
