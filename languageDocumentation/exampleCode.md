@@ -59,7 +59,7 @@ COMMENT "Prints 55."
 PRINT(MEMBER(myMap, "age"))
 SET_MEMBER(myMap, "score", 100)
 DEL_FIELD(myMap, "age")
-COMMENT "Prints LIST (#name, \"score\")".
+COMMENT "Prints LIST (#name, \"score\")."
 PRINT(KEYS(myMap))
 COMMENT "Prints 0."
 PRINT(HAS_KEY(myMap, "age"))
@@ -329,7 +329,7 @@ PREP_VAR @varMethods = <FUNC {
             CALL_METHOD(exprsComp, #PREP)
             
             COMMENT "Validate whether the expression returns an even or odd integer."
-            WORK_VAR @expr = (MEMBER(MEMBER(exprsComp, #EXPRS)), 0)
+            WORK_VAR @expr = (MEMBER(MEMBER(exprsComp, #EXPRS), 0))
             WORK_VAR @exprIsEven = (CALL_METHOD(expr, #isEven))
             IF (NOT_EQUAL(isEven, exprIsEven)) {
                 ABORT (#TYPE_ERROR, "Invalid integer type!")

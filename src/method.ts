@@ -119,7 +119,7 @@ export const createMethodMap = (methodDict: MethodDict): PetMap => {
     return output;
 }
 
-export const funcInvocationMethods = createMethodMap({
+const funcInvocationMethods = createMethodMap({
     prep: (task, invocNode) => {
         const comps = invocNode.getMember(symbols.COMPS).getList();
         assertMaxCompAmount(comps, 2);
@@ -162,7 +162,7 @@ export const funcInvocationMethods = createMethodMap({
     },
 });
 
-export const stmtsCompMethods = createMethodMap({
+const stmtsCompMethods = createMethodMap({
     prep: (task, stmtsComp) => task.runTask(
         prepStmtsTask, { stmtsComp },
         (value) => task.returnValue(null),
@@ -181,7 +181,7 @@ export const stmtsCompMethods = createMethodMap({
     },
 });
 
-export const exprsCompMethods = createMethodMap({
+const exprsCompMethods = createMethodMap({
     prep: (task, exprsComp) => task.runTask(
         prepExprsTask, { exprsComp },
         (value) => task.returnValue(null),
@@ -204,7 +204,7 @@ export const exprsCompMethods = createMethodMap({
     },
 });
 
-export const intExprMethods = createMethodMap({
+const intExprMethods = createMethodMap({
     prep: callNopPrep,
     eval: (task, expr, varSpace) => {
         const intValue = expr.getMember(symbols.INT).getInt();
@@ -212,7 +212,7 @@ export const intExprMethods = createMethodMap({
     },
 });
 
-export const stringExprMethods = createMethodMap({
+const stringExprMethods = createMethodMap({
     prep: callNopPrep,
     eval: (task, expr, varSpace) => {
         const stringValue = expr.getMember(symbols.STR).getPetString();
@@ -220,7 +220,7 @@ export const stringExprMethods = createMethodMap({
     },
 });
 
-export const identExprMethods = createMethodMap({
+const identExprMethods = createMethodMap({
     prep: (task, expr) => {
         const scope = getScope(expr);
         const varName = expr.getMember(symbols.IDENT).getPetString();
@@ -242,6 +242,26 @@ export const identExprMethods = createMethodMap({
             return task.returnValue(new PetMap());
         }
     },
+});
+
+export interface WorkerMethodsMap {
+    INT_EXPR_METHODS: PetMap;
+    STR_EXPR_METHODS: PetMap;
+    IDENT_EXPR_METHODS: PetMap;
+    FUNC_INVOC_METHODS: PetMap;
+    STMTS_COMP_METHODS: PetMap;
+    EXPR_COMP_METHODS: PetMap;
+}
+
+// We copy the method maps in case we have multiple PetContexts
+// and one of the contexts modifies a method map.
+export const createWorkerMethodsMap = (): WorkerMethodsMap => ({
+    INT_EXPR_METHODS: intExprMethods.shallowCopy(),
+    STR_EXPR_METHODS: stringExprMethods.shallowCopy(),
+    IDENT_EXPR_METHODS: identExprMethods.shallowCopy(),
+    FUNC_INVOC_METHODS: funcInvocationMethods.shallowCopy(),
+    STMTS_COMP_METHODS: stmtsCompMethods.shallowCopy(),
+    EXPR_COMP_METHODS: exprsCompMethods.shallowCopy(),
 });
 
 

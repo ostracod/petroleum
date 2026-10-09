@@ -652,7 +652,7 @@ export const callMethodTask: TaskDef<MethodInvocation, null> = {
         },
         (task) => {
             const { worker, key: methodKey } = task.params;
-            const methodMap = getWorkerMethodMap(worker);
+            const methodMap = getWorkerMethodMap(task.context.workerMethodsMap, worker);
             const method = getMethodWithDefault(methodMap, methodKey);
             return task.callFunction(
                 method, [worker, ...task.params.args],

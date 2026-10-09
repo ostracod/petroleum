@@ -4,6 +4,7 @@ import "./scheduler.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, KnownValue, PetString, MemberObserver, PetList, PetMap } from "./value.js";
 import { BuiltInFunc, DefFunc, globalFuncDefs } from "./builtInFunc.js";
+import { WorkerMethodsMap, createWorkerMethodsMap } from "./method.js";
 import { createProcedure, globalProcDefs } from "./procedure.js";
 import { PetException, ValueError, CoroEndException, getExcepReport } from "./exception.js";
 import { createBuiltInModules } from "./builtInModule.js";
@@ -20,6 +21,7 @@ export class PetContext {
     // Map from absolute module path to index in `userModules`.
     userModuleIndexes: Map<string, number>;
     preppingWorkers: Set<PetMap>;
+    workerMethodsMap: WorkerMethodsMap;
     globalScope: PetMap;
     isPrepping: boolean;
     aggregatedExceps: PetMap[];
@@ -59,11 +61,13 @@ export class PetContext {
     }
     
     createGlobalScope(): PetMap {
+        this.workerMethodsMap = createWorkerMethodsMap();
         const globalVarDict: { [name: string]: KnownValue } = {
             NULL: null,
             TRUE: 1n,
             FALSE: 0n,
             CMD_LINE_ARGS: new PetList(this.applicationArgs.map((arg) => new PetString(arg))),
+            ...this.workerMethodsMap,
         };
         for (const symbol of Object.values(symbols)) {
             globalVarDict[symbol.displayName] = symbol;

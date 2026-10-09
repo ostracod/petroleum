@@ -2,8 +2,8 @@
 import "./package.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
+import { WorkerMethodsMap } from "./method.js";
 import { PetString, PetList, PetMap, PetFunc } from "./value.js";
-import { funcInvocationMethods, stmtsCompMethods, exprsCompMethods, intExprMethods, stringExprMethods, identExprMethods } from "./method.js";
 import { pluralize, PetSyntaxError, PetTypeError, ValueError, createSyntaxError } from "./exception.js";
 
 export const getChildWorkers = (node: PetMap): PetMap[] => {
@@ -46,14 +46,14 @@ export const workerIsInvocation = (worker: PetMap): boolean => {
     return nodeIsInvocation(worker, nodeType);
 };
 
-export const getWorkerMethodMap = (worker: PetMap): PetMap => {
+export const getWorkerMethodMap = (methodsMap: WorkerMethodsMap, worker: PetMap): PetMap => {
     const nodeTypeValue = worker.getOptionalMember(symbols.NODE_TYPE);
     if (typeof nodeTypeValue !== "undefined") {
         const nodeType = nodeTypeValue.getSymbol();
         if (nodeIsInvocation(worker, nodeType)) {
             const invocable = worker.getMember(symbols.INVOC).getKnownValue();
             if (invocable instanceof PetFunc) {
-                return funcInvocationMethods;
+                return methodsMap.FUNC_INVOC_METHODS;
             } else if (invocable instanceof PetMap) {
                 return invocable.getMember(symbols.METHODS).getMap();
             } else {
@@ -62,11 +62,11 @@ export const getWorkerMethodMap = (worker: PetMap): PetMap => {
         } else if (nodeType === symbols.EXPR) {
             const exprType = worker.getMember(symbols.EXPR_TYPE).getSymbol();
             if (exprType === symbols.INT_EXPR) {
-                return intExprMethods;
+                return methodsMap.INT_EXPR_METHODS;
             } else if (exprType === symbols.STR_EXPR) {
-                return stringExprMethods;
+                return methodsMap.STR_EXPR_METHODS;
             } else if (exprType === symbols.IDENT_EXPR) {
-                return identExprMethods;
+                return methodsMap.IDENT_EXPR_METHODS;
             }
         }
         throw new PetTypeError("Cannot call method on node which is not a worker.");
@@ -75,9 +75,9 @@ export const getWorkerMethodMap = (worker: PetMap): PetMap => {
     if (typeof compTypeValue !== "undefined") {
         const compType = compTypeValue.getSymbol();
         if (compType === symbols.STMTS_COMP) {
-            return stmtsCompMethods;
+            return methodsMap.STMTS_COMP_METHODS;
         } else if (compType === symbols.EXPRS_COMP) {
-            return exprsCompMethods;
+            return methodsMap.EXPR_COMP_METHODS;
         } else {
             throw new PetTypeError("Cannot call method on component which is not a worker.");
         }
