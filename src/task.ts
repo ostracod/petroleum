@@ -589,28 +589,36 @@ export const spinCondTask: TaskDef<{ spinner: Spinner }, null> = {
 };
 
 const checkGradeForEval = (worker: PetMap): void => {
-    if (worker.getOptionalMember(symbols.NODE_TYPE)?.getSymbol() !== symbols.EXPR) {
+    const nodeTypeValue = worker.getOptionalMember(symbols.NODE_TYPE);
+    if (typeof nodeTypeValue === "undefined") {
         return;
     }
-    const grade = worker.getMember(symbols.GRADE).getSymbol();
-    const exprsComp = worker.getMember(symbols.PARENT).getMap();
-    if (exprsComp.getMember(symbols.COMP_TYPE).getSymbol() !== symbols.EXPRS_COMP) {
-        throw new PetTypeError("Expression must be inside expression sequence component.");
+    const nodeType = nodeTypeValue.getSymbol()
+    let grade: PetSymbol;
+    if (nodeType === symbols.EXPR) {
+        grade = worker.getMember(symbols.GRADE).getSymbol();
+    } else {
+        grade = symbols.WORK_GRADE;
     }
-    let parent = exprsComp.getMember(symbols.PARENT).getMap();
+    let entity = worker;
     while (true) {
-        const phaseValue = parent.getOptionalMember(symbols.PHASE);
-        if (typeof phaseValue !== "undefined") {
+        const nextEntity = entity.getOptionalMember(symbols.PARENT);
+        if (typeof nextEntity === "undefined") {
+            break;
+        }
+        entity = nextEntity.getMap();
+        const phaseValue = entity.getOptionalMember(symbols.PHASE);
+        const entityNodeType = entity.getOptionalMember(symbols.NODE_TYPE);
+        if (typeof phaseValue !== "undefined" && typeof entityNodeType !== "undefined") {
             const phase = phaseValue.getSymbol();
             if (grade === symbols.PREP_GRADE && phase === symbols.WORK_PHASE) {
-                throw new StateError("Cannot evaluate prep-grade expression when parent is in work-phase.");
+                throw new StateError("Cannot evaluate prep-grade node when parent is in work-phase.");
             }
             if (grade === symbols.WORK_GRADE && phase === symbols.PREP_PHASE) {
-                throw new StateError("Cannot evaluate work-grade expression when parent is in prep-phase.");
+                throw new StateError("Cannot evaluate work-grade node when parent is in prep-phase.");
             }
             break;
         }
-        parent = parent.getMember(symbols.PARENT).getMap();
     }
 };
 

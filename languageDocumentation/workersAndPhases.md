@@ -48,9 +48,9 @@ The `#PREP` method of a procedure is responsible for invoking the `#PREP` method
 * Direct child worker components of the invocation node
 * Workers in block attributes of direct child statement sequence components
 
-## Expression Grade
+## Worker Node Grade
 
-The "grade" of an expression determines when the expression may be evaluated. Suppose that X is an expression, and Y is the parent worker of the parent expression sequence component of X:
+The "grade" of a worker node determines when the node may be evaluated. Suppose that X is a worker node, and Y is the parent worker node of X:
 
 * If X is "prep-grade", X may only be evaluated when Y is in prep-phase.
 * If X is "work-grade", X may only be evaluated when Y is in work-phase.
@@ -66,3 +66,7 @@ COMMENT "`ADD(3, 4)` is enclosed by parentheses, so the expression is work-grade
 COMMENT "and can only be evaluated when the `myProc2` statement is in work-phase."
 myProc2 (ADD(3, 4))
 ```
+
+All invocation statements are work-grade. Petroleum evaluates top-level statements after every module has finished prep-phase.
+
+
