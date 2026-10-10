@@ -131,7 +131,7 @@ export class PetValue {
     toString(parents: KnownValue[] = []): string {
         const value = this.getKnownValue();
         return knownValueToString(value, parents);
-    };
+    }
     
     toStringStrict(): string {
         return this.getPetString().toString();
@@ -140,7 +140,7 @@ export class PetValue {
     toMapKey(): MapKey {
         const value = this.getKnownValue();
         return knownValueToMapKey(value);
-    };
+    }
 }
 
 export const wrapKnownValue = (knownValue: KnownValue): PetValue => {

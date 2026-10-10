@@ -105,7 +105,7 @@ export class PetContext {
             globalVar.setMember(symbols.SCOPE, globalScope);
         }
         return globalScope;
-    };
+    }
     
     run(): void {
         if (this.hasReportedProblem) {
@@ -162,7 +162,7 @@ export class PetContext {
         const initState = taskDef.getInitState(params);
         const task = new Task<ParamsT, StateT>(this, members, params, initState, 0);
         return task.getStageAction();
-    };
+    }
     
     runTask<ParamsT, StateT>(taskDef: TaskDef<ParamsT, StateT>, params: ParamsT): Action {
         return this.startTask(

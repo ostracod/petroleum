@@ -43,7 +43,7 @@ export const createFrame = (scope: PetMap, parentFrame: PetMap | null): PetMap =
     return frame;
 };
 
-export enum VarSpaceType { Scope, Frame };
+export enum VarSpaceType { Scope, Frame }
 
 export const getVarSpaceType = (varSpace: PetMap): VarSpaceType => {
     const isScope = varSpace.getOptionalMember(symbols.IS_SCOPE);

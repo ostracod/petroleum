@@ -66,9 +66,9 @@ const readWorkVarComps = (stmt: PetMap): { variable: PetMap, exprsComp?: PetMap 
 };
 
 export interface SetProcParts {
-    varName: PetString,
-    moduleComp?: PetMap,
-    valueComp: PetMap,
+    varName: PetString;
+    moduleComp?: PetMap;
+    valueComp: PetMap;
 }
 
 const readSetComps = (stmt: PetMap): SetProcParts => {
