@@ -187,7 +187,7 @@ PRINT(<GET <fileSystem> IS_ABS_PATH>(path))
 The example below defines a custom procedure:
 
 ```
-PREP_SYMBOL @#expr
+PREP_SYMBOL @#exprsComp
 PREP_SYMBOL @#attrInt
 PREP_SYMBOL @#stmtsComp
 
@@ -227,7 +227,6 @@ PREP_VAR @repeatMethods = <MAP [FIELDS [
             ABORT (#SYNTAX_ERROR, "`repeat` expects exactly one attribute.")
         }
         
-        WORK_VAR @expr = (MEMBER(exprs, 0))
         WORK_VAR @attr = (MEMBER(attrs, 0))
         WORK_VAR @attrComps = (MEMBER(attr, #COMPS))
         IF (NOT_EQUAL(LEN(attrComps), 1)) {
@@ -241,17 +240,18 @@ PREP_VAR @repeatMethods = <MAP [FIELDS [
         WORK_VAR @attrInt = (MEMBER(attrComp, #INT))
         
         COMMENT "Stash values to use in the #EVAL method."
-        SET_MEMBER(worker, #expr, expr)
+        SET_MEMBER(worker, #exprsComp, exprsComp)
         SET_MEMBER(worker, #attrInt, attrInt)
         SET_MEMBER(worker, #stmtsComp, stmtsComp)
     })
     (#EVAL) = (FUNC {
         [ARGS [@worker, @frame]]
-        WORK_VAR @expr = (MEMBER(worker, #expr))
+        WORK_VAR @exprsComp = (MEMBER(worker, #exprsComp))
         WORK_VAR @attrInt = (MEMBER(worker, #attrInt))
         WORK_VAR @stmtsComp = (MEMBER(worker, #stmtsComp))
         
-        WORK_VAR @exprInt = (CALL_METHOD(expr, #EVAL, LIST (frame)))
+        WORK_VAR @exprValues = (CALL_METHOD(exprsComp, #EVAL, LIST (frame)))
+        WORK_VAR @exprInt = (MEMBER(exprValues, 0))
         WORK_VAR @count = (ADD(attrInt, exprInt))
         WHILE (GREATER(count, 0)) {
             CALL_METHOD(stmtsComp, #EVAL, LIST (frame))
@@ -281,9 +281,7 @@ The example below defines a custom method:
 ```
 PREP_SYMBOL @#isEven
 PREP_SYMBOL @#var
-PREP_SYMBOL @#expr
-PREP_SYMBOL @#expr1
-PREP_SYMBOL @#expr2
+PREP_SYMBOL @#exprsComp
 
 COMMENT "Define #isEven method for integer expressions."
 PREP <RUN {
@@ -343,15 +341,16 @@ PREP_VAR @varMethods = <FUNC {
             
             COMMENT "Stash values to use in the #EVAL method."
             SET_MEMBER(worker, #var, var)
-            SET_MEMBER(worker, #expr, expr)
+            SET_MEMBER(worker, #exprsComp, exprsComp)
         })
         (#EVAL) = (FUNC {
             [ARGS [@worker, @frame]]
             WORK_VAR @var = (MEMBER(worker, #var))
-            WORK_VAR @expr = (MEMBER(worker, #expr))
+            WORK_VAR @exprsComp = (MEMBER(worker, #exprsComp))
             
             COMMENT "Set the value of the frame entry."
-            WORK_VAR @value = (CALL_METHOD(expr, #EVAL, LIST (frame)))
+            WORK_VAR @values = (CALL_METHOD(exprsComp, #EVAL, LIST (frame)))
+            WORK_VAR @value = (MEMBER(values, 0))
             WORK_VAR @ident = (MEMBER(var, #IDENT))
             WORK_VAR @frameEntry = (MEMBER(MEMBER(frame, #FRAME_ENTRIES), ident))
             SET_MEMBER(frameEntry, #VALUE, value)
@@ -382,24 +381,24 @@ PREP_VAR @addInts = <MAP [FIELDS [
             CALL_METHOD(exprsComp, #PREP)
             
             COMMENT "Stash expressions to use in #EVAL and #isEven methods."
-            WORK_VAR @exprs = (MEMBER(exprsComp, #EXPRS))
-            SET_MEMBER(worker, #expr1, MEMBER(exprs, 0))
-            SET_MEMBER(worker, #expr2, MEMBER(exprs, 1))
+            SET_MEMBER(worker, #exprsComp, exprsComp)
         })
         (#EVAL) = (FUNC {
             [ARGS [@worker, @frame]]
-            WORK_VAR @expr1 = (MEMBER(worker, #expr1))
-            WORK_VAR @expr2 = (MEMBER(worker, #expr2))
+            WORK_VAR @exprsComp = (MEMBER(worker, #exprsComp))
             
             COMMENT "Calculate the sum of the two expressions."
-            WORK_VAR @value1 = (CALL_METHOD(expr1, #EVAL, LIST (frame)))
-            WORK_VAR @value2 = (CALL_METHOD(expr2, #EVAL, LIST (frame)))
+            WORK_VAR @values = (CALL_METHOD(exprsComp, #EVAL, LIST (frame)))
+            WORK_VAR @value1 = (MEMBER(values, 0))
+            WORK_VAR @value2 = (MEMBER(values, 1))
             RET (ADD(value1, value2))
         })
         (#isEven) = (FUNC {
             [ARGS [@worker]]
-            WORK_VAR @expr1 = (MEMBER(worker, #expr1))
-            WORK_VAR @expr2 = (MEMBER(worker, #expr2))
+            WORK_VAR @exprsComp = (MEMBER(worker, #exprsComp))
+            WORK_VAR @exprs = (MEMBER(exprsComp, #EXPRS))
+            WORK_VAR @expr1 = (MEMBER(exprs, 0))
+            WORK_VAR @expr2 = (MEMBER(exprs, 1))
             
             COMMENT "Determine whether the sum of the two expressions is even."
             WORK_VAR @isEven1 = (CALL_METHOD(expr1, #isEven))

@@ -589,17 +589,7 @@ export const spinCondTask: TaskDef<{ spinner: Spinner }, null> = {
 };
 
 const checkGradeForEval = (worker: PetMap): void => {
-    const nodeTypeValue = worker.getOptionalMember(symbols.NODE_TYPE);
-    if (typeof nodeTypeValue === "undefined") {
-        return;
-    }
-    const nodeType = nodeTypeValue.getSymbol()
-    let grade: PetSymbol;
-    if (nodeType === symbols.EXPR) {
-        grade = worker.getMember(symbols.GRADE).getSymbol();
-    } else {
-        grade = symbols.WORK_GRADE;
-    }
+    const grade = worker.getOptionalMember(symbols.GRADE)?.getSymbol() ?? symbols.WORK_GRADE;
     let entity = worker;
     while (true) {
         const nextEntity = entity.getOptionalMember(symbols.PARENT);
@@ -608,14 +598,14 @@ const checkGradeForEval = (worker: PetMap): void => {
         }
         entity = nextEntity.getMap();
         const phaseValue = entity.getOptionalMember(symbols.PHASE);
-        const entityNodeType = entity.getOptionalMember(symbols.NODE_TYPE);
-        if (typeof phaseValue !== "undefined" && typeof entityNodeType !== "undefined") {
+        const nodeType = entity.getOptionalMember(symbols.NODE_TYPE);
+        if (typeof phaseValue !== "undefined" && typeof nodeType !== "undefined") {
             const phase = phaseValue.getSymbol();
             if (grade === symbols.PREP_GRADE && phase === symbols.WORK_PHASE) {
-                throw new StateError("Cannot evaluate prep-grade node when parent is in work-phase.");
+                throw new StateError("Cannot evaluate prep-grade worker when parent is in work-phase.");
             }
             if (grade === symbols.WORK_GRADE && phase === symbols.PREP_PHASE) {
-                throw new StateError("Cannot evaluate work-grade node when parent is in prep-phase.");
+                throw new StateError("Cannot evaluate work-grade worker when parent is in prep-phase.");
             }
             break;
         }
