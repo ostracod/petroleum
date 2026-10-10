@@ -16,10 +16,10 @@ MAP [FIELDS [$fields]]
 Creates a map containing `$fields`. Each attribute in `$fields` has the form `($key) = ($value)`.
 
 ```
-PREP <$expr>
+PREP <$value>
 ```
 
-Evaluates `$expr` during prep-phase to achieve a side-effect.
+Returns `$value`, which is determined during prep-phase. This procedure stores the value in a `#VALUE` field of the `PREP` node so that the value will be accessible during work-phase.
 
 ```
 RUN {$body}

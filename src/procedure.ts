@@ -230,9 +230,17 @@ export const globalProcDefs: ProcDef[] = [
             const scope = getScope(exprsComp);
             return task.callMethod(
                 exprsComp, symbols.EVAL, [scope],
-                (values) => task.returnValue(null),
+                (values) => {
+                    const value = values.getList().getMember(0);
+                    worker.setMember(symbols.VALUE, value);
+                    return task.returnValue(null);
+                }
             );
         },
+        eval: (task, worker, varSpace) => {
+            const value = worker.getMember(symbols.VALUE);
+            return task.returnValue(value);
+        }
     },
     {
         name: "RUN",
