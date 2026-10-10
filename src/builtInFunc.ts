@@ -99,7 +99,7 @@ export class DefFunc extends BuiltInFunc {
         return this.def.call(task, args);
     }
     
-    toString(): string {
+    override toString(): string {
         return this.def.name ?? super.toString();
     }
 }

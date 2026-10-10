@@ -246,7 +246,7 @@ const builtInModuleDefs: BuiltInModuleDef[] = [
                 try {
                     return funcDef.call(task, args);
                 } catch (error) {
-                    if (error instanceof PetException) {
+                    if (error instanceof PetException || !(error instanceof Error)) {
                         throw error;
                     }
                     throw new FileSystemError(error.message);

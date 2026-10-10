@@ -507,7 +507,7 @@ export class PackageResolver {
                 }
             }
         }
-        let removedRedundantPack;
+        let removedRedundantPack = false;
         for (const selection of candidateSels) {
             if (selection.isRedundant()) {
                 this.removeSelection(selection);

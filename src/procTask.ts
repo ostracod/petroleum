@@ -358,7 +358,7 @@ export const withCallerProcTask: TaskDef<WithCallerProcParams, { node: PetMap | 
         (task) => task.runTask(
             withCallerTask,
             {
-                callerNode: task.state.node,
+                callerNode: task.state.node!,
                 stmtsComp: task.params.stmtsComp,
                 varSpace: task.params.varSpace,
             },

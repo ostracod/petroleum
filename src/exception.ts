@@ -78,7 +78,7 @@ export class AwaitException extends PetException {
         super(createAwaitExcep(bunch, location, condition, message));
     }
     
-    createEvalState(currentAction: Action): EvalState {
+    override createEvalState(currentAction: Action): EvalState {
         return new EvalState(currentAction.task!, currentAction);
     }
 }
