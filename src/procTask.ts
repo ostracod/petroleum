@@ -272,7 +272,7 @@ export const awaitProcEvalTask: TaskDef<AwaitProcEvalParams, AwaitProcEvalState>
         },
         (task) => {
             const { bunch, location } = task.state;
-            return task.returnValue(bunch!.getMember(location!));
+            return task.returnValue(bunch!.getMember(location));
         },
     ],
 };

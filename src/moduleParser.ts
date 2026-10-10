@@ -54,6 +54,16 @@ const setParents = (maps: PetMap[], parent: KnownValue): void => {
     }
 };
 
+const compsToAttribute = (components: PetMap[]): PetMap => {
+    const attribute = new PetMap([
+        [symbols.NODE_TYPE, symbols.ATTR],
+        [symbols.COMPS, new PetList(components)],
+        ...getCompPosFields(components[0]),
+    ]);
+    setParents(components, attribute);
+    return attribute;
+};
+
 const createStmtsComp = (stmtSeqResult: StmtSeqResult, pos: ContentPos): PetMap => {
     const { attributes, statements, scope } = stmtSeqResult;
     const stmtsComp = new PetMap([
@@ -308,7 +318,7 @@ export class ModuleParser {
         // Pass over bracket.
         this.advance(1);
         const compsSequence = this.parseCompsSequence();
-        const attributes = compsSequence.map(this.compsToAttribute);
+        const attributes = compsSequence.map(compsToAttribute);
         const endBracketPos = this.getPos();
         const character = this.readText(1);
         if (character !== "]") {
@@ -417,16 +427,6 @@ export class ModuleParser {
         }
         setParents(components, expression);
         return expression;
-    }
-    
-    compsToAttribute(components: PetMap[]): PetMap {
-        const attribute = new PetMap([
-            [symbols.NODE_TYPE, symbols.ATTR],
-            [symbols.COMPS, new PetList(components)],
-            ...getCompPosFields(components[0]),
-        ]);
-        setParents(components, attribute);
-        return attribute;
     }
     
     parseStmtSequence(): StmtSeqResult {

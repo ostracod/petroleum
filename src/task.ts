@@ -285,13 +285,13 @@ export const prepModuleTask: TaskDef<{ module: PetMap }, null> = {
                 const attrComps = attr.getMember(symbols.COMPS).getList();
                 assertCompAmount(attrComps, 2);
                 assertIdentComp(attrComps, 0, "INIT");
-                const stmtsComp = getStmtsComp(attrComps, 1);
-                const scope = stmtsComp.getMember(symbols.SCOPE).getMap();
+                const initStmtsComp = getStmtsComp(attrComps, 1);
+                const scope = initStmtsComp.getMember(symbols.SCOPE).getMap();
                 const moduleScope = module.getMember(symbols.SCOPE).getMap();
                 const parentScope = moduleScope.getMember(symbols.PARENT).getMap();
                 scope.setMember(symbols.PARENT, parentScope);
                 return task.callMethod(
-                    stmtsComp, symbols.EVAL, [parentScope],
+                    initStmtsComp, symbols.EVAL, [parentScope],
                     (value) => task.advanceStage(null),
                 );
             }

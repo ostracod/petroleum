@@ -82,17 +82,25 @@ export default defineConfig(
             "@stylistic/space-infix-ops": "warn",
 
             "@typescript-eslint/no-empty-object-type": "off",
-            "@typescript-eslint/no-unsafe-function-type": "off",
             "@typescript-eslint/no-wrapper-object-types": "off",
-
             "@typescript-eslint/no-explicit-any": "off",
             "@typescript-eslint/no-empty-function": "off",
-            "@typescript-eslint/no-floating-promises": "error",
             "@typescript-eslint/no-inferrable-types": "off",
             "@typescript-eslint/no-unused-vars": ["warn", {
                 "vars": "all",
                 "args": "none",
             }],
+            
+            "@typescript-eslint/no-unsafe-function-type": "warn",
+            "@typescript-eslint/no-unsafe-argument": "warn",
+            "@typescript-eslint/no-unsafe-assignment": "warn",
+            "@typescript-eslint/no-unsafe-call": "warn",
+            "@typescript-eslint/no-unsafe-member-access": "warn",
+            "@typescript-eslint/no-unsafe-return": "warn",
+            "@typescript-eslint/no-shadow": "warn",
+            "@typescript-eslint/unbound-method": "warn",
+            "@typescript-eslint/no-unnecessary-type-assertion": "warn",
+            "@typescript-eslint/no-floating-promises": "error",
         },
     },
 );

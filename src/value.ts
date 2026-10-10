@@ -173,7 +173,7 @@ const toMapKey = (value: KnownValue | PetValue): MapKey => (
     (value instanceof PetValue) ? value.toMapKey() : knownValueToMapKey(value)
 );
 
-const toString = (value: KnownValue | PetValue): MapKey => (
+const toString = (value: KnownValue | PetValue): string => (
     (value instanceof PetValue) ? value.toString() : knownValueToString(value)
 );
 

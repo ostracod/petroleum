@@ -19,9 +19,9 @@ const fileSymbol = new PetSymbol("#FILE");
 const dirSymbol = new PetSymbol("#DIR");
 const fileSystemErrorSymbol = new PetSymbol("#FILE_SYSTEM_ERROR");
 
-const createSymbolMap = (symbols: PetSymbol[]): { [name: string]: PetSymbol } => {
+const createSymbolMap = (inputSymbols: PetSymbol[]): { [name: string]: PetSymbol } => {
     const output: { [name: string]: PetSymbol } = {};
-    for (const symbol of symbols) {
+    for (const symbol of inputSymbols) {
         output[symbol.displayName] = symbol;
     }
     return output;
@@ -75,7 +75,7 @@ const createBuiltInModule = (moduleDef: BuiltInModuleDef): PetMap => {
 };
 
 export const createBuiltInModules = (): Map<PetSymbol, PetMap> => {
-    const output = new Map();
+    const output = new Map<PetSymbol, PetMap>();
     for (const moduleDef of builtInModuleDefs) {
         const module = createBuiltInModule(moduleDef);
         output.set(moduleDef.symbol, module);

@@ -146,7 +146,7 @@ class PetPackage {
     constructor(dirPath: string) {
         this.dirPath = dirPath;
         const configPath = pathUtils.join(this.dirPath, "petroleumPackage.json");
-        this.config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+        this.config = JSON.parse(fs.readFileSync(configPath, "utf8")) as PackageConfig;
         this.specifier = this.config.specifier;
         this.version = new Version(this.config.version);
         this.petroleumVersionRange = new VersionRange(this.config.petroleumVersion);
@@ -418,9 +418,9 @@ export class PackageResolver {
         
         // Add other selections to dependencies of `selection`.
         for (const dependency of selection.dependencies.values()) {
-            const versionMap = this.selections.get(dependency.specifier);
-            if (typeof versionMap !== "undefined") {
-                for (const depSelection of versionMap.getValues()) {
+            const depVersionMap = this.selections.get(dependency.specifier);
+            if (typeof depVersionMap !== "undefined") {
+                for (const depSelection of depVersionMap.getValues()) {
                     dependency.addIfCompatible(depSelection);
                 }
             }
