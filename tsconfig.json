@@ -5,7 +5,7 @@
         "moduleResolution": "NodeNext",
         "rootDir": "./src",
         "outDir": "./dist",
-        "esModuleInterop": true,
+        "types": ["node"],
         "useDefineForClassFields": false,
         "strict": true,
         "strictPropertyInitialization": false,

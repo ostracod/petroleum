@@ -11,7 +11,7 @@
         "@stylistic/eslint-plugin": "^5.10.0",
         "@types/node": ">=22.0.0",
         "eslint": "^10.12.0",
-        "typescript": "^5.8.2",
+        "typescript": "^6.0.3",
         "typescript-eslint": "^8.71.1"
     }
 }
