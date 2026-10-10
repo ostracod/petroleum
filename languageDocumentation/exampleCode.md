@@ -303,7 +303,7 @@ PREP <RUN {
         COMMENT "sets the #isEven field on the variable."
         RET (AWAIT (
             var, #isEven,
-            FUNC {[ARGS [@member]], RET (TRUE)}
+            FUNC {[ARGS [@member]], RET (TRUE)},
             CONCAT(LIST (
                 "Waiting for #isEven to be set on ", MEMBER(var, #IDENT)
             ))

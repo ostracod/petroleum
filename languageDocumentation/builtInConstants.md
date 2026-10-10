@@ -46,7 +46,7 @@ Error types include the following symbols:
 * `#VALUE_ERROR` symbolizes that a value is invalid, but has a valid type.
 * `#STATE_ERROR` symbolizes that a resource is in an invalid state or missing.
 
-Built-in method keys are symbols. Petroleum defines the following method keys as mentioned in the section about workers:
+Built-in method keys are symbols. Petroleum defines the following method keys as mentioned in the section about variables:
 
 * `#PREP` symbolizes the preparation method.
 * `#EVAL` symbolizes the evaluation method.
@@ -81,7 +81,7 @@ Petroleum defines many symbols for keys and values in various data structures. S
 * `#FILE_PATH` symbolizes a file path.
 * `#FRAME` symbolizes a frame.
 * `#FRAME_ENTRIES` symbolizes a map of frame entries.
-* `#GRADE` symbolizes the grade on an expression.
+* `#GRADE` symbolizes the grade of an expression.
 * `#IDENT` symbolizes an identifier.
 * `#IDENT_COMP` symbolizes an identifier component.
 * `#IDENT_EXPR` symbolizes an identifier expression.
@@ -130,6 +130,6 @@ Petroleum defines many symbols for keys and values in various data structures. S
 * `#WORK_PHASE` symbolizes work-phase.
 * `#WORK_VAR` symbolizes a work-var.
 
-Note that all built-in invocables are also built-in constants, but they will described in later sections because this section is already long enough.
+Note that all built-in invocables are also built-in constants, but they will be described in later sections because this section is already long enough.
 
 

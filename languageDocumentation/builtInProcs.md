@@ -25,7 +25,7 @@ Returns `$value`, which is determined during prep-phase. This procedure stores t
 RUN {$body}
 ```
 
-Evaluates `$body` and returns the value returned by `$body`.
+Evaluates `$body` and returns the value returned by `$body`. Note that this procedure handles return exceptions in the same manner as function invocations.
 
 ```
 FUNC {[ARGS $args], $body}
@@ -40,7 +40,7 @@ Creates a function with `$body`. `$args` may have one of the following forms:
     * `$argList` is a work-var containing a list of values.
     * The function may be passed any number of arguments.
 
-If `[ARGS @$args]` is excluded, the function does not accept any arguments.
+If `[ARGS $args]` is excluded, the function does not accept any arguments.
 
 Note that when the `FUNC` procedure is evaluated for the first time, the procedure will call the `#ACCESSED_VARS` method on the child statement sequence component. The `#ACCESSED_VARS` method returns a variable map which determines the contents of closures. The `FUNC` procedure stores the variable map in an `#ACCESSED_VARS` field of the invocation node to avoid redundantly calling the `#ACCESSED_VARS` method.
 
@@ -72,7 +72,7 @@ Returns the value of variable `$name` in `$module`. The `#PREP` method of this p
 SET <$module> $name = ($value)
 ```
 
-Assigns `$value` to work-var `$name` in `$module`. The `#PREP` method of this procedure stores the destination variable in a `#DEST_VAR` field of the `SET` statement. The `#EVAL` method of this procedure accesses the `#DEST_VAR` field. If `<$module>` is excluded, the variable is in the current scope.
+Assigns `$value` to work-var `$name` in `$module`. The `#PREP` method of this procedure stores the destination variable in a `#DEST_VAR` field of the `SET` statement. The `#EVAL` method of this procedure accesses the `#DEST_VAR` field. If `<$module>` is excluded, the variable is visible in the current scope.
 
 ```
 IMPORT <$specifier> AS @$moduleName [VARS [$vars]]
@@ -91,13 +91,13 @@ If `$specifier` is a path to a missing file, the procedure will pause until the 
 IMPORT_PACK <$specifier> AS @$moduleName [VARS [$vars]]
 ```
 
-Imports the main module of package `$specifier` in the package store. The version of imported package depends on `petroleumPackage.json` in the current package. This procedure otherwise works in the same way as `IMPORT`.
+Imports the main module of package `$specifier` in the package store. The version of the imported package depends on `petroleumPackage.json` in the current package. This procedure otherwise works in the same way as `IMPORT`.
 
 ```
 IF ($condition1) {$body1} ELSE_IF ($condition2) {$body2} ELSE {$body3}
 ```
 
-If `$condition1` is true, `$body1` is evaluated. Otherwise if `$condition2` is true, `$body2` is evaluated. If both conditions are false, `$body3` is evaluated. `ELSE_IF ($condition2)` may be excluded or repeated any number of times. `ELSE {$body3}` may be excluded.
+If `$condition1` is true, `$body1` is evaluated. Otherwise if `$condition2` is true, `$body2` is evaluated. If all conditions are false, `$body3` is evaluated. `ELSE_IF ($condition2)` may be excluded or repeated any number of times. `ELSE {$body3}` may be excluded.
 
 ```
 WHILE ($condition) {$body}
@@ -121,7 +121,7 @@ Throws a continue exception, causing the parent `WHILE` procedure to skip to the
 RET ($value, $level)
 ```
 
-Throws a return exception with `$value` and `$level`. If `$level` is excluded, the level will be 0. If `($value, $level)` is excluded, the return value will be null. See the section on exception schema for details.
+Throws a return exception with `$value` and `$level`. If `$level` is excluded, the level will be 0. If `($value, $level)` is excluded, the return value will be null. See the section on exception schemas for details.
 
 ```
 SCHED {$body}
@@ -139,7 +139,7 @@ Invokes `$condition`. `$condition` is a function which accepts no arguments and 
 AWAIT ($bunch, $loc, $condition, $message)
 ```
 
-Invokes `$condition` with the member of `$bunch` at `$loc` as the argument. `$bunch` is a list or a map. `$loc` is a list index or field key. `$condition` is a function which accepts a single argument and returns a boolean. If `$condition` returns false or no such member exists, this procedure throws an await exception containing `$bunch`, `$loc`, `$condition` and `$message`. This effectively pauses the coroutine until the member of `$bunch` at `$loc` satisfies `$condition`. See the section on coroutines for details. This procedure returns the member of `$bunch` at `$loc`.
+Invokes `$condition` with the member of `$bunch` at `$loc` as the argument. `$bunch` is a list or a map. `$loc` is a list index or field key. `$condition` is a function which accepts a single argument and returns a boolean. If `$condition` returns false or no such member exists, this procedure throws an await exception containing `$bunch`, `$loc`, `$condition`, and `$message`. This effectively pauses the coroutine until the member of `$bunch` at `$loc` satisfies `$condition`. See the section on coroutines for details. This procedure returns the member of `$bunch` at `$loc`.
 
 ```
 ABORT ($errorType, $message)

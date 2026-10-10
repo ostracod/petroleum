@@ -12,7 +12,7 @@ Workers have "methods", which are functions that determine the behavior of the w
 
 Each worker exists in one of two "phases". Initially, every worker begins in "prep-phase". When the `#PREP` method is invoked on a worker, the worker will enter "work-phase". The `#EVAL` method may only be called on a worker when the worker is in work-phase. Note that the `#PREP` method only runs once per worker.
 
-The list below describes the behavior of `#PREP` and `#WORK` methods in each type of worker:
+The list below describes the behavior of `#PREP` and `#EVAL` methods in each type of worker:
 
 * In integer and string expressions:
     * The `#PREP` method does nothing.
@@ -37,7 +37,7 @@ The list below describes the behavior of `#PREP` and `#WORK` methods in each typ
     * The `#PREP` method of the component calls the `#PREP` method of each statement.
     * The `#EVAL` method of the component creates a new frame and calls the `#EVAL` method of each statement.
 
-The behaviors of `#PREP` and `#WORK` methods have the following noteworthy implications:
+The behaviors of `#PREP` and `#EVAL` methods have the following noteworthy implications:
 
 * The invocable of an invocation expression or statement must be known during prep-phase.
 * Each procedure can define its own custom prep-phase behavior.

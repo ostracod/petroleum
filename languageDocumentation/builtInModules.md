@@ -18,7 +18,7 @@ Symbolizes a file or a directory. The file system `TYPE` function returns these 
 #FILE_SYSTEM_ERROR
 ```
 
-Symbolizes a file system error, such as a missing file or inadequte permission. In some errors thrown by the file system module, the `#ERROR_TYPE` field stores `#FILE_SYSTEM_ERROR`.
+Symbolizes a file system error, such as a missing file or inadequate permission. In some errors thrown by the file system module, the `#ERROR_TYPE` field stores `#FILE_SYSTEM_ERROR`.
 
 ```
 EXISTS($path)

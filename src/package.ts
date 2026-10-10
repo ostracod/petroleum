@@ -107,8 +107,11 @@ class VersionRange {
         const parts = [this.minVersion.major, this.minVersion.minor, this.minVersion.patch];
         if (prefix === "^") {
             parts[0] += 1;
+            parts[1] = 0;
+            parts[2] = 0;
         } else if (prefix === "~") {
             parts[1] += 1;
+            parts[2] = 0;
         } else if (prefix === "=") {
             parts[2] += 1;
         } else {

@@ -3,7 +3,7 @@
 
 Various types of data in Petroleum are represented as maps which conform to specific schemas. This section describes all of the representation schemas in Petroleum.
 
-The user can add fields with their own keys to the map schemas if desired. Extra fields are useful to associate custom data with maps.  However, it may be dangerous to modify existing fields in map schemas. Avoid tampering with existing fields unless encouraged by documentation.
+The user can add fields with their own keys to the map schemas if desired. Extra fields are useful to associate custom data with maps. However, it may be dangerous to modify existing fields in map schemas. Avoid tampering with existing fields unless encouraged by documentation.
 
 ### Package Schema
 
@@ -160,7 +160,7 @@ Statement sequence components have the following fields:
 
 * The `#COMP_TYPE` field stores `#STMTS_COMP`.
 * The `#ATTRS` field stores the list of attributes in the block attributes statement of the statement sequence.
-    * The `#PARENT` field of these attributes stores the statement sequence.
+    * The `#PARENT` field of these attributes stores the statement sequence component.
     * If the block attributes statement does not exist, the `#ATTRS` field stores an empty list.
 * The `#STMTS` field stores the list of statements.
     * Note that this excludes block attributes statements.
@@ -247,7 +247,7 @@ If a method key is missing in the method map of a worker, Petroleum will use the
 * The default `#EVAL` method does nothing.
 * The default `#ACCESSED_VARS` method returns variables accessed by all child worker components.
 
-Otherwise, Petroleum will pause until the key is defined in the method map of the worker.
+For any other missing method key, Petroleum will pause until the key is defined in the method map of the worker.
 
 ### Method Schema
 

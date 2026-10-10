@@ -26,7 +26,7 @@ RUN {
 Every variable is either a "prep-var" or a "work-var". The value of a prep-var is assigned during prep-phase of the parent statement sequence. If code attempts to read a prep-var before the prep-var has a value, the prep-var will return a "deferred value" which references the prep-var. When code must know the deferred value for some operation (such as knowing an integer operand for addition), the code will behave in one of the following ways:
 
 * If the prep-var has been initialized since the deferral, the code will "unwrap" the deferred value.
-* If the prep-var has still not yet been initialized, the code will pause until the prep-var has been initialized.
+* If the prep-var has still not been initialized, the code will pause until the prep-var has been initialized.
 
 The value of a work-var is assigned during evaluation of the parent statement sequence. Work-vars are inaccessible while the parent statement sequence is in prep-phase. A work-var stores null until the work-var is assigned a value. Work-var values are stored in "frames". Whenever a statement sequence is evaluated, Petroleum creates a new frame with an entry for each work-var. Note that prep-var values are stored in the scope of the parent statement sequence instead of a frame.
 
@@ -39,7 +39,7 @@ PREP_VAR @myVar1 = <ADD(myVar2, 1)>
 PREP_VAR @myVar2 = <5>
 
 COMMENT "During initialization of `myVar3`, `myVar4` is accessible but"
-COMMENT "returns null because `myVar4` hasn't been initialized yet."
+COMMENT "would return null because `myVar4` hasn't been initialized yet."
 WORK_VAR @myVar3 = (10)
 WORK_VAR @myVar4 = (ADD(myVar3, 2))
 
@@ -55,7 +55,7 @@ The scope of the top-level statement sequence in a file is a "module scope". Eve
 
 A "perma-frame" is a frame which persists for the lifespan of the application. A "perma-frame scope" is a scope for which a perma-frame is created. Each perma-frame scope can only have one perma-frame. The global scope and all module scopes are perma-frame scopes.
 
-When a function is created, the function stores a "closure" over all visible work-vars which the function body may access. The closure holds a pruned copy of visible frames which only contain the necessary frame entries. When the function is invoked, the pruned frames becomes accessible to the function body. To determine which variables the body may access, the function invokes the `#ACCESSED_VARS` method on the body statements. The `#ACCESSED_VARS` method returns the set of variables which a worker may access when evaluated.
+When a function is created, the function stores a "closure" over all visible work-vars which the function body may access. The closure holds a pruned copy of visible frames which only contain the necessary frame entries. When the function is invoked, the pruned frames become accessible to the function body. To determine which variables the body may access, the function invokes the `#ACCESSED_VARS` method on the body statements. The `#ACCESSED_VARS` method returns the set of variables which a worker may access when evaluated.
 
 Note that a function may create a closure on top-level work-vars even when the top-level statement sequence is in prep-phase. This is possible because the pruned frames in the closure do not include perma-frames. Instead, the closure holds a reference to the module scope which will acquire a perma-frame when the top-level statement sequence enters work-phase. However, during invocation the function body cannot access work-vars whose parent statement sequences are in prep-phase, including top-level work-vars.
 
