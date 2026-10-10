@@ -52,7 +52,7 @@ const setParents = (maps: PetMap[], parent: KnownValue): void => {
     for (const map of maps) {
         map.setMember(symbols.PARENT, parent);
     }
-}
+};
 
 const createStmtsComp = (stmtSeqResult: StmtSeqResult, pos: ContentPos): PetMap => {
     const { attributes, statements, scope } = stmtSeqResult;
@@ -298,7 +298,7 @@ export class ModuleParser {
             [symbols.GRADE, grade],
             [symbols.PHASE, symbols.PREP_PHASE],
             ...posFields,
-        ])
+        ]);
         setParents(expressions, exprsComp);
         return exprsComp;
     }
@@ -318,7 +318,7 @@ export class ModuleParser {
             [symbols.COMP_TYPE, symbols.ATTRS_COMP],
             [symbols.ATTRS, new PetList(attributes)],
             ...posFields,
-        ])
+        ]);
         setParents(attributes, attrsComp);
         return attrsComp;
     }

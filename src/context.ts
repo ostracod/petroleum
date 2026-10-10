@@ -3,7 +3,7 @@ import "./scheduler.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, KnownValue, PetString, MemberObserver, PetList, PetMap } from "./value.js";
-import { BuiltInFunc, DefFunc, globalFuncDefs } from "./builtInFunc.js";
+import { DefFunc, globalFuncDefs } from "./builtInFunc.js";
 import { WorkerMethodsMap, createWorkerMethodsMap } from "./method.js";
 import { createProcedure, globalProcDefs } from "./procedure.js";
 import { PetException, ValueError, CoroEndException, getExcepReport } from "./exception.js";
@@ -11,7 +11,7 @@ import { createBuiltInModules } from "./builtInModule.js";
 import { ModuleParser } from "./moduleParser.js";
 import { PackageResolver } from "./package.js";
 import { Action, TaskDef, TaskMembers, Task, mainTask, prepModuleTask } from "./task.js";
-import { Spinner, Coroutine, Scheduler } from "./scheduler.js";
+import { Spinner, Scheduler } from "./scheduler.js";
 
 export class PetContext {
     applicationArgs: string[];
@@ -159,7 +159,7 @@ export class PetContext {
             handleException,
             ...taskDef.getNodes?.(params),
         };
-        const initState = taskDef.getInitState(params)
+        const initState = taskDef.getInitState(params);
         const task = new Task<ParamsT, StateT>(this, members, params, initState, 0);
         return task.getStageAction();
     };

@@ -1,9 +1,8 @@
 
 import "./procTask.js";
 
-import { PetSymbol, symbols } from "./symbol.js";
+import { symbols } from "./symbol.js";
 import { PetString, MemberObserver, PetMap, PetFunc, EvalState } from "./value.js";
-import { ConstantFunc } from "./builtInFunc.js";
 import { PetException, CoroEndException, createSpinExcep } from "./exception.js";
 import { Action, TaskDef, handleExcepTask, spinCondTask } from "./task.js";
 import { PetContext } from "./context.js";

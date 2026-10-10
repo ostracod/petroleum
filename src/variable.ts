@@ -203,7 +203,7 @@ export const varIsInScope = (variable: PetMap, scope: PetMap): boolean => {
         }
         const parentScope = scope.getOptionalMember(symbols.PARENT);
         if (typeof parentScope === "undefined") {
-            break
+            break;
         }
         scope = parentScope.getMap();
     }

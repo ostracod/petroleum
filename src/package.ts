@@ -72,15 +72,15 @@ class Version {
         if (this.major > other.major) {
             return 1;
         } else if (this.major < other.major) {
-            return -1
+            return -1;
         } else if (this.minor > other.minor) {
             return 1;
         } else if (this.minor < other.minor) {
-            return -1
+            return -1;
         } else if (this.patch > other.patch) {
             return 1;
         } else if (this.patch < other.patch) {
-            return -1
+            return -1;
         } else {
             return 0;
         }
@@ -215,7 +215,7 @@ class VersionMap<T> {
             } else if (comparison < 0) {
                 minIndex = middleIndex + 1;
             } else {
-                return middleIndex
+                return middleIndex;
             }
         }
         return minIndex;
@@ -223,7 +223,7 @@ class VersionMap<T> {
     
     findEqual(version: Version): number {
         const index = this.findSmallestAtLeast(version);
-        const entryVersion = this.entries[index]?.version
+        const entryVersion = this.entries[index]?.version;
         if (typeof entryVersion !== "undefined" && entryVersion.equals(version)) {
             return index;
         } else {
@@ -303,7 +303,7 @@ class PackageSelection {
                 return dependency;
             }
         }
-        return null
+        return null;
     }
     
     isSatisfied(): boolean {

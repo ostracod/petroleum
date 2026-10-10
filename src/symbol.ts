@@ -31,7 +31,7 @@ const symbolNames = [
 ];
 export const symbols: { [name: string]: PetSymbol } = {};
 for (const name of symbolNames) {
-    const symbol = new PetSymbol("#" + name)
+    const symbol = new PetSymbol("#" + name);
     symbols[name] = symbol;
 }
 // Shhhh... It's a secret to everybody

@@ -9,8 +9,7 @@ import { SetProcParts, setUpImportVars } from "./procedure.js";
 import { PetTypeError, createBreakExcep } from "./exception.js";
 import { getPackage, assertMinCompAmount, getPrepGradeExprs } from "./node.js";
 import { getVariable, findVarValue, getScope, VarSpaceType, getVarSpaceType, createFrame } from "./variable.js";
-import { TaskDef, spinCondTask } from "./task.js";
-import { Spinner } from "./scheduler.js";
+import { TaskDef } from "./task.js";
 
 export interface MapFieldComps {
     keyComp: PetMap;
@@ -91,7 +90,7 @@ export const setProcPrepTask: TaskDef<{ stmt: PetMap, parts: SetProcParts }, nul
     stages: [
         (task) => {
             const { stmt, parts } = task.params;
-            const { varName, moduleComp, valueComp } = parts;
+            const { varName, moduleComp } = parts;
             const scope = getScope(stmt);
             if (typeof moduleComp === "undefined") {
                 const destVar = getVariable(scope, varName);
@@ -154,9 +153,7 @@ const ifClauseEvalTask: TaskDef<IfClauseEvalParams, null> = {
             const { clause: { stmtsComp }, varSpace } = task.params;
             return task.callMethod(
                 stmtsComp, symbols.EVAL, [varSpace],
-                (value) => {
-                    return task.returnValue(1n);
-                },
+                (value) => task.returnValue(1n),
             );
         },
     ],
@@ -184,7 +181,7 @@ export const ifProcEvalTask: TaskDef<IfProcEvalParams, { clauseIndex: number }> 
                         } else {
                             return task.returnValue(null);
                         }
-                    }
+                    },
                 );
             } else {
                 return task.returnValue(null);
@@ -295,7 +292,7 @@ export const tryProcEvalTask: TaskDef<TryProcEvalParams, { exception: PetValue |
                 tryBody, symbols.EVAL, [varSpace],
                 (value) => task.returnValue(null),
                 (exception) => task.advanceStage({ exception }),
-            )
+            );
         },
         (task) => {
             const { catchBody, varSpace } = task.params;
@@ -320,7 +317,7 @@ export const tryProcEvalTask: TaskDef<TryProcEvalParams, { exception: PetValue |
             return task.callMethod(
                 catchBody, symbols.EVAL, [frame],
                 (value) => task.returnValue(null),
-            )
+            );
         },
     ],
 };

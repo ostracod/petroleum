@@ -25,7 +25,7 @@ const createSymbolMap = (symbols: PetSymbol[]): { [name: string]: PetSymbol } =>
         output[symbol.displayName] = symbol;
     }
     return output;
-}
+};
 
 const fileSystemSymbols = createSymbolMap([fileSymbol, dirSymbol, fileSystemErrorSymbol]);
 

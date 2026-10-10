@@ -4,7 +4,7 @@ import "./package.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { WorkerMethodsMap } from "./method.js";
 import { PetString, PetList, PetMap, PetFunc } from "./value.js";
-import { pluralize, PetSyntaxError, PetTypeError, ValueError, createSyntaxError } from "./exception.js";
+import { pluralize, PetTypeError, ValueError, createSyntaxError } from "./exception.js";
 
 export const getChildWorkers = (node: PetMap): PetMap[] => {
     const output: PetMap[] = [];
@@ -104,7 +104,7 @@ export const getModule = (entity: PetMap): PetMap => {
 export const getPackage = (entity: PetMap): PetMap => {
     const parentModule = getModule(entity);
     return parentModule.getMember(symbols.PACK).getMap();
-}
+};
 
 export const getFuncArgsComp = (invocNode: PetMap): PetMap | null => {
     const comps = invocNode.getMember(symbols.COMPS).getList();
@@ -114,7 +114,7 @@ export const getFuncArgsComp = (invocNode: PetMap): PetMap | null => {
 export const assertMinCompAmount = (
     comps: PetList,
     expectedAmount: number,
-    node?: PetMap
+    node?: PetMap,
 ): void => {
     const actualAmount = comps.getLength();
     if (actualAmount < expectedAmount) {
@@ -125,7 +125,7 @@ export const assertMinCompAmount = (
 export const assertMaxCompAmount = (
     comps: PetList,
     expectedAmount: number,
-    node?: PetMap
+    node?: PetMap,
 ): void => {
     const actualAmount = comps.getLength();
     if (actualAmount > expectedAmount) {
@@ -137,7 +137,7 @@ export const assertMaxCompAmount = (
 export const assertCompAmount = (
     comps: PetList,
     expectedAmount: number,
-    node?: PetMap
+    node?: PetMap,
 ): void => {
     assertMinCompAmount(comps, expectedAmount, node);
     assertMaxCompAmount(comps, expectedAmount, node);
@@ -155,7 +155,7 @@ const getCompWithType = (
         throw createSyntaxError(errorMessage, comp);
     }
     return comp;
-}
+};
 
 export const getStmtsComp = (comps: PetList, index: number): PetMap => getCompWithType(
     comps, index, symbols.STMTS_COMP,
@@ -199,7 +199,7 @@ export const getExprsComp = (
         }
     }
     return exprsComp;
-}
+};
 
 export const getPrepGradeExprs = (
     comps: PetList,

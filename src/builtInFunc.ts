@@ -135,7 +135,7 @@ const getTypeSymbol = (value: KnownValue): PetSymbol => {
     } else {
         throw new PetTypeError("Erm, what the sigma?");
     }
-}
+};
 
 const intRegex = /^-?[0-9]+$/;
 
@@ -156,7 +156,7 @@ const checkCodeToClone = (context: PetContext, code: PetMap): void => {
     }
     const workers = getChildWorkers(code);
     for (const worker of workers) {
-        assertWorkerUnprepped(context, code);
+        assertWorkerUnprepped(context, worker);
     }
 };
 
@@ -266,7 +266,7 @@ const cloneCode = (code: PetMap, lastScopes: CloneScopes | null): PetMap => {
         return codeCopy;
     }
     throw new PetTypeError("Expected node or component.");
-}
+};
 
 export const globalFuncDefs: FuncDef[] = [
     {

@@ -4,7 +4,7 @@ import "./symbol.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { DeferralException, PetTypeError, ValueError, createAwaitExcep } from "./exception.js";
 import { getModule } from "./node.js";
-import { createFrame, findVarValue, getVarSpaceType, VarSpaceType, getSignatureVars, pruneFrames } from "./variable.js";
+import { createFrame, findVarValue, getSignatureVars, pruneFrames } from "./variable.js";
 import { Action, Task, awaitCondTask } from "./task.js";
 import { Scheduler } from "./scheduler.js";
 
@@ -119,7 +119,7 @@ export class PetValue {
     getObservableBunch(): ObservableBunch {
         const value = this.getKnownValue();
         if (!(value instanceof PetList || value instanceof PetMap)) {
-            throw new PetTypeError(`Expected list or map.`);
+            throw new PetTypeError("Expected list or map.");
         }
         return value;
     }
@@ -278,7 +278,7 @@ export class PetString {
         const text = this.toString();
         const literalParts: string[] = [];
         for (let index = 0; index < text.length; index++) {
-            let character = text.charAt(index);
+            const character = text.charAt(index);
             let literalPart: string;
             const escape = charEscapes[character];
             if (typeof escape !== "undefined") {
@@ -308,9 +308,9 @@ export const knownValueToString = (value: KnownValue, parents: KnownValue[] = []
     }
 };
 
-const knownValueToMapKey = (value: KnownValue): MapKey => {
-    return (value instanceof PetString) ? value.toHexString() : value;
-};
+const knownValueToMapKey = (value: KnownValue): MapKey => (
+    (value instanceof PetString) ? value.toHexString() : value
+);
 
 export const valuesAreEqual = (value1: KnownValue, value2: KnownValue): boolean => {
     if (value1 instanceof PetString && value2 instanceof PetString) {
@@ -320,7 +320,7 @@ export const valuesAreEqual = (value1: KnownValue, value2: KnownValue): boolean 
     } else {
         return (value1 === value2);
     }
-}
+};
 
 export const valueMayHaveChanged = (oldValue: PetValue, newValue: PetValue): boolean => {
     const oldKnownValue = oldValue.tryKnownValue();

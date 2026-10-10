@@ -2,14 +2,13 @@
 import "./method.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc, EvalState } from "./value.js";
+import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc } from "./value.js";
 import { MethodDict, createMethodMap, callDefaultPrep } from "./method.js";
 import { PetException, createBreakExcep, createContExcep, createSyntaxError } from "./exception.js";
 import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getStmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp, getCompIdent } from "./node.js";
 import { findVarValue, getVarValue, getModuleFrameEntry, getScope, varIsInScope, getSignatureVars } from "./variable.js";
-import { Action, createMethodInvocation, callMethodTask, spinCondTask } from "./task.js";
+import { Action, createMethodInvocation, callMethodTask } from "./task.js";
 import { setProcPrepTask, awaitProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask, tryProcEvalTask, withCallerProcTask, importProcPrepTask } from "./procTask.js";
-import { Spinner } from "./scheduler.js";
 
 interface ProcDef extends MethodDict {
     name: string;
@@ -234,13 +233,13 @@ export const globalProcDefs: ProcDef[] = [
                     const value = values.getList().getMember(0);
                     worker.setMember(symbols.VALUE, value);
                     return task.returnValue(null);
-                }
+                },
             );
         },
         eval: (task, worker, varSpace) => {
             const value = worker.getMember(symbols.VALUE);
             return task.returnValue(value);
-        }
+        },
     },
     {
         name: "RUN",
@@ -297,7 +296,7 @@ export const globalProcDefs: ProcDef[] = [
                 (resultValue) => {
                     worker.setMember(symbols.ACCESSED_VARS, resultValue);
                     return createFunc(resultValue);
-                }
+                },
             );
         },
     },
@@ -318,7 +317,7 @@ export const globalProcDefs: ProcDef[] = [
                     const value = values.getList().getMember(0);
                     variable.setMember(symbols.VALUE, value);
                     return task.returnValue(null);
-                }
+                },
             );
         },
     },
@@ -518,7 +517,7 @@ export const globalProcDefs: ProcDef[] = [
                     }
                     setUpImportVars(comps, mainModule);
                     return task.returnValue(null);
-                }
+                },
             );
         },
     },

@@ -120,7 +120,7 @@ export const createMethodMap = (methodDict: MethodDict): PetMap => {
         output.setMember(symbols.ACCESSED_VARS, new AccessedVarsMethod(callAccessedVars));
     }
     return output;
-}
+};
 
 const funcInvocationMethods = createMethodMap({
     prep: (task, invocNode) => {
