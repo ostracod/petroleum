@@ -14,10 +14,17 @@ import { Action, TaskDef, TaskMembers, Task, mainTask, prepModuleTask } from "./
 import { Scheduler } from "./scheduler.js";
 import { Logger, ConsoleLogger, FileSystem, HostFileSystem } from "./testHarness.js";
 
+export interface ContextOptions {
+    logger?: Logger;
+    fileSystem?: FileSystem;
+    timeout?: number | null; // Measured in seconds.
+}
+
 export class PetContext {
     applicationArgs: string[];
     logger: Logger;
     fileSystem: FileSystem;
+    timeoutTimestamp: number | null;
     scheduler: Scheduler;
     builtInModules: Map<PetSymbol, PetMap>;
     userModules: PetMap[];
@@ -30,10 +37,16 @@ export class PetContext {
     aggregatedExceps: PetMap[];
     hasReportedProblem: boolean;
     
-    constructor(entryPackagePath: string, applicationArgs: string[]) {
+    constructor(
+        entryPackagePath: string,
+        applicationArgs: string[],
+        options: ContextOptions = {},
+    ) {
         this.applicationArgs = applicationArgs;
-        this.logger = new ConsoleLogger();
-        this.fileSystem = new HostFileSystem();
+        this.logger = options.logger ?? new ConsoleLogger();
+        this.fileSystem = options.fileSystem ?? new HostFileSystem();
+        const timeout = (typeof options.timeout === "undefined") ? null : options.timeout;
+        this.timeoutTimestamp = (timeout === null) ? null : Date.now() / 1000 + timeout;
         this.scheduler = new Scheduler(this);
         this.builtInModules = createBuiltInModules();
         this.userModules = [];

@@ -3,7 +3,7 @@ import "./procTask.js";
 
 import { symbols } from "./symbol.js";
 import { PetString, MemberObserver, PetMap, PetFunc, EvalState } from "./value.js";
-import { PetException, CoroEndException, createSpinExcep } from "./exception.js";
+import { PetException, CoroEndException, TimeoutError, createSpinExcep } from "./exception.js";
 import { Action, TaskDef, handleExcepTask, spinCondTask } from "./task.js";
 import { PetContext } from "./context.js";
 
@@ -50,7 +50,11 @@ export class Coroutine {
     }
     
     run(): void {
+        const { timeoutTimestamp } = this.context;
         while (true) {
+            if (timeoutTimestamp !== null && Date.now() / 1000 > timeoutTimestamp) {
+                throw new TimeoutError();
+            }
             let nextAction: Action;
             try {
                 nextAction = this.action.run();

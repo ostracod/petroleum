@@ -66,6 +66,67 @@ export class ConsoleLogger extends Logger {
     }
 }
 
+class TestException {
+    excepType: string;
+    path: string;
+    lineNumber: string;
+    errorType?: string;
+    errorMessage?: string;
+    
+    constructor(
+        excepType: string,
+        path: string,
+        lineNumber: string,
+        errorType?: string,
+        errorMessage?: string,
+    ) {
+        this.excepType = excepType;
+        this.path = path;
+        this.lineNumber = lineNumber;
+        this.errorType = errorType;
+        this.errorMessage = errorMessage;
+    }
+}
+
+class TestSticker {
+    message: string;
+    path: string;
+    lineNumber: string;
+    
+    constructor(message: string, path: string, lineNumber: string) {
+        this.message = message;
+        this.path = path;
+        this.lineNumber = lineNumber;
+    }
+}
+
+export class TestLogger extends Logger {
+    printMessages: string[];
+    exceptions: TestException[];
+    stickers: TestSticker[];
+    
+    constructor() {
+        super();
+        this.printMessages = [];
+    }
+    
+    print(message: string): void {
+        this.printMessages.push(message);
+    }
+    
+    reportExceptionHelper(exception: PetMap): void {
+        throw new Error("Not yet implemented");
+    }
+    
+    reportObserverHelper(observer: MemberObserver): void {
+        throw new Error("Not yet implemented");
+    }
+    
+    reportSpinnerHelper(spinner: Spinner): void {
+        throw new Error("Not yet implemented");
+    }
+}
+
 export abstract class FileSystem {
     
     abstract entityExists(path: string): boolean;

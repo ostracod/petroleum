@@ -180,6 +180,10 @@ export class CoroEndException extends Error {
     }
 }
 
+export class TimeoutError extends Error {
+    
+}
+
 export const getExcepReport = (exception: PetMap): string => {
     const excepType = exception.getMember(symbols.EXCEP_TYPE).getKnownValue();
     let header: string;
