@@ -6,9 +6,9 @@ import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc } from "./val
 import { MethodDict, createMethodMap, callDefaultPrep } from "./method.js";
 import { PetException, createBreakExcep, createContExcep, createSyntaxError } from "./exception.js";
 import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getStmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp, getCompIdent } from "./node.js";
-import { findVarValue, getVarValue, getModuleFrameEntry, getScope, varIsInScope, getSignatureVars } from "./variable.js";
-import { Action, createMethodInvocation, callMethodTask } from "./task.js";
-import { setProcPrepTask, awaitProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask, tryProcEvalTask, withCallerProcTask, importProcPrepTask } from "./procTask.js";
+import { findVarValue, getVarValue, getModuleFrameEntry, getScope, varIsInScope } from "./variable.js";
+import { createMethodInvocation, callMethodTask } from "./task.js";
+import { setProcPrepTask, awaitProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask, funcProcPrepTask, tryProcEvalTask, withCallerProcTask, importProcPrepTask } from "./procTask.js";
 
 interface ProcDef extends MethodDict {
     name: string;
@@ -261,43 +261,16 @@ export const globalProcDefs: ProcDef[] = [
     },
     {
         name: "FUNC",
-        prep: (task, worker) => {
-            const comps = worker.getMember(symbols.COMPS).getList();
-            assertCompAmount(comps, 2);
-            const stmtsComp = getStmtsComp(comps, 1);
-            const { argVars, argsVar } = getSignatureVars(stmtsComp);
-            if (typeof argVars === "undefined") {
-                argsVar!.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
-            } else {
-                for (const argVar of argVars) {
-                    argVar.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
-                }
-            }
-            return task.callMethod(
-                stmtsComp, symbols.PREP, [],
-                (value) => task.returnValue(null),
-            );
-        },
+        prep: (task, worker) => task.runTask(
+            funcProcPrepTask, { expr: worker },
+            (value) => task.returnValue(null),
+        ),
         eval: (task, worker, varSpace) => {
             const comps = worker.getMember(symbols.COMPS).getList();
             const stmtsComp = comps.getMember(1).getMap();
-            const fieldValue = worker.getOptionalMember(symbols.ACCESSED_VARS);
-            const createFunc = (varsValue: PetValue): Action => {
-                const accessedVars = varsValue.getMap();
-                const userFunc = new UserFunc(stmtsComp, varSpace, accessedVars);
-                return task.returnValue(userFunc);
-            };
-            if (typeof fieldValue !== "undefined") {
-                return createFunc(fieldValue);
-            }
-            const scope = getScope(worker);
-            return task.callMethod(
-                stmtsComp, symbols.ACCESSED_VARS, [scope],
-                (resultValue) => {
-                    worker.setMember(symbols.ACCESSED_VARS, resultValue);
-                    return createFunc(resultValue);
-                },
-            );
+            const accessedVars = worker.getMember(symbols.ACCESSED_VARS).getMap();
+            const userFunc = new UserFunc(stmtsComp, varSpace, accessedVars);
+            return task.returnValue(userFunc);
         },
     },
     {

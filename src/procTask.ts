@@ -7,8 +7,8 @@ import { KnownValue, PetValue, PetString, PetList, PetMap, ObservableBunch } fro
 import { FileExistsFunc } from "./builtInFunc.js";
 import { SetProcParts, setUpImportVars } from "./procedure.js";
 import { PetTypeError, createBreakExcep } from "./exception.js";
-import { getPackage, assertMinCompAmount, getPrepGradeExprs } from "./node.js";
-import { getVariable, findVarValue, getScope, VarSpaceType, getVarSpaceType, createFrame } from "./variable.js";
+import { getPackage, assertCompAmount, assertMinCompAmount, getPrepGradeExprs, getStmtsComp } from "./node.js";
+import { getVariable, findVarValue, getScope, VarSpaceType, getVarSpaceType, createFrame, getSignatureVars } from "./variable.js";
 import { TaskDef } from "./task.js";
 
 export interface MapFieldComps {
@@ -235,6 +235,43 @@ export const whileProcEvalTask: TaskDef<WhileProcEvalParams, null> = {
                 }
             },
         ),
+    ],
+};
+
+export const funcProcPrepTask: TaskDef<{ expr: PetMap }, null> = {
+    getInitState: (params) => null,
+    stages: [
+        (task) => {
+            const { expr } = task.params;
+            const comps = expr.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 2);
+            const stmtsComp = getStmtsComp(comps, 1);
+            const { argVars, argsVar } = getSignatureVars(stmtsComp);
+            if (typeof argVars === "undefined") {
+                argsVar!.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
+            } else {
+                for (const argVar of argVars) {
+                    argVar.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
+                }
+            }
+            return task.callMethod(
+                stmtsComp, symbols.PREP, [],
+                (value) => task.advanceStage(null),
+            );
+        },
+        (task) => {
+            const { expr } = task.params;
+            const comps = expr.getMember(symbols.COMPS).getList();
+            const stmtsComp = comps.getMember(1).getMap();
+            const scope = getScope(expr);
+            return task.callMethod(
+                stmtsComp, symbols.ACCESSED_VARS, [scope],
+                (resultValue) => {
+                    expr.setMember(symbols.ACCESSED_VARS, resultValue);
+                    return task.returnValue(null);
+                },
+            );
+        },
     ],
 };
 
