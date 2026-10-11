@@ -2,19 +2,22 @@
 import "./scheduler.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { PetValue, KnownValue, PetString, MemberObserver, PetList, PetMap } from "./value.js";
+import { PetValue, KnownValue, PetString, PetList, PetMap } from "./value.js";
 import { DefFunc, globalFuncDefs } from "./builtInFunc.js";
 import { WorkerMethodsMap, createWorkerMethodsMap } from "./method.js";
 import { createProcedure, globalProcDefs } from "./procedure.js";
-import { PetException, ValueError, CoroEndException, getExcepReport } from "./exception.js";
+import { PetException, ValueError, CoroEndException } from "./exception.js";
 import { createBuiltInModules } from "./builtInModule.js";
 import { ModuleParser } from "./moduleParser.js";
 import { PackageResolver } from "./package.js";
 import { Action, TaskDef, TaskMembers, Task, mainTask, prepModuleTask } from "./task.js";
-import { Spinner, Scheduler } from "./scheduler.js";
+import { Scheduler } from "./scheduler.js";
+import { Logger, ConsoleLogger, FileSystem, HostFileSystem } from "./testHarness.js";
 
 export class PetContext {
     applicationArgs: string[];
+    logger: Logger;
+    fileSystem: FileSystem;
     scheduler: Scheduler;
     builtInModules: Map<PetSymbol, PetMap>;
     userModules: PetMap[];
@@ -29,6 +32,8 @@ export class PetContext {
     
     constructor(entryPackagePath: string, applicationArgs: string[]) {
         this.applicationArgs = applicationArgs;
+        this.logger = new ConsoleLogger();
+        this.fileSystem = new HostFileSystem();
         this.scheduler = new Scheduler(this);
         this.builtInModules = createBuiltInModules();
         this.userModules = [];
@@ -41,7 +46,11 @@ export class PetContext {
         let entryPackage: PetMap | null;
         let exceptions: PetMap[];
         try {
-            const packageResolver = new PackageResolver(entryPackagePath, this.globalScope);
+            const packageResolver = new PackageResolver(
+                this.fileSystem,
+                entryPackagePath,
+                this.globalScope,
+            );
             ({ entryPackage, exceptions } = packageResolver.resolvePackages());
         } catch (error) {
             if (error instanceof PetException) {
@@ -52,7 +61,7 @@ export class PetContext {
         }
         if (exceptions.length > 0) {
             for (const exception of exceptions) {
-                this.reportException(exception);
+                this.logger.reportException(exception);
             }
         } else {
             const mainModule = entryPackage!.getMember(symbols.MAIN_MODULE).getMap();
@@ -128,16 +137,16 @@ export class PetContext {
         if (!this.hasReportedProblem && isStuck) {
             if (this.aggregatedExceps.length > 0) {
                 for (const exception of this.aggregatedExceps) {
-                    this.reportException(exception);
+                    this.logger.reportException(exception);
                 }
             } else {
                 for (const observer of waitingObservers) {
-                    this.reportObserver(observer);
+                    this.logger.reportObserver(observer);
                 }
                 if (isStuckSpinning) {
                     let coroutine = this.scheduler.spinCoros.firstCoro;
                     while (coroutine !== null) {
-                        this.reportSpinner(coroutine.spinner!);
+                        this.logger.reportSpinner(coroutine.spinner!);
                         coroutine = coroutine.nextCoro;
                     }
                 }
@@ -200,7 +209,12 @@ export class PetContext {
         if (typeof userModuleIndex !== "undefined") {
             return this.userModules[userModuleIndex];
         }
-        const moduleParser = new ModuleParser(parentPackage, absModulePath, this.globalScope);
+        const moduleParser = new ModuleParser(
+            this.fileSystem,
+            parentPackage,
+            absModulePath,
+            this.globalScope,
+        );
         const module = moduleParser.parseModule();
         this.addUserModule(module);
         return module;
@@ -210,29 +224,8 @@ export class PetContext {
         if (this.isPrepping) {
             this.aggregatedExceps.push(exception);
         } else {
-            this.reportException(exception);
+            this.logger.reportException(exception);
         }
-    }
-    
-    reportProblem(description: string): void {
-        if (!this.hasReportedProblem) {
-            console.log("");
-        }
-        console.log(description);
-        console.log("");
-        this.hasReportedProblem = true;
-    }
-    
-    reportException(exception: PetMap): void {
-        this.reportProblem(getExcepReport(exception));
-    }
-    
-    reportObserver(observer: MemberObserver): void {
-        this.reportProblem(observer.getStuckReport());
-    }
-    
-    reportSpinner(spinner: Spinner): void {
-        this.reportProblem(spinner.getStuckReport());
     }
 }
 

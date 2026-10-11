@@ -1,10 +1,10 @@
 
 import "./builtInModule.js";
 
-import * as fs from "fs";
 import { PetSymbol, symbols } from "./symbol.js";
 import { maxIntValue, PetValue, KnownValue, toPetValue, escapeChars, PetString, PetList, PetMap } from "./value.js";
 import { PetSyntaxError, ValueError, messageAtModulePos } from "./exception.js";
+import { FileSystem } from "./testHarness.js";
 
 interface ContentPos {
     lineNumber: bigint;
@@ -81,6 +81,7 @@ const createStmtsComp = (stmtSeqResult: StmtSeqResult, pos: ContentPos): PetMap 
 };
 
 export class ModuleParser {
+    fileSystem: FileSystem;
     parentPackage: PetValue;
     modulePath: string;
     globalScope: PetMap;
@@ -91,7 +92,13 @@ export class ModuleParser {
     scope: PetMap;
     
     // `modulePath` must be an absolute path.
-    constructor(parentPackage: PetMap | PetValue, modulePath: string, globalScope: PetMap) {
+    constructor(
+        fileSystem: FileSystem,
+        parentPackage: PetMap | PetValue,
+        modulePath: string,
+        globalScope: PetMap,
+    ) {
+        this.fileSystem = fileSystem;
         this.parentPackage = toPetValue(parentPackage);
         this.modulePath = modulePath;
         this.globalScope = globalScope;
@@ -471,7 +478,7 @@ export class ModuleParser {
     }
     
     parseModule(): PetMap {
-        this.moduleContent = fs.readFileSync(this.modulePath, "utf8");
+        this.moduleContent = this.fileSystem.readFile(this.modulePath).toString();
         this.contentIndex = 0;
         this.lineNumber = 1;
         this.columnNumber = 1;

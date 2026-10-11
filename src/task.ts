@@ -239,7 +239,7 @@ export const mainTask: TaskDef<null, { moduleIndex: number }> = {
             } else {
                 const { context } = task;
                 for (const exception of context.aggregatedExceps) {
-                    context.reportException(exception);
+                    context.logger.reportException(exception);
                 }
                 context.isPrepping = false;
                 const globalFrame = createFrame(task.context.globalScope, null);

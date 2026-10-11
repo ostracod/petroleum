@@ -1,7 +1,6 @@
 
 import "./value.js";
 
-import * as fs from "fs";
 import { PetSymbol, symbols } from "./symbol.js";
 import { KnownValue, PetValue, wrapKnownValue, minIntValue, maxIntValue, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
 import { PetTypeError, ValueError, StateError } from "./exception.js";
@@ -9,6 +8,7 @@ import { getChildWorkers } from "./node.js";
 import { findVariable, findVarValue, getScope, createFrame } from "./variable.js";
 import { Action, Task } from "./task.js";
 import { PetContext } from "./context.js";
+import { FileSystem } from "./testHarness.js";
 
 export interface FuncDef {
     name: string | null;
@@ -66,10 +66,12 @@ export class NotEqualFunc extends BuiltInFunc {
 }
 
 export class FileExistsFunc extends BuiltInFunc {
+    fileSystem: FileSystem;
     path: string;
     
-    constructor(path: string) {
+    constructor(fileSystem: FileSystem, path: string) {
         super();
+        this.fileSystem = fileSystem;
         this.path = path;
     }
     
@@ -78,7 +80,7 @@ export class FileExistsFunc extends BuiltInFunc {
     }
     
     callBuiltIn(task: Task, args: PetValue[]): Action {
-        const result = fs.existsSync(this.path);
+        const result = this.fileSystem.entityExists(this.path);
         return task.returnValue(result ? 1n : 0n);
     }
 }
@@ -726,7 +728,7 @@ export const globalFuncDefs: FuncDef[] = [
         name: "PRINT",
         argAmount: 1,
         call: (task, args) => {
-            console.log(args[0].toString());
+            task.context.logger.print(args[0].toString());
             return task.returnValue(null);
         },
     },

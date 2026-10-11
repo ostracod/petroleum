@@ -1,15 +1,12 @@
 
 import "./moduleParser.js";
 
-import * as fs from "fs";
-import * as os from "os";
 import * as pathUtils from "path";
 import { symbols } from "./symbol.js";
 import { PetString, PetMap } from "./value.js";
 import { PetException, ValueError, StateError } from "./exception.js";
 import { ModuleParser } from "./moduleParser.js";
-
-const packageStorePath = pathUtils.join(pathUtils.resolve(os.homedir()), "petroleumPackages");
+import { FileSystem } from "./testHarness.js";
 
 interface DependencyConfig {
     specifier: string;
@@ -36,16 +33,6 @@ const splitSpecifier = (specifier: string): SpecifierParts => {
         throw new ValueError(`Package specifier must have the format "$developerName.$packageName"; received "${specifier}"`);
     }
     return { developerName: parts[0], packageName: parts[1] };
-};
-
-const getSpecifierPath = (specifier: string): string => {
-    const parts = splitSpecifier(specifier);
-    return pathUtils.join(packageStorePath, parts.developerName, parts.packageName);
-};
-
-const getPackagePath = (specifier: string, version: Version): string => {
-    const specifierPath = getSpecifierPath(specifier);
-    return pathUtils.join(specifierPath, "v" + version.toString());
 };
 
 class Version {
@@ -137,6 +124,7 @@ class Dependency {
 }
 
 class PetPackage {
+    fileSystem: FileSystem;
     dirPath: string;
     config: PackageConfig;
     specifier: string;
@@ -146,10 +134,12 @@ class PetPackage {
     key: string;
     
     // `dirPath` must be an absolute path.
-    constructor(dirPath: string) {
+    constructor(fileSystem: FileSystem, dirPath: string) {
+        this.fileSystem = fileSystem;
         this.dirPath = dirPath;
         const configPath = pathUtils.join(this.dirPath, "petroleumPackage.json");
-        this.config = JSON.parse(fs.readFileSync(configPath, "utf8")) as PackageConfig;
+        const configText = this.fileSystem.readFile(configPath).toString();
+        this.config = JSON.parse(configText) as PackageConfig;
         this.specifier = this.config.specifier;
         this.version = new Version(this.config.version);
         this.petroleumVersionRange = new VersionRange(this.config.petroleumVersion);
@@ -337,7 +327,12 @@ class PackageSelection {
             [symbols.DIR_PATH, new PetString(dirPath)],
         ]);
         const { globalScope } = this.resolver;
-        const moduleParser = new ModuleParser(packageAsMap, mainModulePath, globalScope);
+        const moduleParser = new ModuleParser(
+            this.pack.fileSystem,
+            packageAsMap,
+            mainModulePath,
+            globalScope,
+        );
         const mainModule = moduleParser.parseModule();
         packageAsMap.setMember(symbols.MAIN_MODULE, mainModule);
         return packageAsMap;
@@ -345,6 +340,8 @@ class PackageSelection {
 }
 
 export class PackageResolver {
+    fileSystem: FileSystem;
+    packageStorePath: string;
     entryPackage: PetPackage;
     globalScope: PetMap;
     // Map from specifier to VersionMap. A null value in the VersionMap
@@ -360,13 +357,30 @@ export class PackageResolver {
     // Set of sorted keys of all selected packages concatenated together.
     previousStates: Set<string>;
     
-    constructor(entryPackagePath: string, globalScope: PetMap) {
-        this.entryPackage = new PetPackage(pathUtils.resolve(entryPackagePath));
+    constructor(fileSystem: FileSystem, entryPackagePath: string, globalScope: PetMap) {
+        this.fileSystem = fileSystem;
+        this.packageStorePath = pathUtils.join(
+            this.fileSystem.getHomeDirectory(), "petroleumPackages",
+        );
+        this.entryPackage = new PetPackage(
+            this.fileSystem,
+            this.fileSystem.getAbsolutePath(entryPackagePath),
+        );
         if (!this.entryPackage.petroleumIsCompatible()) {
             throw new StateError("Entry package is not compatible with this version of Petroleum.");
         }
         this.globalScope = globalScope;
         this.packageStoreCache = new Map();
+    }
+    
+    getSpecifierPath(specifier: string): string {
+        const parts = splitSpecifier(specifier);
+        return pathUtils.join(this.packageStorePath, parts.developerName, parts.packageName);
+    }
+    
+    getPackagePath(specifier: string, version: Version): string {
+        const specifierPath = this.getSpecifierPath(specifier);
+        return pathUtils.join(specifierPath, "v" + version.toString());
     }
     
     getStoreVersions(specifier: string): VersionMap<PetPackage | null> {
@@ -376,11 +390,11 @@ export class PackageResolver {
         }
         versionMap = new VersionMap();
         this.packageStoreCache.set(specifier, versionMap);
-        const specifierPath = getSpecifierPath(specifier);
-        if (!fs.existsSync(specifierPath)) {
+        const specifierPath = this.getSpecifierPath(specifier);
+        if (!this.fileSystem.entityExists(specifierPath)) {
             return versionMap;
         }
-        const dirNames = fs.readdirSync(specifierPath);
+        const dirNames = this.fileSystem.readDirectory(specifierPath);
         for (const dirName of dirNames) {
             if (dirName.startsWith("v")) {
                 const version = new Version(dirName.substring(1));
@@ -486,8 +500,8 @@ export class PackageResolver {
             }
             let pack = entry.value;
             if (pack === null) {
-                const packagePath = getPackagePath(dependency.specifier, entry.version);
-                pack = new PetPackage(packagePath);
+                const packagePath = this.getPackagePath(dependency.specifier, entry.version);
+                pack = new PetPackage(this.fileSystem, packagePath);
                 entry.value = pack;
             }
             if (pack.petroleumIsCompatible()) {

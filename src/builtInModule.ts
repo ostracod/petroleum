@@ -1,7 +1,6 @@
 
 import "./exception.js";
 
-import * as fs from "fs";
 import * as pathUtils from "path";
 import { PetSymbol, symbols } from "./symbol.js";
 import { KnownValue, PetString, PetList, PetMap } from "./value.js";
@@ -88,7 +87,7 @@ const fileSystemFuncDefs: FuncDef[] = [
         name: "EXISTS",
         argAmount: 1,
         call: (task, args) => {
-            const result = fs.existsSync(args[0].toStringStrict());
+            const result = task.context.fileSystem.entityExists(args[0].toStringStrict());
             return task.returnValue(result ? 1n : 0n);
         },
     },
@@ -96,8 +95,9 @@ const fileSystemFuncDefs: FuncDef[] = [
         name: "TYPE",
         argAmount: 1,
         call: (task, args) => {
-            const stats = fs.statSync(args[0].toStringStrict());
-            const result = stats.isDirectory() ? dirSymbol : fileSymbol;
+            const path = args[0].toStringStrict();
+            const isDirectory = task.context.fileSystem.entityIsDirectory(path);
+            const result = isDirectory ? dirSymbol : fileSymbol;
             return task.returnValue(result);
         },
     },
@@ -105,7 +105,7 @@ const fileSystemFuncDefs: FuncDef[] = [
         name: "READ_FILE",
         argAmount: 1,
         call: (task, args) => {
-            const buffer = fs.readFileSync(args[0].toStringStrict());
+            const buffer = task.context.fileSystem.readFile(args[0].toStringStrict());
             return task.returnValue(new PetString(buffer));
         },
     },
@@ -113,7 +113,7 @@ const fileSystemFuncDefs: FuncDef[] = [
         name: "READ_DIR",
         argAmount: 1,
         call: (task, args) => {
-            const fileNames = fs.readdirSync(args[0].toStringStrict());
+            const fileNames = task.context.fileSystem.readDirectory(args[0].toStringStrict());
             const result = new PetList(fileNames.map((name) => new PetString(name)));
             return task.returnValue(result);
         },
@@ -123,7 +123,7 @@ const fileSystemFuncDefs: FuncDef[] = [
         argAmount: 2,
         call: (task, args) => {
             const buffer = args[1].getPetString().toBuffer();
-            fs.writeFileSync(args[0].toStringStrict(), buffer);
+            task.context.fileSystem.writeFile(args[0].toStringStrict(), buffer);
             return task.returnValue(null);
         },
     },
@@ -131,7 +131,7 @@ const fileSystemFuncDefs: FuncDef[] = [
         name: "NEW_DIR",
         argAmount: 1,
         call: (task, args) => {
-            fs.mkdirSync(args[0].toStringStrict());
+            task.context.fileSystem.createDirectory(args[0].toStringStrict());
             return task.returnValue(null);
         },
     },
@@ -139,7 +139,7 @@ const fileSystemFuncDefs: FuncDef[] = [
         name: "DEL_FILE",
         argAmount: 1,
         call: (task, args) => {
-            fs.unlinkSync(args[0].toStringStrict());
+            task.context.fileSystem.deleteFile(args[0].toStringStrict());
             return task.returnValue(null);
         },
     },
@@ -147,11 +147,12 @@ const fileSystemFuncDefs: FuncDef[] = [
         name: "DEL_DIR",
         argAmount: 1,
         call: (task, args) => {
+            const { fileSystem } = task.context;
             const path = args[0].toStringStrict();
-            if (!fs.statSync(path).isDirectory()) {
+            if (!fileSystem.entityIsDirectory(path)) {
                 throw new FileSystemError("Expected directory.");
             }
-            fs.rmSync(path, { recursive: true });
+            fileSystem.deleteDirectory(path);
             return task.returnValue(null);
         },
     },
@@ -220,7 +221,7 @@ const fileSystemFuncDefs: FuncDef[] = [
         name: "ABS_PATH",
         argAmount: 1,
         call: (task, args) => {
-            const result = pathUtils.resolve(args[0].toStringStrict());
+            const result = task.context.fileSystem.getAbsolutePath(args[0].toStringStrict());
             return task.returnValue(new PetString(result));
         },
     },
@@ -230,7 +231,7 @@ const fileSystemFuncDefs: FuncDef[] = [
         call: (task, args) => {
             const refPath = args[0].toStringStrict();
             const targetPath = args[1].toStringStrict();
-            const result = pathUtils.relative(refPath, targetPath);
+            const result = task.context.fileSystem.getRelativePath(refPath, targetPath);
             return task.returnValue(new PetString(result));
         },
     },

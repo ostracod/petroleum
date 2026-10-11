@@ -409,7 +409,7 @@ const importUserModuleTask: TaskDef<{ pack: PetMap, absPath: string }, null> = {
     stages: [
         (task) => {
             const { absPath } = task.params;
-            const condition = new FileExistsFunc(absPath);
+            const condition = new FileExistsFunc(task.context.fileSystem, absPath);
             const message = new PetString(`Waiting for ${absPath} to exist`);
             const nextAction = task.advanceStage(null);
             return task.spin(condition, message, nextAction);
@@ -450,7 +450,9 @@ export const importProcPrepTask: TaskDef<{ stmt: PetMap }, ImportProcPrepState> 
                 const relPath = specifier.toString();
                 const pack = getPackage(task.params.stmt);
                 const packPath = pack.getMember(symbols.DIR_PATH).toStringStrict();
-                const absPath = pathUtils.resolve(pathUtils.join(packPath, relPath));
+                const absPath = task.context.fileSystem.getAbsolutePath(
+                    pathUtils.join(packPath, relPath),
+                );
                 return task.runTask(
                     importUserModuleTask, { pack, absPath },
                     (value) => {
