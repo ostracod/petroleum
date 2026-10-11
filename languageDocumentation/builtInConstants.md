@@ -46,7 +46,7 @@ Error types include the following symbols:
 * `#VALUE_ERROR` symbolizes that a value is invalid, but has a valid type.
 * `#STATE_ERROR` symbolizes that a resource is in an invalid state or missing.
 
-Built-in method keys are symbols. Petroleum defines the following method keys as mentioned in the section about variables:
+Built-in method keys are symbols. Petroleum defines the following method keys:
 
 * `#PREP` symbolizes the preparation method.
 * `#EVAL` symbolizes the evaluation method.

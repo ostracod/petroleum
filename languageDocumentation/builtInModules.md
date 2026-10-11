@@ -1,7 +1,7 @@
 
 ## Built-In Modules
 
-This section describes all built-in modules in Petroleum.
+This section describes all built-in modules in Petroleum. Right now there is only one built-in module (the file system module), but more will likely be added in the future.
 
 ### File System Module
 

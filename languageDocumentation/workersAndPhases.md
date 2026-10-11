@@ -34,14 +34,15 @@ The list below describes the behavior of `#PREP` and `#EVAL` methods in each typ
     * The `#PREP` method of the component calls the `#PREP` method of each expression.
     * The `#EVAL` method of the component calls the `#EVAL` method of each expression, and returns a list of values returned by the expressions.
 * In statement sequence components:
-    * The `#PREP` method of the component calls the `#PREP` method of each statement.
-    * The `#EVAL` method of the component creates a new frame and calls the `#EVAL` method of each statement.
+    * The `#PREP` method of the component calls the `#PREP` method of each invocation statement.
+    * The `#EVAL` method of the component creates a new frame and calls the `#EVAL` method of each invocation statement.
 
 The behaviors of `#PREP` and `#EVAL` methods have the following noteworthy implications:
 
 * The invocable of an invocation expression or statement must be known during prep-phase.
 * Each procedure can define its own custom prep-phase behavior.
-* Expression and statement sequence components only enter work-phase after all child nodes enter work-phase.
+* Expression sequence components enter work-phase after all child expressions enter work-phase.
+* Statement sequence components enter work-phase after all child invocation statements enter work-phase.
 
 The `#PREP` method of a procedure is responsible for invoking the `#PREP` method on the following workers:
 

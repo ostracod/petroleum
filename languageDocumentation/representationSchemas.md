@@ -241,7 +241,7 @@ Invocables are either functions or procedures. Procedures are represented as map
 * The `#IS_PROC` field stores `TRUE`.
 * The `#METHODS` field stores a map from method key to method.
 
-If a method key is missing in the method map of a worker, Petroleum will use the following default implementations:
+If a method is called on a worker but the method key is missing in the method map, Petroleum will use the following default implementations:
 
 * The default `#PREP` method calls the `#PREP` method on all child worker components.
 * The default `#EVAL` method does nothing.
@@ -257,8 +257,7 @@ Methods are defined as functions. Petroleum recognizes methods with the followin
     * This method accepts the worker as an argument.
 * The `#EVAL` method evaluates a worker.
     * This method accepts two arguments: `$worker` and `$varSpace`.
-        * `$varSpace` may be a frame or scope.
-    * `$worker` will use `$varSpace` as the current frame or scope.
+        * `$varSpace` is the current frame or scope.
     * When `$worker` is a statement sequence component:
         * If `$varSpace` is a scope, `$worker` will create a new frame with no parent frame.
         * If `$varSpace` is a frame which does not share the same scope as `$worker`, `$worker` will create a new frame whose parent frame is `$varSpace`.
