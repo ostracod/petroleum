@@ -2,14 +2,13 @@
 import "./symbol.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { DeferralException, PetTypeError, ValueError, createAwaitExcep } from "./exception.js";
-import { getModule } from "./node.js";
+import { DeferralException, ModulePos, modulePosToString, entityToModulePos, entityPosToString, PetTypeError, ValueError, createAwaitExcep } from "./exception.js";
 import { createFrame, findVarValue, getSignatureVars, pruneFrames } from "./variable.js";
 import { Action, Task, awaitCondTask } from "./task.js";
 import { Scheduler } from "./scheduler.js";
 
 // PetValueAndKey contains types which can be used as both values and Map keys.
-export type PetValueAndKey = null | bigint | PetSymbol | PetList | PetMap | PetFunc | EvalState;
+export type PetValueAndKey = null | bigint | PetSymbol | PetList | PetMap | PetFunc | StackTrace;
 export type KnownValue = PetString | PetValueAndKey;
 export type MapKey = string | PetValueAndKey;
 
@@ -110,6 +109,10 @@ export class PetValue {
     
     getFunc(): PetFunc {
         return this.getInstance(PetFunc, "function");
+    }
+    
+    getStackTrace(): StackTrace {
+        return this.getInstance(StackTrace, "stack trace");
     }
     
     getEvalState(): EvalState {
@@ -655,14 +658,6 @@ export abstract class PetFunc {
     abstract toString(): string;
 }
 
-// `entity` is a node or a component.
-const entityToCodeLoc = (entity: PetMap): string => {
-    const lineNumber = entity.getMember(symbols.LINE_NUM).toNumber();
-    const module = getModule(entity);
-    const modulePath = module.getMember(symbols.FILE_PATH).toStringStrict();
-    return `line ${lineNumber} of ${modulePath}`;
-};
-
 export class UserFunc extends PetFunc {
     // Statement sequence component which contains the function body.
     stmtsComp: PetMap;
@@ -728,22 +723,42 @@ export class UserFunc extends PetFunc {
     }
     
     toString(): string {
-        const codeLoc = entityToCodeLoc(this.stmtsComp);
-        return `<User function on ${codeLoc}>`;
+        const posText = entityPosToString(this.stmtsComp);
+        return `<User function on ${posText}>`;
     }
 }
 
-export class EvalState {
-    currentTask: Task;
-    actionToResume: Action;
+export abstract class StackTrace {
     
-    constructor(currentTask: Task, actionToResume: Action) {
-        this.currentTask = currentTask;
-        this.actionToResume = actionToResume;
-    }
+    abstract getEntries(): ModulePos[];
     
     toString(): string {
-        const lines: string[] = [];
+        const lines = this.getEntries().map((pos, index) => {
+            const isFirstEntry = (index === 0);
+            const prefix = isFirstEntry ? "On " : "Called from ";
+            return prefix + modulePosToString(pos, isFirstEntry);
+        });
+        return lines.join("\n");
+    }
+}
+
+export class EvalState extends StackTrace {
+    currentTask: Task;
+    actionToResume: Action;
+    pos?: ModulePos;
+    
+    constructor(currentTask: Task, actionToResume: Action, pos?: ModulePos) {
+        super();
+        this.currentTask = currentTask;
+        this.actionToResume = actionToResume;
+        this.pos = pos;
+    }
+    
+    getEntries(): ModulePos[] {
+        const output: ModulePos[] = [];
+        if (typeof this.pos !== "undefined") {
+            output.push(this.pos);
+        }
         let task: Task | null = this.currentTask;
         let topNode: PetMap | null = null;
         while (task !== null) {
@@ -751,17 +766,39 @@ export class EvalState {
                 const { taskNode } = task.members;
                 if (typeof taskNode !== "undefined") {
                     topNode = taskNode;
-                    lines.push("On " + entityToCodeLoc(taskNode));
+                    const nodePos = entityToModulePos(taskNode);
+                    if (typeof this.pos === "undefined"
+                            || nodePos.lineNumber !== this.pos.lineNumber
+                            || nodePos.modulePath !== this.pos.modulePath) {
+                        output.push(nodePos);
+                    }
                 }
             } else {
                 const { callerNode } = task.members;
                 if (typeof callerNode !== "undefined") {
-                    lines.push("Called from " + entityToCodeLoc(callerNode));
+                    output.push(entityToModulePos(callerNode));
                 }
             }
             task = task.members.parentTask;
         }
-        return lines.join("\n");
+        return output;
+    }
+}
+
+export class PackageResolverTrace extends StackTrace {
+    pos?: ModulePos;
+    
+    constructor(pos?: ModulePos) {
+        super();
+        this.pos = pos;
+    }
+    
+    getEntries(): ModulePos[] {
+        const output: ModulePos[] = [];
+        if (typeof this.pos !== "undefined") {
+            output.push(this.pos);
+        }
+        return output;
     }
 }
 

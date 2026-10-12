@@ -68,7 +68,7 @@ export class Coroutine {
                         const evalState = error.createEvalState(this.action);
                         exception.setMember(symbols.EVAL_STATE, evalState);
                     }
-                    // If `task` is null, the action can only thow `CoroEndException`.
+                    // If `task` is null, the action can only throw `CoroEndException`.
                     nextAction = task!.throwException(mapValue);
                 } else if (error instanceof CoroEndException) {
                     const exception = error.unhandledExcep;

@@ -5,7 +5,7 @@ import { PetSymbol, symbols, spinCountSymbol } from "./symbol.js";
 import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, nullValue, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
 import { getMethodWithDefault } from "./method.js";
-import { PetSyntaxError, ValueError, StateError, createSyntaxError, messageAtEntity } from "./exception.js";
+import { PetSyntaxError, ValueError, StateError, createSyntaxError } from "./exception.js";
 import { workerIsInvocation, getWorkerMethodMap, getFuncArgsComp, assertCompAmount, assertIdentComp, getStmtsComp } from "./node.js";
 import { createFrame, VarSpaceType, getVarSpaceType, getVariable, getVarValue, getScope } from "./variable.js";
 import { Spinner } from "./scheduler.js";
@@ -168,7 +168,7 @@ export class Task<ParamsT = any, StateT = any> {
             worker,
             symbols.PHASE,
             new NotEqualFunc(symbols.PREP_PHASE),
-            messageAtEntity("Waiting for worker to finish prep-phase.", worker),
+            "Waiting for worker to finish prep-phase.",
             nextAction,
         );
     }

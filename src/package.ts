@@ -3,8 +3,8 @@ import "./moduleParser.js";
 
 import * as pathUtils from "path";
 import { symbols } from "./symbol.js";
-import { PetString, PetMap } from "./value.js";
-import { PetException, ValueError, StateError } from "./exception.js";
+import { PetString, PetMap, PackageResolverTrace } from "./value.js";
+import { PetException, ModulePos, ErrorException, ValueError, StateError } from "./exception.js";
 import { ModuleParser } from "./moduleParser.js";
 import { FileSystem } from "./testHarness.js";
 
@@ -339,6 +339,23 @@ class PackageSelection {
     }
 }
 
+const errorToException = (error: any): PetMap => {
+    if (!(error instanceof PetException)) {
+        throw error;
+    }
+    const output = error.mapValue.getMap();
+    if (output.hasKey(symbols.EVAL_STATE)) {
+        return output;
+    }
+    let pos: ModulePos | undefined;
+    if (error instanceof ErrorException) {
+        ({ pos } = error);
+    }
+    const trace = new PackageResolverTrace(pos);
+    output.setMember(symbols.EVAL_STATE, trace);
+    return output;
+};
+
 export class PackageResolver {
     fileSystem: FileSystem;
     packageStorePath: string;
@@ -366,9 +383,6 @@ export class PackageResolver {
             this.fileSystem,
             this.fileSystem.getAbsolutePath(entryPackagePath),
         );
-        if (!this.entryPackage.petroleumIsCompatible()) {
-            throw new StateError("Entry package is not compatible with this version of Petroleum.");
-        }
         this.globalScope = globalScope;
         this.packageStoreCache = new Map();
     }
@@ -603,11 +617,7 @@ export class PackageResolver {
             try {
                 packMap.set(selection.pack.key, selection.toMap());
             } catch (error) {
-                if (error instanceof PetException) {
-                    exceptions.push(error.mapValue.getMap());
-                } else {
-                    throw error;
-                }
+                exceptions.push(errorToException(error));
             }
         }
         if (exceptions.length > 0) {
@@ -627,7 +637,10 @@ export class PackageResolver {
         return { entryPackage, exceptions };
     }
     
-    resolvePackages(): { entryPackage: PetMap | null, exceptions: PetMap[] } {
+    resolvePackagesHelper(): { entryPackage: PetMap | null, exceptions: PetMap[] } {
+        if (!this.entryPackage.petroleumIsCompatible()) {
+            throw new StateError("Entry package is not compatible with this version of Petroleum.");
+        }
         this.selections = new Map();
         this.dependencies = new Map();
         this.unsatisfiedSelections = new Set();
@@ -659,6 +672,15 @@ export class PackageResolver {
             this.previousStates.add(currentState);
         }
         return this.convertSelsToMaps();
+    }
+    
+    resolvePackages(): { entryPackage: PetMap | null, exceptions: PetMap[] } {
+        try {
+            return this.resolvePackagesHelper();
+        } catch (error) {
+            const exceptions = [errorToException(error)];
+            return { entryPackage: null, exceptions };
+        }
     }
 }
 

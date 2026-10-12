@@ -3,7 +3,7 @@ import "./builtInModule.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
 import { maxIntValue, PetValue, KnownValue, toPetValue, escapeChars, PetString, PetList, PetMap } from "./value.js";
-import { PetSyntaxError, ValueError, messageAtModulePos } from "./exception.js";
+import { PetSyntaxError, ValueError } from "./exception.js";
 import { FileSystem } from "./testHarness.js";
 
 interface ContentPos {
@@ -195,11 +195,10 @@ export class ModuleParser {
         const intText = this.matchChars(isDigit);
         const intValue = BigInt(intText);
         if (intValue > maxIntValue) {
-            const message = messageAtModulePos(
+            throw new ValueError(
                 "Signed integer literal exceeds 64 bits.",
                 { ...pos, modulePath: this.modulePath },
             );
-            throw new ValueError(message);
         }
         return new PetMap([
             [symbols.COMP_TYPE, symbols.INT_COMP],

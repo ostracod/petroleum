@@ -129,7 +129,7 @@ PRINT(ADD(x, y))
 >>> testCase "ABORT procedure"
 >>> setupFile ~/targetPackage/main.petrol
 PRINT("About to throw an error!")
-ABORT(#STATE_ERROR, "I don't feel so good")
+ABORT (#STATE_ERROR, "I don't feel so good")
 PRINT("This line is not reached")
 >>> expectPrint
 About to throw an error!

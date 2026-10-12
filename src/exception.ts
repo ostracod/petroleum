@@ -98,39 +98,39 @@ export const createContExcep = (): PetException => new PetException(
     new PetMap([[symbols.EXCEP_TYPE, symbols.CONT_EXCEP]]),
 );
 
-export class ErrorException extends PetException {
-    
-    constructor(errorType: PetSymbol, message: string) {
-        super(new PetMap([
-            [symbols.EXCEP_TYPE, symbols.ERROR_EXCEP],
-            [symbols.ERROR_TYPE, errorType],
-            [symbols.MESSAGE, new PetString(message)],
-        ]));
-    }
-}
-
 export interface ModulePos {
     lineNumber: bigint;
     columnNumber: bigint;
     modulePath: string;
 }
 
-export const messageAtModulePos = (message: string, pos: ModulePos): string => (
-    `${message} (Line ${pos.lineNumber}, column ${pos.columnNumber} of ${pos.modulePath})`
-);
+export class ErrorException extends PetException {
+    pos?: ModulePos;
+    
+    constructor(errorType: PetSymbol, message: string, pos?: ModulePos) {
+        super(new PetMap([
+            [symbols.EXCEP_TYPE, symbols.ERROR_EXCEP],
+            [symbols.ERROR_TYPE, errorType],
+            [symbols.MESSAGE, new PetString(message)],
+        ]));
+        this.pos = pos;
+    }
+    
+    override createEvalState(currentAction: Action): EvalState {
+        const task = currentAction.task!;
+        return new EvalState(task, task.returnValue(null), this.pos);
+    }
+}
 
 export class PetSyntaxError extends ErrorException {
     
     constructor(message: string, pos?: ModulePos) {
-        if (typeof pos !== "undefined") {
-            message = messageAtModulePos(message, pos);
-        }
-        super(symbols.SYNTAX_ERROR, message);
+        super(symbols.SYNTAX_ERROR, message, pos);
     }
 }
 
 // `entity` is a node or a component.
-const entityToModulePos = (entity: PetMap): ModulePos => {
+export const entityToModulePos = (entity: PetMap): ModulePos => {
     const lineNumber = entity.getMember(symbols.LINE_NUM).getInt();
     const columnNumber = entity.getMember(symbols.COL_NUM).getInt();
     const module = getModule(entity);
@@ -138,9 +138,14 @@ const entityToModulePos = (entity: PetMap): ModulePos => {
     return { lineNumber, columnNumber, modulePath };
 };
 
-export const messageAtEntity = (message: string, entity: PetMap): string => {
-    const modulePos = entityToModulePos(entity);
-    return messageAtModulePos(message, modulePos);
+export const modulePosToString = (pos: ModulePos, includeColNum = true): string => {
+    const columnText = includeColNum ? `, column ${pos.columnNumber}` : "";
+    return `line ${pos.lineNumber}${columnText} of ${pos.modulePath})`;
+};
+
+export const entityPosToString = (entity: PetMap): string => {
+    const pos = entityToModulePos(entity);
+    return modulePosToString(pos);
 };
 
 export const createSyntaxError = (message: string, entity?: PetMap): PetSyntaxError => {
@@ -152,22 +157,22 @@ export const createSyntaxError = (message: string, entity?: PetMap): PetSyntaxEr
 
 export class PetTypeError extends ErrorException {
     
-    constructor(message: string) {
-        super(symbols.TYPE_ERROR, message);
+    constructor(message: string, pos?: ModulePos) {
+        super(symbols.TYPE_ERROR, message, pos);
     }
 }
 
 export class ValueError extends ErrorException {
     
-    constructor(message: string) {
-        super(symbols.VALUE_ERROR, message);
+    constructor(message: string, pos?: ModulePos) {
+        super(symbols.VALUE_ERROR, message, pos);
     }
 }
 
 export class StateError extends ErrorException {
     
-    constructor(message: string) {
-        super(symbols.STATE_ERROR, message);
+    constructor(message: string, pos?: ModulePos) {
+        super(symbols.STATE_ERROR, message, pos);
     }
 }
 
@@ -186,22 +191,19 @@ export class TimeoutError extends Error {
 
 export const getExcepReport = (exception: PetMap): string => {
     const excepType = exception.getMember(symbols.EXCEP_TYPE).getKnownValue();
-    let header: string;
+    let output: string;
     if (excepType === symbols.ERROR_EXCEP) {
         const errorType = exception.getMember(symbols.ERROR_TYPE);
         const message = exception.getMember(symbols.MESSAGE).toString();
-        header = `Encountered ${errorType.toString()} error: ` + message;
+        output = `Encountered ${errorType.toString()} error: ` + message;
     } else {
-        header = `Encountered ${knownValueToString(excepType)} exception.`;
+        output = `Encountered ${knownValueToString(excepType)} exception.`;
     }
-    const evalStateValue = exception.getOptionalMember(symbols.EVAL_STATE);
-    if (typeof evalStateValue === "undefined") {
-        // Eval state is missing if there is a syntax error in
-        // the main module of any package.
-        return header;
+    const stackTrace = exception.getMember(symbols.EVAL_STATE).getStackTrace().toString();
+    if (stackTrace.length > 0) {
+        output += "\n" + stackTrace;
     }
-    const stackTrace = evalStateValue.getEvalState().toString();
-    return header + "\n" + stackTrace;
+    return output;
 };
 
 
