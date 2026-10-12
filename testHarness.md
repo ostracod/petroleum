@@ -72,7 +72,7 @@ Declares the name of the test case. Every test case must contain this directive.
 $fileContent
 ```
 
-Creates a file at `$path` containing `$fileContent` before running the entry package. If any intermediate directories in `$path` are missing, this directory creates the directories.
+Creates a file at `$path` containing `$fileContent` before running the entry package. If any intermediate directories in `$path` are missing, this directive creates the directories.
 
 ```
 >>> setupDir $path
@@ -97,7 +97,7 @@ Validates that the application has printed `$textLines` using the `PRINT` functi
 >>> expectExcep type: $type path: $path lineNumber: $lineNumber
 ```
 
-Validates that the application has thrown an unhandled exception. `$type` is the type of exception, such as `#BREAK_EXCEP`. `$path` is the path of the module where the exception was thrown. `$lineNumber` is the line number where the exception was thrown. `type: $type`, `path: $path`, and `lineNumber: $lineNumber` are all optional.
+Validates that the application has thrown an unhandled non-error exception. `$type` is the type of exception, such as `#BREAK_EXCEP`. `$path` is the path of the module where the exception was thrown. `$lineNumber` is the line number where the exception was thrown. `type: $type`, `path: $path`, and `lineNumber: $lineNumber` are all optional.
 
 ```
 >>> expectError type: $type message: $message path: $path lineNumber: $lineNumber
