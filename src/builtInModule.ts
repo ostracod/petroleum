@@ -7,6 +7,7 @@ import { KnownValue, PetString, PetList, PetMap } from "./value.js";
 import { FuncDef, DefFunc } from "./builtInFunc.js";
 import { PetException, ErrorException } from "./exception.js";
 import { createFrame } from "./variable.js";
+import { splitRelPath } from "./fileSystem.js";
 
 interface BuiltInModuleDef {
     symbol: PetSymbol;
@@ -175,8 +176,7 @@ const fileSystemFuncDefs: FuncDef[] = [
             if (pathUtils.isAbsolute(path)) {
                 result = (path === dirname) ? null : new PetString(dirname);
             } else {
-                const pathParts = path.split(pathUtils.sep)
-                    .filter((part) => (part.length > 0));
+                const pathParts = splitRelPath(path);
                 let parentPath: string;
                 if (pathParts.length === 1 && pathParts[0] === ".") {
                     parentPath = "..";

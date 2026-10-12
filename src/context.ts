@@ -12,7 +12,8 @@ import { ModuleParser } from "./moduleParser.js";
 import { PackageResolver } from "./package.js";
 import { Action, TaskDef, TaskMembers, Task, mainTask, prepModuleTask } from "./task.js";
 import { Scheduler } from "./scheduler.js";
-import { Logger, ConsoleLogger, FileSystem, HostFileSystem } from "./testHarness.js";
+import { FileSystem, HostFileSystem } from "./fileSystem.js";
+import { Logger, ConsoleLogger } from "./testHarness.js";
 
 export interface ContextOptions {
     logger?: Logger;

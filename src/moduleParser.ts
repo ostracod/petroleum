@@ -4,7 +4,7 @@ import "./builtInModule.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { maxIntValue, PetValue, KnownValue, toPetValue, escapeChars, PetString, PetList, PetMap } from "./value.js";
 import { PetSyntaxError, ValueError } from "./exception.js";
-import { FileSystem } from "./testHarness.js";
+import { FileSystem } from "./fileSystem.js";
 
 interface ContentPos {
     lineNumber: bigint;

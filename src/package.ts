@@ -6,7 +6,7 @@ import { symbols } from "./symbol.js";
 import { PetString, PetMap, PackageResolverTrace } from "./value.js";
 import { PetException, ModulePos, ErrorException, ValueError, StateError } from "./exception.js";
 import { ModuleParser } from "./moduleParser.js";
-import { FileSystem } from "./testHarness.js";
+import { FileSystem } from "./fileSystem.js";
 
 interface DependencyConfig {
     specifier: string;
@@ -14,7 +14,7 @@ interface DependencyConfig {
 }
 
 // Stored in petroleumPackage.json.
-interface PackageConfig {
+export interface PackageConfig {
     specifier: string;
     version: string;
     mainModule: string;

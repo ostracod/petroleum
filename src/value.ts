@@ -392,11 +392,12 @@ export class MemberObserver {
         );
     }
     
+    getStringMessage(): string {
+        return (this.message instanceof PetString) ? this.message.toString() : this.message;
+    }
+    
     getStuckReport(): string {
-        const message = (this.message instanceof PetString)
-            ? this.message.toString()
-            : this.message;
-        const header = "Stuck awaiting member: " + message;
+        const header = "Stuck awaiting member: " + this.getStringMessage();
         return header + "\n" + this.evalState.toString();
     }
 }
@@ -731,6 +732,11 @@ export class UserFunc extends PetFunc {
 export abstract class StackTrace {
     
     abstract getEntries(): ModulePos[];
+    
+    getTopEntry(): ModulePos | undefined {
+        const entries = this.getEntries();
+        return (entries.length > 0) ? entries[0] : undefined;
+    }
     
     toString(): string {
         const lines = this.getEntries().map((pos, index) => {

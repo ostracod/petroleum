@@ -8,7 +8,7 @@ import { getChildWorkers } from "./node.js";
 import { findVariable, findVarValue, getScope, createFrame } from "./variable.js";
 import { Action, Task } from "./task.js";
 import { PetContext } from "./context.js";
-import { FileSystem } from "./testHarness.js";
+import { FileSystem } from "./fileSystem.js";
 
 export interface FuncDef {
     name: string | null;
