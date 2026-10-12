@@ -7,6 +7,8 @@ import { symbols } from "./symbol.js";
 import { knownValueToString, MemberObserver, PetMap } from "./value.js";
 import { ModulePos, getExcepReport } from "./exception.js";
 import { Spinner } from "./scheduler.js";
+import { ContextOptions, PetContext } from "./context.js";
+import { getPathParent, VirtualFileSystem } from "./fileSystem.js";
 
 export abstract class Logger {
     hasReportedProblem: boolean;
@@ -103,6 +105,8 @@ export class TestLogger extends Logger {
     constructor() {
         super();
         this.printMessages = [];
+        this.exceptions = [];
+        this.stickers = [];
     }
     
     print(message: string): void {
@@ -298,6 +302,7 @@ const getLabeledArgs = (parts: string[], names: string[]): Map<string, string> =
 };
 
 class TestCase {
+    testSuite: TestSuite;
     name: string;
     setupDirectives: TestDirective[];
     appArgs: string[];
@@ -306,7 +311,8 @@ class TestCase {
     expectedErrors: ExpectedError[];
     expectedStickers: ExpectedSticker[];
     
-    constructor(lines: string[]) {
+    constructor(testSuite: TestSuite, lines: string[]) {
+        this.testSuite = testSuite;
         let currentGroup: string[] | null = null;
         const lineGroups: string[][] = [];
         for (const line of lines) {
@@ -417,6 +423,48 @@ class TestCase {
             throw new Error("Unexpected directive: " + directives[0].name);
         }
     }
+    
+    createFileSystem(): VirtualFileSystem {
+        const fileSystem = new VirtualFileSystem();
+        for (const { name, args, dataLines } of this.setupDirectives) {
+            if (name === "setupFile") {
+                if (args.length !== 1) {
+                    throw new Error("setupFile directive expects exactly one argument.");
+                }
+                const path = fileSystem.replacePathTilde(args[0]);
+                const parentPath = getPathParent(path);
+                if (parentPath === null) {
+                    throw new Error("Cannot create file whose path is the root directory.");
+                }
+                fileSystem.createMissingDirs(parentPath);
+                const buffer = Buffer.from(dataLines.join("\n"));
+                fileSystem.writeFile(path, buffer);
+            } else if (name === "setupDir") {
+                if (args.length !== 1) {
+                    throw new Error("setupDir directive expects exactly one argument.");
+                }
+                if (dataLines.length !== 0) {
+                    throw new Error("setupDir directive does not expect any data lines.");
+                }
+                const path = fileSystem.replacePathTilde(args[0]);
+                fileSystem.createMissingDirs(path);
+            } else {
+                throw new Error(`Unknown directive "${name}".`);
+            }
+        }
+        return fileSystem;
+    }
+    
+    run(): boolean {
+        const logger = new TestLogger();
+        const fileSystem = this.createFileSystem();
+        const options: ContextOptions = { logger, fileSystem, timeout: 3 };
+        const context = new PetContext(fileSystem.targetPackagePath, this.appArgs, options);
+        context.run();
+        // TODO: Validate results.
+        
+        return true;
+    }
 }
 
 const isSeparatorLine = (line: string): boolean => {
@@ -453,26 +501,99 @@ class TestSuite {
         this.path = path;
         const lines = fs.readFileSync(path, "utf8").split("\n");
         const lineGroups = splitLinesByTestCases(lines);
-        this.testCases = lineGroups.map((lineGroup) => new TestCase(lineGroup));
+        this.testCases = lineGroups.map((lineGroup) => new TestCase(this, lineGroup));
+        const names = new Set<string>();
+        for (const { name } of this.testCases) {
+            if (names.has(name)) {
+                throw new Error(`Duplicate test case name "${name}".`);
+            }
+            names.add(name);
+        }
+    }
+    
+    run(): number {
+        console.log(`Running test suite ${this.path}...`);
+        let passCount = 0;
+        for (const testCase of this.testCases) {
+            const hasPassed = testCase.run();
+            if (hasPassed) {
+                passCount += 1;
+            }
+        }
+        return passCount;
     }
 }
 
 export class TestHarness {
     testSuites: TestSuite[];
+    testCaseName: string | null;
     
     constructor(testPath: string, testCaseName: string | null) {
         const testSuitePaths = fs.statSync(testPath).isDirectory()
             ? gatherTestSuites(testPath)
             : [testPath];
+        if (testSuitePaths.length <= 0) {
+            throw new Error("Could not find any test suites to run.");
+        }
         this.testSuites = [];
         for (const path of testSuitePaths) {
             const testSuite = new TestSuite(path);
             this.testSuites.push(testSuite);
         }
+        this.testCaseName = testCaseName;
     }
     
     run(): boolean {
-        throw new Error("Not yet implemented");
+        let passCount = 0;
+        let totalCount = 0;
+        if (this.testCaseName === null) {
+            for (const testSuite of this.testSuites) {
+                passCount += testSuite.run();
+                totalCount += testSuite.testCases.length;
+            }
+            if (totalCount < 1) {
+                throw new Error("No test cases ran.");
+            }
+        } else {
+            let testCaseToRun: TestCase | null = null;
+            for (const testSuite of this.testSuites) {
+                const testCase = testSuite.testCases.find(
+                    (inputTestCase) => (inputTestCase.name === this.testCaseName),
+                );
+                if (typeof testCase !== "undefined") {
+                    if (testCaseToRun === null) {
+                        testCaseToRun = testCase;
+                    } else {
+                        throw new Error(`Found more than one test case with name "${this.testCaseName}".`);
+                    }
+                }
+            }
+            if (testCaseToRun === null) {
+                throw new Error(`Could not find test case with name "${this.testCaseName}".`);
+            }
+            console.log(`Running test case "${testCaseToRun.name}" in ${testCaseToRun.testSuite.path}...`);
+            const hasPassed = testCaseToRun.run();
+            if (hasPassed) {
+                passCount += 1;
+            }
+            totalCount += 1;
+        }
+        if (passCount < totalCount) {
+            const failCount = totalCount - passCount;
+            if (totalCount > 1) {
+                console.log(`${failCount} / ${totalCount} test cases failed`);
+            } else {
+                console.log("Test case failed");
+            }
+            return false;
+        } else {
+            if (totalCount > 1) {
+                console.log(`All ${totalCount} test cases passed!`);
+            } else {
+                console.log("Test case passed!");
+            }
+            return true;
+        }
     }
 }
 

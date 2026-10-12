@@ -119,8 +119,8 @@ The example below tests the `ADD` function and `ABORT` procedure using two test 
 >>> testCase "ADD function"
 >>> setupFile ~/targetPackage/main.petrol
 PRINT(ADD(10, 20))
-WORK_VAR @x = (MEMBER(CMD_LINE_ARGS, 0))
-WORK_VAR @y = (MEMBER(CMD_LINE_ARGS, 1))
+WORK_VAR @x = (PARSE_INT(MEMBER(CMD_LINE_ARGS, 0)))
+WORK_VAR @y = (PARSE_INT(MEMBER(CMD_LINE_ARGS, 1)))
 PRINT(ADD(x, y))
 >>> appArgs 40 50
 >>> expectPrint
@@ -159,7 +159,7 @@ The example below tests the `IMPORT_PACK` procedure:
 
 ```
 >>> testCase "IMPORT_PACK procedure"
->>> setUpFile ~/targetPackage/petroleumPackage.json
+>>> setupFile ~/targetPackage/petroleumPackage.json
 {
     "specifier": "ostracod.targetPackage",
     "version": "1.0.0",
@@ -169,10 +169,10 @@ The example below tests the `IMPORT_PACK` procedure:
         { "specifier": "ostracod.libUtils", "version": "^1.0.0" }
     ]
 }
->>> setUpFile ~/targetPackage/main.petrol
+>>> setupFile ~/targetPackage/main.petrol
 IMPORT_PACK <"ostracod.libUtils"> [VARS [@libUtilsValue]]
 PRINT(libUtilsValue)
->>> setUpFile ~/petroleumPackages/ostracod/libUtils/v1.0.0/petroleumPackage.json
+>>> setupFile ~/petroleumPackages/ostracod/libUtils/v1.0.0/petroleumPackage.json
 {
     "specifier": "ostracod.libUtils",
     "version": "1.0.0",
@@ -180,7 +180,7 @@ PRINT(libUtilsValue)
     "petroleumVersion": "^1.0.0",
     "dependencies": []
 }
->>> setUpFile ~/petroleumPackages/ostracod/libUtils/v1.0.0/entryModule.petrol
+>>> setupFile ~/petroleumPackages/ostracod/libUtils/v1.0.0/entryModule.petrol
 PREP_VAR @libUtilsValue = <123>
 >>> expectPrint
 123

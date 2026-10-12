@@ -55,6 +55,8 @@ export abstract class FileSystem {
     
     abstract getRelativePath(refPath: string, targetPath: string): string;
     
+    // `path` can be an absolute path or a relative path.
+    // Returns path parts leading from the root directory to `path`.
     splitPath(path: string): string[] {
         const relPath = this.getRelativePath(rootDirPath, path);
         return (relPath === "") ? [] : splitRelPath(relPath);
@@ -68,6 +70,14 @@ export abstract class FileSystem {
                 this.createDirectory(absPath);
             }
         }
+    }
+    
+    replacePathTilde(path: string): string {
+        const parts = path.split(pathUtils.sep);
+        if (parts[0] === "~") {
+            parts[0] = this.getHomeDirectory();
+        }
+        return pathUtils.join(...parts);
     }
 }
 
@@ -175,6 +185,7 @@ export class VirtualFileSystem extends FileSystem {
     rootDirectory: VirtualDirectory;
     homePath: string;
     currentWorkingDirPath: string;
+    targetPackagePath: string;
     
     constructor() {
         super();
@@ -183,10 +194,10 @@ export class VirtualFileSystem extends FileSystem {
         this.createMissingDirs(this.homePath);
         const packageStorePath = pathUtils.join(this.homePath, "petroleumPackages");
         this.createDirectory(packageStorePath);
-        const targetPackagePath = pathUtils.join(this.homePath, "targetPackage");
-        this.createDirectory(targetPackagePath);
-        this.currentWorkingDirPath = targetPackagePath;
-        const packageConfigPath = pathUtils.join(targetPackagePath, "petroleumPackage.json");
+        this.targetPackagePath = pathUtils.join(this.homePath, "targetPackage");
+        this.createDirectory(this.targetPackagePath);
+        this.currentWorkingDirPath = this.targetPackagePath;
+        const packageConfigPath = pathUtils.join(this.targetPackagePath, "petroleumPackage.json");
         const packageConfigBuffer = Buffer.from(JSON.stringify(targetPackageConfig));
         this.writeFile(packageConfigPath, packageConfigBuffer);
     }
