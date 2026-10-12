@@ -1,0 +1,220 @@
+>>> testCase "NEG function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(NEG(5))
+PRINT(NEG(NEG(10)))
+PRINT(NEG("text"))
+>>> expectPrint
+-5
+10
+>>> expectError type: #TYPE_ERROR message: "Expected integer." lineNumber: 3
+=========================
+>>> testCase "ADD function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(ADD(15, 4))
+PRINT(ADD(20, 21))
+PRINT(ADD(8, NEG(5)))
+>>> expectPrint
+19
+41
+3
+=========================
+>>> testCase "ADD function wrong arg amount"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(ADD(1, 2, 3))
+>>> expectError type: #VALUE_ERROR message: "Incorrect number of function arguments." lineNumber: 1
+=========================
+>>> testCase "SUB function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(SUB(30, 12))
+PRINT(SUB(5, 9))
+PRINT(SUB(NEG(4), NEG(10)))
+>>> expectPrint
+18
+-4
+6
+=========================
+>>> testCase "MUL function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(MUL(6, 7))
+PRINT(MUL(NEG(3), 5))
+PRINT(MUL(NEG(4), NEG(8)))
+PRINT(MUL(123, 0))
+>>> expectPrint
+42
+-15
+32
+0
+=========================
+>>> testCase "DIV function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(DIV(42, 6))
+PRINT(DIV(7, 2))
+PRINT(DIV(NEG(7), 2))
+PRINT(DIV(7, NEG(2)))
+PRINT(DIV(NEG(7), NEG(2)))
+PRINT(DIV(3, 10))
+>>> expectPrint
+7
+3
+-3
+-3
+3
+0
+=========================
+>>> testCase "DIV function divide by zero"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(DIV(10, 0))
+>>> expectError type: #VALUE_ERROR message: "Cannot divide by zero." lineNumber: 1
+=========================
+>>> testCase "MOD function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(MOD(17, 5))
+PRINT(MOD(15, 5))
+PRINT(MOD(3, 10))
+PRINT(MOD(NEG(7), 2))
+PRINT(MOD(7, NEG(2)))
+>>> expectPrint
+2
+0
+3
+-1
+1
+=========================
+>>> testCase "MOD function divide by zero"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(MOD(10, 0))
+>>> expectError type: #VALUE_ERROR message: "Cannot divide by zero." lineNumber: 1
+=========================
+>>> testCase "Integer overflow"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @maxInt = (9223372036854775807)
+WORK_VAR @minInt = (SUB(NEG(maxInt), 1))
+PRINT(minInt)
+PRINT(ADD(maxInt, 1))
+PRINT(SUB(minInt, 1))
+PRINT(MUL(maxInt, 2))
+PRINT(NEG(minInt))
+PRINT(DIV(minInt, NEG(1)))
+>>> expectPrint
+-9223372036854775808
+-9223372036854775808
+9223372036854775807
+-2
+-9223372036854775808
+-9223372036854775808
+=========================
+>>> testCase "NOT function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(NOT(TRUE))
+PRINT(NOT(FALSE))
+PRINT(NOT(5))
+>>> expectPrint
+0
+1
+0
+=========================
+>>> testCase "OR function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(OR(FALSE, FALSE))
+PRINT(OR(FALSE, TRUE))
+PRINT(OR(TRUE, FALSE))
+PRINT(OR(TRUE, TRUE))
+PRINT(OR(0, 7))
+>>> expectPrint
+0
+1
+1
+1
+1
+=========================
+>>> testCase "AND function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(AND(FALSE, FALSE))
+PRINT(AND(FALSE, TRUE))
+PRINT(AND(TRUE, FALSE))
+PRINT(AND(TRUE, TRUE))
+PRINT(AND(7, NEG(3)))
+>>> expectPrint
+0
+0
+0
+1
+1
+=========================
+>>> testCase "XOR function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(XOR(FALSE, FALSE))
+PRINT(XOR(FALSE, TRUE))
+PRINT(XOR(TRUE, FALSE))
+PRINT(XOR(TRUE, TRUE))
+PRINT(XOR(7, 1))
+PRINT(XOR(7, 0))
+>>> expectPrint
+0
+1
+1
+0
+0
+1
+=========================
+>>> testCase "BIT_NOT function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(BIT_NOT(0))
+PRINT(BIT_NOT(5))
+PRINT(BIT_NOT(NEG(1)))
+PRINT(BIT_NOT(9223372036854775807))
+>>> expectPrint
+-1
+-6
+0
+-9223372036854775808
+=========================
+>>> testCase "BIT_OR, BIT_AND, and BIT_XOR functions"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(BIT_OR(12, 10))
+PRINT(BIT_AND(12, 10))
+PRINT(BIT_XOR(12, 10))
+PRINT(BIT_OR(NEG(16), 15))
+PRINT(BIT_AND(NEG(1), 255))
+PRINT(BIT_XOR(NEG(1), 5))
+>>> expectPrint
+14
+8
+6
+-1
+255
+-6
+=========================
+>>> testCase "SHIFT_LEFT function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(SHIFT_LEFT(1, 4))
+PRINT(SHIFT_LEFT(3, 2))
+PRINT(SHIFT_LEFT(NEG(3), 2))
+PRINT(SHIFT_LEFT(5, 0))
+PRINT(SHIFT_LEFT(1, 63))
+PRINT(SHIFT_LEFT(3, 62))
+PRINT(SHIFT_LEFT(1, 64))
+>>> expectPrint
+16
+12
+-12
+5
+-9223372036854775808
+-4611686018427387904
+0
+=========================
+>>> testCase "SHIFT_RIGHT function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(SHIFT_RIGHT(16, 2))
+PRINT(SHIFT_RIGHT(7, 1))
+PRINT(SHIFT_RIGHT(5, 3))
+PRINT(SHIFT_RIGHT(NEG(8), 1))
+PRINT(SHIFT_RIGHT(NEG(1), 10))
+PRINT(SHIFT_RIGHT(9223372036854775807, 100))
+>>> expectPrint
+4
+3
+0
+-4
+-1
+0

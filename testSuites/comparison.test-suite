@@ -1,0 +1,138 @@
+>>> testCase "EQUAL function with integers"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(EQUAL(5, 5))
+PRINT(EQUAL(5, 6))
+PRINT(EQUAL(NEG(5), 5))
+PRINT(EQUAL(TRUE, 1))
+>>> expectPrint
+1
+0
+0
+1
+=========================
+>>> testCase "EQUAL function with strings"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @str1 = ("hello")
+WORK_VAR @str2 = (CONCAT(LIST("hel", "lo")))
+PRINT(EQUAL(str1, str2))
+PRINT(EQUAL("hello", "Hello"))
+PRINT(EQUAL("hello", "hello "))
+PRINT(EQUAL("", ""))
+>>> expectPrint
+1
+0
+0
+1
+=========================
+>>> testCase "EQUAL function with symbols"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @mySymbol = (SYMBOL("mySymbol"))
+PRINT(EQUAL(mySymbol, mySymbol))
+PRINT(EQUAL(mySymbol, SYMBOL("mySymbol")))
+PRINT(EQUAL(#INT, #INT))
+PRINT(EQUAL(#INT, #STR))
+>>> expectPrint
+1
+0
+1
+0
+=========================
+>>> testCase "EQUAL function with lists and maps"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @list1 = (LIST(1, 2, 3))
+WORK_VAR @list2 = (LIST(1, 2, 3))
+WORK_VAR @list3 = (list1)
+PRINT(EQUAL(list1, list3))
+PRINT(EQUAL(list1, list2))
+WORK_VAR @map1 = (MAP [FIELDS [("a") = (1)]])
+WORK_VAR @map2 = (MAP [FIELDS [("a") = (1)]])
+PRINT(EQUAL(map1, map1))
+PRINT(EQUAL(map1, map2))
+>>> expectPrint
+1
+0
+1
+0
+=========================
+>>> testCase "EQUAL function with null and mixed types"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(EQUAL(NULL, NULL))
+PRINT(EQUAL(NULL, 0))
+PRINT(EQUAL(0, ""))
+PRINT(EQUAL(1, "1"))
+PRINT(EQUAL(ADD, ADD))
+PRINT(EQUAL(ADD, SUB))
+>>> expectPrint
+1
+0
+0
+0
+1
+0
+=========================
+>>> testCase "NOT_EQUAL function"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST(1, 2, 3))
+PRINT(NOT_EQUAL(5, 5))
+PRINT(NOT_EQUAL(5, 6))
+PRINT(NOT_EQUAL("abc", "abc"))
+PRINT(NOT_EQUAL("abc", "abd"))
+PRINT(NOT_EQUAL(myList, myList))
+PRINT(NOT_EQUAL(myList, LIST(1, 2, 3)))
+PRINT(NOT_EQUAL(NULL, 0))
+>>> expectPrint
+0
+1
+0
+1
+0
+1
+1
+=========================
+>>> testCase "GREATER function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(GREATER(5, 3))
+PRINT(GREATER(3, 5))
+PRINT(GREATER(4, 4))
+PRINT(GREATER(NEG(2), NEG(7)))
+>>> expectPrint
+1
+0
+0
+1
+=========================
+>>> testCase "LESS function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(LESS(5, 3))
+PRINT(LESS(3, 5))
+PRINT(LESS(4, 4))
+PRINT(LESS(NEG(7), NEG(2)))
+>>> expectPrint
+0
+1
+0
+1
+=========================
+>>> testCase "GREATER_EQUAL function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(GREATER_EQUAL(5, 3))
+PRINT(GREATER_EQUAL(3, 5))
+PRINT(GREATER_EQUAL(4, 4))
+PRINT(GREATER_EQUAL(NEG(7), NEG(2)))
+>>> expectPrint
+1
+0
+1
+0
+=========================
+>>> testCase "LESS_EQUAL function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(LESS_EQUAL(5, 3))
+PRINT(LESS_EQUAL(3, 5))
+PRINT(LESS_EQUAL(4, 4))
+PRINT(LESS_EQUAL(NEG(7), NEG(2)))
+>>> expectPrint
+0
+1
+1
+1

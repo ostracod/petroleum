@@ -689,6 +689,16 @@ class TestSuite {
     constructor(path: string) {
         this.path = path;
         const lines = fs.readFileSync(path, "utf8").split("\n");
+        let truncIndex = lines.length;
+        while (truncIndex > 1) {
+            const nextTruncIndex = truncIndex - 1;
+            const line = lines[nextTruncIndex];
+            if (line.length > 0) {
+                break;
+            }
+            truncIndex = nextTruncIndex;
+        }
+        lines.length = truncIndex;
         const lineGroups = splitLinesByTestCases(lines);
         this.testCases = lineGroups.map((lineGroup) => new TestCase(this, lineGroup));
         const names = new Set<string>();
