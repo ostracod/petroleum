@@ -153,6 +153,7 @@ class VirtualDirectory extends VirtualEntity {
         return (result === null) ? null : result.child;
     }
     
+    // Before calling addChild, make sure no other child exists with the same name.
     addChild(entity: VirtualEntity): void {
         this.children.push(entity);
     }
@@ -234,6 +235,12 @@ export class VirtualFileSystem extends FileSystem {
         return entity;
     }
     
+    getNameAndDir(path: string): { name: string, parentDir: VirtualDirectory } {
+        const name = pathUtils.basename(path);
+        const parentDir = this.getParentDir(path);
+        return { name, parentDir };
+    }
+    
     readFile(path: string): Buffer {
         const entity = this.getOptionalEntity(path);
         if (entity instanceof VirtualFile) {
@@ -246,8 +253,8 @@ export class VirtualFileSystem extends FileSystem {
     writeFile(path: string, buffer: Buffer): void {
         const entity = this.getOptionalEntity(path);
         if (entity === null) {
-            const parentDir = this.getParentDir(path);
-            const file = new VirtualFile(path, buffer);
+            const { name, parentDir } = this.getNameAndDir(path);
+            const file = new VirtualFile(name, buffer);
             parentDir.addChild(file);
         } else if (entity instanceof VirtualFile) {
             entity.buffer = buffer;
@@ -261,8 +268,7 @@ export class VirtualFileSystem extends FileSystem {
         classConstructor: abstract new (...args: any[]) => T,
         errorMessage: string,
     ): void {
-        const name = pathUtils.basename(path);
-        const parentDir = this.getParentDir(path);
+        const { name, parentDir } = this.getNameAndDir(path);
         const result = parentDir.findChild(name);
         if (result === null) {
             throw new Error(`No file system entity exists at ${path}.`);
@@ -282,11 +288,20 @@ export class VirtualFileSystem extends FileSystem {
     }
     
     readDirectory(path: string): string[] {
-        throw new Error("Not yet implemented");
+        const entity = this.getEntity(path);
+        if (!(entity instanceof VirtualDirectory)) {
+            throw new Error(`Expected directory at ${path}.`);
+        }
+        return entity.children.map((child) => child.name);
     }
     
     createDirectory(path: string): void {
-        throw new Error("Not yet implemented");
+        if (this.entityExists(path)) {
+            throw new Error(`File system entity already exists at ${path}.`);
+        }
+        const { name, parentDir } = this.getNameAndDir(path);
+        const directory = new VirtualDirectory(name);
+        parentDir.addChild(directory);
     }
     
     deleteDirectory(path: string): void {
@@ -297,15 +312,23 @@ export class VirtualFileSystem extends FileSystem {
     }
     
     getHomeDirectory(): string {
-        throw new Error("Not yet implemented");
+        return this.homePath;
     }
     
     getAbsolutePath(path: string): string {
-        throw new Error("Not yet implemented");
+        const abnormalPath = pathUtils.isAbsolute(path)
+            ? path
+            : pathUtils.join(this.currentWorkingDirPath, path);
+        return pathUtils.normalize(abnormalPath);
     }
     
     getRelativePath(refPath: string, targetPath: string): string {
-        throw new Error("Not yet implemented");
+        if (pathUtils.isAbsolute(refPath) === pathUtils.isAbsolute(targetPath)) {
+            return pathUtils.relative(refPath, targetPath);
+        }
+        const absRefPath = this.getAbsolutePath(refPath);
+        const absTargetPath = this.getAbsolutePath(targetPath);
+        return pathUtils.relative(absRefPath, absTargetPath);
     }
 }
 
