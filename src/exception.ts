@@ -140,7 +140,7 @@ export const entityToModulePos = (entity: PetMap): ModulePos => {
 
 export const modulePosToString = (pos: ModulePos, includeColNum = true): string => {
     const columnText = includeColNum ? `, column ${pos.columnNumber}` : "";
-    return `line ${pos.lineNumber}${columnText} of ${pos.modulePath})`;
+    return `line ${pos.lineNumber}${columnText} of ${pos.modulePath}`;
 };
 
 export const entityPosToString = (entity: PetMap): string => {

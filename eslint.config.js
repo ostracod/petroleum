@@ -95,7 +95,6 @@ export default defineConfig(
             "@stylistic/space-before-function-paren": ["warn", { "anonymous": "never", "named": "never", "asyncArrow": "always" }],
             "@stylistic/space-in-parens": "warn",
             "@stylistic/space-infix-ops": "warn",
-            "@stylistic/spaced-comment": "warn",
             "@stylistic/type-annotation-spacing": "warn",
 
             "@typescript-eslint/no-empty-object-type": "off",

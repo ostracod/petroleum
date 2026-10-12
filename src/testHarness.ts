@@ -5,7 +5,7 @@ import * as fs from "fs";
 import * as pathUtils from "path";
 import { symbols } from "./symbol.js";
 import { knownValueToString, MemberObserver, PetMap } from "./value.js";
-import { ModulePos, getExcepReport } from "./exception.js";
+import { ModulePos, modulePosToString, getExcepReport } from "./exception.js";
 import { Spinner } from "./scheduler.js";
 import { ContextOptions, PetContext } from "./context.js";
 import { getPathParent, VirtualFileSystem } from "./fileSystem.js";
@@ -68,44 +68,76 @@ export class ConsoleLogger extends Logger {
     }
 }
 
-class TestException {
-    excepType: string;
+abstract class TestProblem {
     pos?: ModulePos;
-    errorType?: string;
-    errorMessage?: string;
     
-    constructor(
-        excepType: string,
-        pos?: ModulePos,
-        errorType?: string,
-        errorMessage?: string,
-    ) {
-        this.excepType = excepType;
+    constructor(pos?: ModulePos) {
         this.pos = pos;
-        this.errorType = errorType;
-        this.errorMessage = errorMessage;
+    }
+    
+    abstract toStringHelper(): string;
+    
+    toString(): string {
+        let output = this.toStringHelper();
+        if (typeof this.pos !== "undefined") {
+            output += " on " + modulePosToString(this.pos, false);
+        }
+        return output;
     }
 }
 
-class TestSticker {
-    message: string;
-    pos: ModulePos;
+class TestException extends TestProblem {
+    excepType: string;
     
-    constructor(message: string, pos: ModulePos) {
+    constructor(excepType: string, pos?: ModulePos) {
+        super(pos);
+        this.excepType = excepType;
+    }
+    
+    toStringHelper(): string {
+        return this.excepType + " exception";
+    }
+}
+
+class TestError extends TestProblem {
+    errorType: string;
+    message: string;
+    
+    constructor(errorType: string, message: string, pos?: ModulePos) {
+        super(pos);
+        this.errorType = errorType;
         this.message = message;
-        this.pos = pos;
+    }
+    
+    toStringHelper(): string {
+        return `${this.errorType} error "${this.message}"`;
+    }
+}
+
+class TestSticker extends TestProblem {
+    message: string;
+    
+    constructor(message: string, pos?: ModulePos) {
+        super(pos);
+        this.message = message;
+    }
+    
+    toStringHelper(): string {
+        return `stuck condition "${this.message}"`;
     }
 }
 
 export class TestLogger extends Logger {
     printMessages: string[];
     exceptions: TestException[];
+    errors: TestError[];
     stickers: TestSticker[];
     
     constructor() {
         super();
         this.printMessages = [];
         this.exceptions = [];
+        this.errors = [];
         this.stickers = [];
     }
     
@@ -114,19 +146,18 @@ export class TestLogger extends Logger {
     }
     
     reportExceptionHelper(exception: PetMap): void {
-        const excepType = exception.getMember(symbols.EXCEP_TYPE).getKnownValue();
-        let errorType: string | undefined;
-        let errorMessage: string | undefined;
-        if (excepType === symbols.ERROR_EXCEP) {
-            errorType = exception.getMember(symbols.ERROR_TYPE).toString();
-            errorMessage = exception.getMember(symbols.MESSAGE).toString();
-        }
         const stackTrace = exception.getMember(symbols.EVAL_STATE).getStackTrace();
         const pos = stackTrace.getTopEntry();
-        const testException = new TestException(
-            knownValueToString(excepType), pos, errorType, errorMessage,
-        );
-        this.exceptions.push(testException);
+        const excepType = exception.getMember(symbols.EXCEP_TYPE).getKnownValue();
+        if (excepType === symbols.ERROR_EXCEP) {
+            const errorType = exception.getMember(symbols.ERROR_TYPE).toString();
+            const message = exception.getMember(symbols.MESSAGE).toString();
+            const testError = new TestError(errorType, message, pos);
+            this.errors.push(testError);
+        } else {
+            const testException = new TestException(knownValueToString(excepType), pos);
+            this.exceptions.push(testException);
+        }
     }
     
     reportObserverHelper(observer: MemberObserver): void {
@@ -141,6 +172,15 @@ export class TestLogger extends Logger {
         const pos = spinner.evalState.getTopEntry()!;
         const sticker = new TestSticker(message, pos);
         this.stickers.push(sticker);
+    }
+    
+    getPrintLines(): string[] {
+        const output: string[] = [];
+        for (const message of this.printMessages) {
+            const lines = message.split("\n");
+            output.push(...lines);
+        }
+        return output;
     }
 }
 
@@ -234,7 +274,7 @@ class TestDirective {
     }
 }
 
-class ExpectedProblem {
+abstract class ExpectedProblem<T extends TestProblem> {
     path?: string;
     lineNumber?: string;
     
@@ -242,39 +282,130 @@ class ExpectedProblem {
         this.path = path;
         this.lineNumber = lineNumber;
     }
-}
-
-class ExpectedException extends ExpectedProblem {
-    type?: string;
     
-    constructor(type?: string, path?: string, lineNumber?: string) {
-        super(path, lineNumber);
-        this.type = type;
+    abstract matchesHelper(actualProblem: T): boolean;
+    
+    matches(fileSystem: VirtualFileSystem, actualProblem: T): boolean {
+        const { pos } = actualProblem;
+        if (typeof this.path !== "undefined") {
+            if (typeof pos === "undefined") {
+                return false;
+            }
+            const expectedPath = fileSystem.getAbsolutePath(
+                fileSystem.replacePathTilde(this.path),
+            );
+            // I'm not sure we can actually receive a relative or abnormal path here,
+            // but just to be sure we will call getAbsolutePath.
+            const actualPath = fileSystem.getAbsolutePath(pos.modulePath);
+            if (expectedPath !== actualPath) {
+                return false;
+            }
+        }
+        if (typeof this.lineNumber !== "undefined") {
+            if (typeof pos === "undefined" || pos.lineNumber.toString() !== this.lineNumber) {
+                return false;
+            }
+        }
+        return this.matchesHelper(actualProblem);
+    }
+    
+    abstract toStringHelper(): string;
+    
+    toString(): string {
+        let output = this.toStringHelper();
+        if (typeof this.lineNumber !== "undefined") {
+            output += " on line " + this.lineNumber;
+            if (typeof this.path !== "undefined") {
+                output += " of " + this.path;
+            }
+        } else if (typeof this.path !== "undefined") {
+            output += " in " + this.path;
+        }
+        return output;
     }
 }
 
-class ExpectedError extends ExpectedProblem {
-    type?: string;
+class ExpectedException extends ExpectedProblem<TestException> {
+    excepType?: string;
+    
+    constructor(excepType?: string, path?: string, lineNumber?: string) {
+        super(path, lineNumber);
+        this.excepType = excepType;
+    }
+    
+    matchesHelper(actualProblem: TestException): boolean {
+        if (typeof this.excepType !== "undefined" && this.excepType !== actualProblem.excepType) {
+            return false;
+        }
+        return true;
+    }
+    
+    toStringHelper(): string {
+        return (typeof this.excepType === "undefined")
+            ? "exception"
+            : this.excepType + " exception";
+    }
+}
+
+class ExpectedError extends ExpectedProblem<TestError> {
+    errorType?: string;
     message?: string;
     
     constructor(
-        type?: string,
+        errorType?: string,
         message?: string,
         path?: string,
         lineNumber?: string,
     ) {
         super(path, lineNumber);
-        this.type = type;
+        this.errorType = errorType;
         this.message = message;
     }
+    
+    matchesHelper(actualProblem: TestError): boolean {
+        if (typeof this.errorType !== "undefined" && this.errorType !== actualProblem.errorType) {
+            return false;
+        }
+        if (typeof this.message !== "undefined" && this.message !== actualProblem.message) {
+            return false;
+        }
+        return true;
+    }
+    
+    toStringHelper(): string {
+        let output = "error";
+        if (typeof this.errorType !== "undefined") {
+            output = `${this.errorType} ${output}`;
+        }
+        if (typeof this.message !== "undefined") {
+            output += ` "${this.message}"`;
+        }
+        return output;
+    }
+    
 }
 
-class ExpectedSticker extends ExpectedProblem {
+class ExpectedSticker extends ExpectedProblem<TestSticker> {
     message?: string;
     
     constructor(message?: string, path?: string, lineNumber?: string) {
         super(path, lineNumber);
         this.message = message;
+    }
+    
+    matchesHelper(actualProblem: TestError): boolean {
+        if (typeof this.message !== "undefined" && this.message !== actualProblem.message) {
+            return false;
+        }
+        return true;
+    }
+    
+    toStringHelper(): string {
+        let output = "stuck condition";
+        if (typeof this.message !== "undefined") {
+            output += ` "${this.message}"`;
+        }
+        return output;
     }
 }
 
@@ -299,6 +430,54 @@ const getLabeledArgs = (parts: string[], names: string[]): Map<string, string> =
         output.set(label, value);
     }
     return output;
+};
+
+const checkPrintLines = (
+    actualPrintLines: string[],
+    expectedPrintLines: string[],
+): string[] => {
+    let printLinesMatch: boolean;
+    if (actualPrintLines.length !== expectedPrintLines.length) {
+        printLinesMatch = false;
+    } else {
+        printLinesMatch = true;
+        for (let index = 0; index < actualPrintLines.length; index++) {
+            const actualLine = actualPrintLines[index];
+            const expectedLine = expectedPrintLines[index];
+            if (actualLine !== expectedLine) {
+                printLinesMatch = false;
+                break;
+            }
+        }
+    }
+    if (printLinesMatch) {
+        return [];
+    } else {
+        return ["Printed lines do not match expected lines:\n" + actualPrintLines.join("\n")];
+    }
+};
+
+const checkProblems = <T1 extends TestProblem, T2 extends ExpectedProblem<T1>>(
+    fileSystem: VirtualFileSystem,
+    actualProblems: T1[],
+    expectedProblems: T2[],
+): string[] => {
+    const failures: string[] = [];
+    const actualProblemsCopy = actualProblems.slice();
+    for (const expectedProblem of expectedProblems) {
+        const index = actualProblemsCopy.findIndex(
+            (actualProblem) => expectedProblem.matches(fileSystem, actualProblem),
+        );
+        if (index < 0) {
+            failures.push("Missing expected " + expectedProblem.toString());
+        } else {
+            actualProblemsCopy.splice(index, 1);
+        }
+    }
+    for (const actualProblem of actualProblemsCopy) {
+        failures.push("Found unexpected " + actualProblem.toString());
+    }
+    return failures;
 };
 
 class TestCase {
@@ -461,9 +640,19 @@ class TestCase {
         const options: ContextOptions = { logger, fileSystem, timeout: 3 };
         const context = new PetContext(fileSystem.targetPackagePath, this.appArgs, options);
         context.run();
-        // TODO: Validate results.
-        
-        return true;
+        const failures: string[] = [];
+        const actualPrintLines = logger.getPrintLines();
+        failures.push(...checkPrintLines(actualPrintLines, this.expectedPrintLines));
+        failures.push(...checkProblems(fileSystem, logger.exceptions, this.expectedExceptions));
+        failures.push(...checkProblems(fileSystem, logger.errors, this.expectedErrors));
+        failures.push(...checkProblems(fileSystem, logger.stickers, this.expectedStickers));
+        if (failures.length > 0) {
+            console.log(`Test case "${this.name}" failed!`);
+            console.log(failures.join("\n") + "\n");
+            return false;
+        } else {
+            return true;
+        }
     }
 }
 
