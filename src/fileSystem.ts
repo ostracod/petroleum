@@ -8,10 +8,27 @@ import { PackageConfig } from "./package.js";
 
 const rootDirPath = pathUtils.parse(process.cwd()).root;
 
-export const splitRelPath = (path: string): string[] => {
+const splitRelPath = (path: string): string[] => {
     const normPath = pathUtils.normalize(path);
     // Be careful of trailing separators.
     return normPath.split(pathUtils.sep).filter((part) => (part.length > 0));
+};
+
+export const getPathParent = (inputPath: string): string | null => {
+    const path = pathUtils.normalize(inputPath);
+    const dirname = pathUtils.dirname(path);
+    if (pathUtils.isAbsolute(path)) {
+        return (path === dirname) ? null : dirname;
+    } else {
+        const pathParts = splitRelPath(path);
+        if (pathParts.length === 1 && pathParts[0] === ".") {
+            return "..";
+        } else if (pathParts.every((part) => (part === ".."))) {
+            return pathUtils.join("..", path);
+        } else {
+            return dirname;
+        }
+    }
 };
 
 export abstract class FileSystem {
@@ -38,12 +55,13 @@ export abstract class FileSystem {
     
     abstract getRelativePath(refPath: string, targetPath: string): string;
     
-    createMissingDirs(path: string): void {
+    splitPath(path: string): string[] {
         const relPath = this.getRelativePath(rootDirPath, path);
-        if (relPath === "") {
-            return;
-        }
-        const pathParts = splitRelPath(relPath);
+        return (relPath === "") ? [] : splitRelPath(relPath);
+    }
+    
+    createMissingDirs(path: string): void {
+        const pathParts = this.splitPath(path);
         for (let index = 1; index <= pathParts.length; index++) {
             const absPath = pathUtils.join(rootDirPath, ...pathParts.slice(0, index));
             if (!this.entityExists(absPath)) {
@@ -125,11 +143,22 @@ class VirtualDirectory extends VirtualEntity {
         this.children = [];
     }
     
+    findChild(name: string): { child: VirtualEntity, index: number } | null {
+        const index = this.children.findIndex((child) => (child.name === name));
+        return (index < 0) ? null : { child: this.children[index], index };
+    }
+    
+    getChild(name: string): VirtualEntity | null {
+        const result = this.findChild(name);
+        return (result === null) ? null : result.child;
+    }
+    
     addChild(entity: VirtualEntity): void {
-        if (this.children.some((child) => (child.name === entity.name))) {
-            throw new Error(`An entity with the name "${entity.name}" already exists.`);
-        }
         this.children.push(entity);
+    }
+    
+    deleteChild(index: number): void {
+        this.children.splice(index, 1);
     }
 }
 
@@ -161,24 +190,95 @@ export class VirtualFileSystem extends FileSystem {
         this.writeFile(packageConfigPath, packageConfigBuffer);
     }
     
+    getOptionalEntity(path: string): VirtualEntity | null {
+        const pathParts = this.splitPath(path);
+        let entity: VirtualEntity = this.rootDirectory;
+        for (const name of pathParts) {
+            if (!(entity instanceof VirtualDirectory)) {
+                return null;
+            }
+            const nextEntity = entity.getChild(name);
+            if (nextEntity === null) {
+                return null;
+            }
+            entity = nextEntity;
+        }
+        return entity;
+    }
+    
+    getEntity(path: string): VirtualEntity {
+        const result = this.getOptionalEntity(path);
+        if (result === null) {
+            throw new Error(`File system entity at path ${path} is missing.`);
+        }
+        return result;
+    }
+    
     entityExists(path: string): boolean {
-        throw new Error("Not yet implemented");
+        return (this.getOptionalEntity(path) !== null);
     }
     
     entityIsDirectory(path: string): boolean {
-        throw new Error("Not yet implemented");
+        return (this.getEntity(path) instanceof VirtualDirectory);
+    }
+    
+    getParentDir(path: string): VirtualDirectory {
+        const parentPath = getPathParent(path);
+        if (parentPath === null) {
+            throw new Error(`Path ${path} has no parent directory.`);
+        }
+        const entity = this.getEntity(parentPath);
+        if (!(entity instanceof VirtualDirectory)) {
+            throw new Error(`Expected directory at ${parentPath}, but found file.`);
+        }
+        return entity;
     }
     
     readFile(path: string): Buffer {
-        throw new Error("Not yet implemented");
+        const entity = this.getOptionalEntity(path);
+        if (entity instanceof VirtualFile) {
+            return entity.buffer;
+        } else {
+            throw new Error(`File is missing at ${path}.`);
+        }
     }
     
     writeFile(path: string, buffer: Buffer): void {
-        throw new Error("Not yet implemented");
+        const entity = this.getOptionalEntity(path);
+        if (entity === null) {
+            const parentDir = this.getParentDir(path);
+            const file = new VirtualFile(path, buffer);
+            parentDir.addChild(file);
+        } else if (entity instanceof VirtualFile) {
+            entity.buffer = buffer;
+        } else {
+            throw new Error(`Trying to write file at ${path}, but a directory exists at that path.`);
+        }
+    }
+    
+    deleteHelper<T>(
+        path: string,
+        classConstructor: abstract new (...args: any[]) => T,
+        errorMessage: string,
+    ): void {
+        const name = pathUtils.basename(path);
+        const parentDir = this.getParentDir(path);
+        const result = parentDir.findChild(name);
+        if (result === null) {
+            throw new Error(`No file system entity exists at ${path}.`);
+        }
+        const { child, index } = result;
+        if (!(child instanceof classConstructor)) {
+            throw new Error(errorMessage);
+        }
+        parentDir.deleteChild(index);
     }
     
     deleteFile(path: string): void {
-        throw new Error("Not yet implemented");
+        this.deleteHelper(
+            path, VirtualFile,
+            `Expected file at ${path}, but found directory.`,
+        );
     }
     
     readDirectory(path: string): string[] {
@@ -190,7 +290,10 @@ export class VirtualFileSystem extends FileSystem {
     }
     
     deleteDirectory(path: string): void {
-        throw new Error("Not yet implemented");
+        this.deleteHelper(
+            path, VirtualDirectory,
+            `Expected directory at ${path}, but found file.`,
+        );
     }
     
     getHomeDirectory(): string {

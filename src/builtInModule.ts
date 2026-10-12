@@ -7,7 +7,7 @@ import { KnownValue, PetString, PetList, PetMap } from "./value.js";
 import { FuncDef, DefFunc } from "./builtInFunc.js";
 import { PetException, ErrorException } from "./exception.js";
 import { createFrame } from "./variable.js";
-import { splitRelPath } from "./fileSystem.js";
+import { getPathParent } from "./fileSystem.js";
 
 interface BuiltInModuleDef {
     symbol: PetSymbol;
@@ -169,24 +169,9 @@ const fileSystemFuncDefs: FuncDef[] = [
         name: "PATH_PARENT",
         argAmount: 1,
         call: (task, args) => {
-            const argPath = args[0].toStringStrict();
-            const path = pathUtils.normalize(argPath);
-            const dirname = pathUtils.dirname(path);
-            let result: KnownValue;
-            if (pathUtils.isAbsolute(path)) {
-                result = (path === dirname) ? null : new PetString(dirname);
-            } else {
-                const pathParts = splitRelPath(path);
-                let parentPath: string;
-                if (pathParts.length === 1 && pathParts[0] === ".") {
-                    parentPath = "..";
-                } else if (pathParts.every((part) => (part === ".."))) {
-                    parentPath = pathUtils.join("..", path);
-                } else {
-                    parentPath = dirname;
-                }
-                result = new PetString(parentPath);
-            }
+            const path = args[0].toStringStrict();
+            const parentPath = getPathParent(path);
+            const result = (parentPath === null) ? null : new PetString(parentPath);
             return task.returnValue(result);
         },
     },

@@ -51,6 +51,7 @@ When running test suites, the interpreter uses a virtual file system instead of 
 * `~` is the home directory of the virtual user.
     * The absolute path of `~` is `/home/testUser`.
 * `~/targetPackage` is the entry package which the test case will run.
+    * This is also the current working directory of the Petroleum interpreter.
 * `~/targetPackage/petroleumPackage.json` is a simple package file with no dependencies.
     * This package file specifies that `./main.petrol` is the entry module.
     * Test cases can overwrite this package file to test dependency packages.
