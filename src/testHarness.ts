@@ -230,8 +230,81 @@ class TestDirective {
     }
 }
 
+class ExpectedProblem {
+    path?: string;
+    lineNumber?: string;
+    
+    constructor(path?: string, lineNumber?: string) {
+        this.path = path;
+        this.lineNumber = lineNumber;
+    }
+}
+
+class ExpectedException extends ExpectedProblem {
+    type?: string;
+    
+    constructor(type?: string, path?: string, lineNumber?: string) {
+        super(path, lineNumber);
+        this.type = type;
+    }
+}
+
+class ExpectedError extends ExpectedProblem {
+    type?: string;
+    message?: string;
+    
+    constructor(
+        type?: string,
+        message?: string,
+        path?: string,
+        lineNumber?: string,
+    ) {
+        super(path, lineNumber);
+        this.type = type;
+        this.message = message;
+    }
+}
+
+class ExpectedSticker extends ExpectedProblem {
+    message?: string;
+    
+    constructor(message?: string, path?: string, lineNumber?: string) {
+        super(path, lineNumber);
+        this.message = message;
+    }
+}
+
+const getLabeledArgs = (parts: string[], names: string[]): Map<string, string> => {
+    if (parts.length % 2 !== 0) {
+        throw new Error("Labelled arguments must have an even number of parts.");
+    }
+    const output = new Map<string, string>();
+    for (let index = 0; index < parts.length; index += 2) {
+        const labelPart = parts[index];
+        const value = parts[index + 1];
+        if (!labelPart.endsWith(":")) {
+            throw new Error("Argument label must end with colon.");
+        }
+        const label = labelPart.substring(0, labelPart.length - 1);
+        if (!names.includes(label)) {
+            throw new Error(`Unrecognized argument label "${label}".`);
+        }
+        if (output.has(label)) {
+            throw new Error(`Duplicate argument label "${label}".`);
+        }
+        output.set(label, value);
+    }
+    return output;
+};
+
 class TestCase {
-    directives: TestDirective[];
+    name: string;
+    setupDirectives: TestDirective[];
+    appArgs: string[];
+    expectedPrintLines: string[];
+    expectedExceptions: ExpectedException[];
+    expectedErrors: ExpectedError[];
+    expectedStickers: ExpectedSticker[];
     
     constructor(lines: string[]) {
         let currentGroup: string[] | null = null;
@@ -246,7 +319,103 @@ class TestCase {
                 currentGroup.push(line);
             }
         }
-        this.directives = lineGroups.map((lineGroup) => new TestDirective(lineGroup));
+        let directives = lineGroups.map((lineGroup) => new TestDirective(lineGroup));
+        const consumeDirectivesByCond = (
+            condition: (name: string) => boolean,
+        ): TestDirective[] => {
+            const output: TestDirective[] = [];
+            const nextDirectives: TestDirective[] = [];
+            for (const directive of directives) {
+                if (condition(directive.name)) {
+                    output.push(directive);
+                } else {
+                    nextDirectives.push(directive);
+                }
+            }
+            directives = nextDirectives;
+            return output;
+        };
+        const consumeDirectives = (name: string): TestDirective[] => (
+            consumeDirectivesByCond((inputName) => (inputName === name))
+        );
+        
+        const caseDirectives = consumeDirectives("testCase");
+        if (caseDirectives.length !== 1) {
+            throw new Error("Every test case must contain exactly one testCase directive.");
+        }
+        const caseDirective = caseDirectives[0];
+        if (caseDirective.dataLines.length > 0) {
+            throw new Error("Unexpected data lines in testCase directive.");
+        }
+        if (caseDirective.args.length !== 1) {
+            throw new Error("testCase directive expects exactly one argument.");
+        }
+        this.name = caseDirective.args[0];
+        
+        this.setupDirectives = consumeDirectivesByCond((name) => name.startsWith("setup"));
+        
+        const argsDirectives = consumeDirectives("appArgs");
+        if (argsDirectives.length > 1) {
+            throw new Error("Test case cannot contain more than one appArgs directive.");
+        }
+        if (argsDirectives.length > 0) {
+            const argsDirective = argsDirectives[0];
+            if (argsDirective.dataLines.length > 0) {
+                throw new Error("Unexpected data lines in appArgs directive.");
+            }
+            this.appArgs = argsDirective.args;
+        } else {
+            this.appArgs = [];
+        }
+        
+        const printDirectives = consumeDirectives("expectPrint");
+        if (printDirectives.length > 1) {
+            throw new Error("Test case cannot contain more than one expectPrint directive.");
+        }
+        if (printDirectives.length > 0) {
+            const printDirective = printDirectives[0];
+            if (printDirective.args.length > 0) {
+                throw new Error("expectPrint directive does not expect any arguments.");
+            }
+            this.expectedPrintLines = printDirective.dataLines;
+        } else {
+            this.expectedPrintLines = [];
+        }
+        
+        const consumeProblemDirectives = (
+            directiveName: string,
+            argNames: string[],
+        ): Map<string, string>[] => {
+            const problemDirectives = consumeDirectives(directiveName);
+            return problemDirectives.map(
+                (directive) => getLabeledArgs(directive.args, argNames),
+            );
+        };
+        
+        const exceptionMaps = consumeProblemDirectives(
+            "expectExcep", ["type", "path", "lineNumber"],
+        );
+        this.expectedExceptions = exceptionMaps.map((map) => new ExpectedException(
+            map.get("type"), map.get("path"), map.get("lineNumber"),
+        ));
+        
+        const errorMaps = consumeProblemDirectives(
+            "expectError", ["type", "message", "path", "lineNumber"],
+        );
+        this.expectedErrors = errorMaps.map((map) => new ExpectedError(
+            map.get("type"), map.get("message"), map.get("path"), map.get("lineNumber"),
+        ));
+        
+        const stickerMaps = consumeProblemDirectives(
+            "expectStuck", ["message", "path", "lineNumber"],
+        );
+        this.expectedStickers = stickerMaps.map((map) => new ExpectedSticker(
+            map.get("message"), map.get("path"), map.get("lineNumber"),
+        ));
+        
+        if (directives.length > 0) {
+            throw new Error("Unexpected directive: " + directives[0].name);
+        }
     }
 }
 
