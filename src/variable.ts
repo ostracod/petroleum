@@ -7,7 +7,6 @@ import { NotEqualFunc } from "./builtInFunc.js";
 import { AwaitException, PetSyntaxError, PetTypeError, ValueError, StateError } from "./exception.js";
 import { assertCompAmount, assertIdentComp, getDeclComp } from "./node.js";
 
-// parentVarSpace is either a scope or a frame.
 export const createFrame = (scope: PetMap, parentFrame: PetMap | null): PetMap => {
     const permaFrameValue = scope.getOptionalMember(symbols.PERMA_FRAME);
     const isPermaFrameScope = (typeof permaFrameValue !== "undefined");

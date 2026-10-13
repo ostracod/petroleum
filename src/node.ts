@@ -6,21 +6,29 @@ import { WorkerMethodsMap } from "./method.js";
 import { PetString, PetList, PetMap, PetFunc } from "./value.js";
 import { pluralize, PetTypeError, ValueError, createSyntaxError } from "./exception.js";
 
-export const getChildWorkers = (node: PetMap): PetMap[] => {
+// `entity` is a node or a component.
+export const getChildWorkers = (entity: PetMap): PetMap[] => {
     const output: PetMap[] = [];
-    const comps = node.getMember(symbols.COMPS).getList();
-    for (const compValue of comps.elements) {
-        const comp = compValue.getMap();
-        const compType = comp.getMember(symbols.COMP_TYPE).getSymbol();
-        if (compType === symbols.STMTS_COMP || compType === symbols.EXPRS_COMP) {
-            output.push(comp);
-        } else if (compType === symbols.ATTRS_COMP) {
-            const attrs = comp.getMember(symbols.ATTRS).getList();
-            for (const attrValue of attrs.elements) {
-                const attr = attrValue.getMap();
-                const workers = getChildWorkers(attr);
-                output.push(...workers);
-            }
+    if (entity.hasKey(symbols.NODE_TYPE)) {
+        const comps = entity.getMember(symbols.COMPS).getList();
+        for (const compValue of comps.elements) {
+            const comp = compValue.getMap();
+            output.push(...getChildWorkers(comp));
+        }
+        return output;
+    }
+    const compTypeValue = entity.getOptionalMember(symbols.COMP_TYPE);
+    if (typeof compTypeValue === "undefined") {
+        throw new PetTypeError("Expected node or component.");
+    }
+    const compType = compTypeValue.getSymbol();
+    if (compType === symbols.STMTS_COMP || compType === symbols.EXPRS_COMP) {
+        output.push(entity);
+    } else if (compType === symbols.ATTRS_COMP) {
+        const attrs = entity.getMember(symbols.ATTRS).getList();
+        for (const attrValue of attrs.elements) {
+            const attr = attrValue.getMap();
+            output.push(...getChildWorkers(attr));
         }
     }
     return output;

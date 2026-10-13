@@ -153,9 +153,6 @@ const checkCodeToClone = (context: PetContext, code: PetMap): void => {
         assertWorkerUnprepped(context, code);
         return;
     }
-    if (!code.hasKey(symbols.NODE_TYPE)) {
-        return;
-    }
     const workers = getChildWorkers(code);
     for (const worker of workers) {
         assertWorkerUnprepped(context, worker);
