@@ -1,0 +1,43 @@
+>>> testCase "SYMBOL function"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @symbol1 = (SYMBOL("mySymbol"))
+WORK_VAR @symbol2 = (SYMBOL("mySymbol"))
+PRINT(symbol1)
+PRINT(EQUAL(symbol1, symbol1))
+PRINT(EQUAL(symbol1, symbol2))
+PRINT(TYPE(symbol1))
+>>> expectPrint
+mySymbol
+1
+0
+#SYMBOL
+=========================
+>>> testCase "TYPE function"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myFunc = (FUNC {})
+PRINT(TYPE(NULL))
+PRINT(TYPE(123))
+PRINT(TYPE(#INT))
+PRINT(TYPE("text"))
+PRINT(TYPE(LIST(1, 2)))
+PRINT(TYPE(MAP [FIELDS []]))
+PRINT(TYPE(myFunc))
+PRINT(TYPE(ADD))
+TRY {
+    ABORT (#STATE_ERROR, "Oh no")
+} CATCH {
+    [EXCEP @excep]
+    PRINT(TYPE(MEMBER(excep, #EVAL_STATE)))
+}
+PRINT(EQUAL(TYPE(5), #INT))
+>>> expectPrint
+#NULL
+#INT
+#SYMBOL
+#STR
+#LIST
+#MAP
+#FUNC
+#FUNC
+#EVAL_STATE
+1

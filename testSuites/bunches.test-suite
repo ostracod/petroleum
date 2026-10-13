@@ -1,0 +1,261 @@
+>>> testCase "LEN function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(LEN("hello"))
+PRINT(LEN(""))
+PRINT(LEN(LIST(10, 20, 30)))
+PRINT(LEN(LIST()))
+PRINT(LEN(MAP [FIELDS [("a") = (1), ("b") = (2)]]))
+PRINT(LEN(MAP [FIELDS []]))
+>>> expectPrint
+5
+0
+3
+0
+2
+0
+=========================
+>>> testCase "TRUNC function"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST(10, 20, 30, 40))
+PRINT(TRUNC(myList, 4))
+PRINT(myList)
+TRUNC(myList, 2)
+PRINT(myList)
+TRUNC(myList, 0)
+PRINT(myList)
+>>> expectPrint
+NULL
+LIST (10, 20, 30, 40)
+LIST (10, 20)
+LIST ()
+=========================
+>>> testCase "TRUNC function length too large"
+>>> setupFile ~/targetPackage/main.petrol
+TRUNC(LIST(10, 20), 3)
+>>> expectError type: #VALUE_ERROR message: "Truncation length cannot be greater than list length." lineNumber: 1
+=========================
+>>> testCase "MEMBER function with string"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(MEMBER("ABC", 0))
+PRINT(MEMBER("ABC", 2))
+PRINT(MEMBER("a b", 1))
+PRINT(MEMBER("ABC", 3))
+>>> expectPrint
+65
+67
+32
+>>> expectError type: #VALUE_ERROR lineNumber: 4
+=========================
+>>> testCase "MEMBER function with list"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST(10, "text", NULL))
+PRINT(MEMBER(myList, 0))
+PRINT(MEMBER(myList, 1))
+PRINT(MEMBER(myList, 2))
+PRINT(MEMBER(myList, 3))
+>>> expectPrint
+10
+text
+NULL
+>>> expectError type: #VALUE_ERROR lineNumber: 5
+=========================
+>>> testCase "MEMBER function with map"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @mySymbol = (SYMBOL("mySymbol"))
+WORK_VAR @myMap = (MAP [FIELDS [("a") = (1), (2) = ("b"), (mySymbol) = (3), (NULL) = (4)]])
+PRINT(MEMBER(myMap, "a"))
+PRINT(MEMBER(myMap, CONCAT(LIST("", "a"))))
+PRINT(MEMBER(myMap, 2))
+PRINT(MEMBER(myMap, mySymbol))
+PRINT(MEMBER(myMap, NULL))
+PRINT(MEMBER(myMap, SYMBOL("mySymbol")))
+>>> expectPrint
+1
+1
+b
+3
+4
+>>> expectError type: #VALUE_ERROR lineNumber: 8
+=========================
+>>> testCase "SET_MEMBER function with list"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST(10, 20, 30))
+WORK_VAR @sameList = (myList)
+PRINT(SET_MEMBER(myList, 0, 15))
+SET_MEMBER(myList, 2, "text")
+PRINT(myList)
+PRINT(sameList)
+SET_MEMBER(myList, 3, 40)
+>>> expectPrint
+NULL
+LIST (15, 20, "text")
+LIST (15, 20, "text")
+>>> expectError type: #VALUE_ERROR lineNumber: 7
+=========================
+>>> testCase "SET_MEMBER function with map"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myMap = (MAP [FIELDS [("a") = (1)]])
+SET_MEMBER(myMap, "a", 2)
+SET_MEMBER(myMap, "b", 3)
+SET_MEMBER(myMap, 5, 4)
+PRINT(myMap)
+PRINT(LEN(myMap))
+>>> expectPrint
+MAP [FIELDS [("a") = (2), ("b") = (3), (5) = (4)]]
+3
+=========================
+>>> testCase "DEFER_MEMBER function with present member"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST(10, 20))
+WORK_VAR @myMap = (MAP [FIELDS [("a") = (1)]])
+PRINT(DEFER_MEMBER(myList, 1, "Waiting for element"))
+PRINT(DEFER_MEMBER(myMap, "a", "Waiting for field"))
+>>> expectPrint
+20
+1
+=========================
+>>> testCase "DEFER_MEMBER function with map populated by another coroutine"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myMap = (MAP [FIELDS []])
+SCHED {
+    PRINT("Setting field")
+    SET_MEMBER(myMap, "a", 123)
+}
+WORK_VAR @value = (DEFER_MEMBER(myMap, "a", "Waiting for field"))
+PRINT("Deferred field")
+PRINT(value)
+>>> expectPrint
+Deferred field
+Setting field
+123
+=========================
+>>> testCase "DEFER_MEMBER function with list populated by another coroutine"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST(10))
+SCHED {
+    PRINT("Adding elements")
+    ADD_ELEM(myList, 20)
+    ADD_ELEM(myList, 30)
+}
+WORK_VAR @value = (DEFER_MEMBER(myList, 2, "Waiting for element"))
+PRINT("Deferred element")
+PRINT(ADD(value, 1))
+>>> expectPrint
+Deferred element
+Adding elements
+31
+=========================
+>>> testCase "DEFER_MEMBER function with member populated before use"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myMap = (MAP [FIELDS []])
+WORK_VAR @value = (DEFER_MEMBER(myMap, "a", "Waiting for field"))
+SET_MEMBER(myMap, "a", 5)
+PRINT(value)
+SET_MEMBER(myMap, "a", 6)
+PRINT(value)
+>>> expectPrint
+5
+5
+=========================
+>>> testCase "DEFER_MEMBER function with member never populated"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myMap = (MAP [FIELDS []])
+WORK_VAR @value = (DEFER_MEMBER(myMap, "a", "Waiting for field"))
+PRINT("Deferred field")
+PRINT(value)
+PRINT("This line is not reached")
+>>> expectPrint
+Deferred field
+>>> expectStuck message: "Waiting for field" lineNumber: 4
+=========================
+>>> testCase "ADD_ELEM function"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST())
+PRINT(ADD_ELEM(myList, 10))
+ADD_ELEM(myList, "text")
+ADD_ELEM(myList, LIST(1, 2))
+PRINT(myList)
+PRINT(LEN(myList))
+>>> expectPrint
+NULL
+LIST (10, "text", LIST (1, 2))
+3
+=========================
+>>> testCase "DEL_FIELD function"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myMap = (MAP [FIELDS [("a") = (1), ("b") = (2), (3) = (4)]])
+PRINT(DEL_FIELD(myMap, "a"))
+DEL_FIELD(myMap, 3)
+PRINT(myMap)
+DEL_FIELD(myMap, "a")
+>>> expectPrint
+NULL
+MAP [FIELDS [("b") = (2)]]
+>>> expectError type: #VALUE_ERROR lineNumber: 5
+=========================
+>>> testCase "SLICE function with string"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(SLICE("hello", 1, 4))
+PRINT(SLICE("hello", 0, 5))
+PRINT(LEN(SLICE("hello", 2, 2)))
+PRINT(SLICE("hello", 3, 5))
+>>> expectPrint
+ell
+hello
+0
+lo
+=========================
+>>> testCase "SLICE function with list"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST(10, 20, 30, 40))
+WORK_VAR @mySlice = (SLICE(myList, 1, 3))
+PRINT(mySlice)
+PRINT(SLICE(myList, 0, 4))
+PRINT(SLICE(myList, 4, 4))
+SET_MEMBER(mySlice, 0, 25)
+PRINT(mySlice)
+PRINT(myList)
+>>> expectPrint
+LIST (20, 30)
+LIST (10, 20, 30, 40)
+LIST ()
+LIST (25, 30)
+LIST (10, 20, 30, 40)
+=========================
+>>> testCase "SLICE function end index too large"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(SLICE("hello", 2, 6))
+>>> expectError type: #VALUE_ERROR lineNumber: 1
+=========================
+>>> testCase "SLICE function start index greater than end index"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(SLICE(LIST(10, 20, 30), 2, 1))
+>>> expectError type: #VALUE_ERROR lineNumber: 1
+=========================
+>>> testCase "CONCAT function with strings"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(CONCAT(LIST("abc", "def", "g")))
+PRINT(CONCAT(LIST("abc", "", "def")))
+PRINT(CONCAT(LIST("abc")))
+PRINT(LEN(CONCAT(LIST("", ""))))
+>>> expectPrint
+abcdefg
+abcdef
+abc
+0
+=========================
+>>> testCase "CONCAT function with lists"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @list1 = (LIST(10, 20))
+WORK_VAR @list2 = (LIST("text"))
+WORK_VAR @result = (CONCAT(LIST(list1, LIST(), list2)))
+PRINT(result)
+ADD_ELEM(result, 30)
+PRINT(result)
+PRINT(list1)
+PRINT(CONCAT(LIST(LIST())))
+>>> expectPrint
+LIST (10, 20, "text")
+LIST (10, 20, "text", 30)
+LIST (10, 20)
+LIST ()
