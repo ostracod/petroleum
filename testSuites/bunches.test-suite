@@ -266,3 +266,45 @@ LIST (10, 20, "text")
 LIST (10, 20, "text", 30)
 LIST (10, 20)
 LIST ()
+=========================
+>>> testCase "KEYS function"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @mySymbol = (SYMBOL("mySymbol"))
+WORK_VAR @myMap = (MAP [FIELDS [("a") = (1), (2) = (3), (mySymbol) = (4)]])
+WORK_VAR @keys = (KEYS(myMap))
+PRINT(keys)
+PRINT(EQUAL(MEMBER(keys, 2), mySymbol))
+ADD_ELEM(keys, "b")
+PRINT(LEN(myMap))
+PRINT(KEYS(MAP [FIELDS []]))
+>>> expectPrint
+LIST ("a", 2, mySymbol)
+1
+3
+LIST ()
+=========================
+>>> testCase "HAS_KEY function"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @mySymbol = (SYMBOL("mySymbol"))
+WORK_VAR @myMap = (MAP [FIELDS [("a") = (1), (2) = (NULL), (mySymbol) = (4)]])
+PRINT(HAS_KEY(myMap, "a"))
+PRINT(HAS_KEY(myMap, CONCAT(LIST("", "a"))))
+PRINT(HAS_KEY(myMap, "b"))
+PRINT(HAS_KEY(myMap, 2))
+PRINT(HAS_KEY(myMap, "2"))
+PRINT(HAS_KEY(myMap, mySymbol))
+PRINT(HAS_KEY(myMap, SYMBOL("mySymbol")))
+DEL_FIELD(myMap, "a")
+PRINT(HAS_KEY(myMap, "a"))
+SET_MEMBER(myMap, "c", 5)
+PRINT(HAS_KEY(myMap, "c"))
+>>> expectPrint
+1
+1
+0
+1
+0
+1
+0
+0
+1

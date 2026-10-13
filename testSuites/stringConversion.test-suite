@@ -1,0 +1,114 @@
+>>> testCase "STR function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(STR(123))
+PRINT(STR(NEG(45)))
+PRINT(STR(NULL))
+PRINT(STR(SYMBOL("mySymbol")))
+PRINT(STR(#INT))
+PRINT(STR("text"))
+PRINT(STR(LIST(1, "a\"b", NULL)))
+PRINT(STR(MAP [FIELDS [("a") = (1), (2) = (LIST())]]))
+PRINT(TYPE(STR(123)))
+PRINT(LEN(STR(123)))
+>>> expectPrint
+123
+-45
+NULL
+mySymbol
+#INT
+text
+LIST (1, "a\"b", NULL)
+MAP [FIELDS [("a") = (1), (2) = (LIST ())]]
+#STR
+3
+=========================
+>>> testCase "STR function with self-referencing list"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST(1, 2))
+ADD_ELEM(myList, myList)
+PRINT(STR(myList))
+>>> expectPrint
+LIST (1, 2, ...)
+=========================
+>>> testCase "STR function with high character codes"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myStr = (STR(CONCAT(LIST("a", CHAR(200), CHAR(255)))))
+PRINT(LEN(myStr))
+PRINT(MEMBER(myStr, 1))
+PRINT(MEMBER(myStr, 2))
+>>> expectPrint
+3
+200
+255
+=========================
+>>> testCase "PARSE_INT function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(PARSE_INT("123"))
+PRINT(PARSE_INT("-45"))
+PRINT(PARSE_INT("0"))
+PRINT(PARSE_INT("007"))
+PRINT(PARSE_INT("9223372036854775807"))
+PRINT(PARSE_INT("-9223372036854775808"))
+PRINT(ADD(PARSE_INT("10"), 5))
+>>> expectPrint
+123
+-45
+0
+7
+9223372036854775807
+-9223372036854775808
+15
+=========================
+>>> testCase "PARSE_INT function with invalid text"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @texts = (LIST("", "abc", "12a", " 12", "1.5", "+5", "-"))
+WORK_VAR @index = (0)
+WHILE (LESS(index, LEN(texts))) {
+    TRY {
+        PARSE_INT(MEMBER(texts, index))
+        PRINT("Parsed")
+    } CATCH {
+        [EXCEP @excep]
+        PRINT(MEMBER(excep, #ERROR_TYPE))
+    }
+    SET index = (ADD(index, 1))
+}
+>>> expectPrint
+#VALUE_ERROR
+#VALUE_ERROR
+#VALUE_ERROR
+#VALUE_ERROR
+#VALUE_ERROR
+#VALUE_ERROR
+#VALUE_ERROR
+=========================
+>>> testCase "PARSE_INT function with too large integer"
+>>> setupFile ~/targetPackage/main.petrol
+PARSE_INT("9223372036854775808")
+>>> expectError type: #VALUE_ERROR lineNumber: 1
+=========================
+>>> testCase "PARSE_INT function with too small integer"
+>>> setupFile ~/targetPackage/main.petrol
+PARSE_INT("-9223372036854775809")
+>>> expectError type: #VALUE_ERROR lineNumber: 1
+=========================
+>>> testCase "CHAR function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(CHAR(65))
+PRINT(CONCAT(LIST(CHAR(104), CHAR(105))))
+PRINT(EQUAL(CHAR(34), "\""))
+PRINT(LEN(CHAR(0)))
+PRINT(MEMBER(CHAR(0), 0))
+PRINT(MEMBER(CHAR(255), 0))
+>>> expectPrint
+A
+hi
+1
+1
+0
+255
+=========================
+>>> testCase "CHAR function with invalid character code"
+>>> setupFile ~/targetPackage/main.petrol
+CHAR(256)
+>>> expectError type: #VALUE_ERROR lineNumber: 1

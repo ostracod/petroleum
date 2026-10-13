@@ -2,7 +2,7 @@
 import "./value.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { KnownValue, PetValue, wrapKnownValue, minIntValue, maxIntValue, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
+import { KnownValue, PetValue, wrapKnownValue, knownValueToString, minIntValue, maxIntValue, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
 import { PetTypeError, ValueError, StateError } from "./exception.js";
 import { getChildWorkers } from "./node.js";
 import { findVariable, findVarValue, getScope, createFrame } from "./variable.js";
@@ -594,7 +594,10 @@ export const globalFuncDefs: FuncDef[] = [
         name: "STR",
         argAmount: 1,
         call: (task, args) => {
-            const result = new PetString(args[0].toString());
+            const arg = args[0].getKnownValue();
+            const result = (arg instanceof PetString)
+                ? arg
+                : new PetString(knownValueToString(arg));
             return task.returnValue(result);
         },
     },
@@ -653,7 +656,9 @@ export const globalFuncDefs: FuncDef[] = [
                 throw new ValueError("Expected 1 or 2 arguments.");
             }
             const func = args[0].getFunc();
-            const funcArgs = (args.length > 1) ? args[1].getList() : ([] as PetValue[]);
+            const funcArgs = (args.length > 1)
+                ? args[1].getList().shallowCopy()
+                : ([] as PetValue[]);
             return task.callFunction(
                 func, funcArgs,
                 (value) => task.returnValue(value),

@@ -485,7 +485,7 @@ export class PetList implements ObservableBunchIface {
     getOptionalMember(index: ListIndex): PetValue | undefined {
         const numberIndex = listIndexToNumber(index);
         if (numberIndex < 0) {
-            throw new ValueError(`List index cannot be negative.`);
+            throw new ValueError("List index cannot be negative.");
         }
         return this.elements[numberIndex];
     }
