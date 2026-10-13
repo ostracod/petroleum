@@ -168,6 +168,13 @@ PRINT("This line is not reached")
 Deferred field
 >>> expectStuck message: "Waiting for field" lineNumber: 4
 =========================
+>>> testCase "DEFER_MEMBER function with negative list index"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST(10, 20))
+WORK_VAR @value = (DEFER_MEMBER(myList, NEG(1), "Waiting for element"))
+PRINT("This line is not reached")
+>>> expectError type: #VALUE_ERROR message: "List index cannot be negative." lineNumber: 2
+=========================
 >>> testCase "ADD_ELEM function"
 >>> setupFile ~/targetPackage/main.petrol
 WORK_VAR @myList = (LIST())
