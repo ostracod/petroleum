@@ -160,12 +160,6 @@ TRY {$body1} CATCH {[EXCEP @$excep], $body2}
 Evaluates `$body1`. If `$body1` throws an exception, `$body2` will be evaluated. If `[EXCEP @$excep]` is included, this procedure stores the thrown exception in work-var `$excep`.
 
 ```
-WITH_CALLER ($node) {$body}
-```
-
-Evaluates `$body`. If `$body` throws an exception, the stack trace will include the file path and line number of `$node`.
-
-```
 RESUME ($evalState)
 ```
 

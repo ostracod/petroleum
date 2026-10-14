@@ -2,7 +2,7 @@
 import "./variable.js";
 
 import { PetSymbol, symbols, spinCountSymbol } from "./symbol.js";
-import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, nullValue, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, EvalState, valueMayHaveChanged } from "./value.js";
+import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, nullValue, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, UserFunc, EvalState, valueMayHaveChanged } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
 import { getMethodWithDefault } from "./method.js";
 import { PetSyntaxError, ValueError, StateError, createSyntaxError } from "./exception.js";
@@ -652,6 +652,7 @@ export const callMethodTask: TaskDef<MethodInvocation, null> = {
             const { worker, key: methodKey } = task.params;
             const methodMap = getWorkerMethodMap(task.context.workerMethodsMap, worker);
             const method = getMethodWithDefault(methodMap, methodKey);
+            const callerNode = (method instanceof UserFunc) ? worker : undefined;
             return task.callFunction(
                 method, [worker, ...task.params.args],
                 (returnValue) => {
@@ -667,6 +668,7 @@ export const callMethodTask: TaskDef<MethodInvocation, null> = {
                     }
                     return task.returnValue(nextReturnValue);
                 },
+                callerNode,
             );
         },
     ],

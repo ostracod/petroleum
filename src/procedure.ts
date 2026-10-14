@@ -8,7 +8,7 @@ import { PetException, createBreakExcep, createContExcep, createSyntaxError } fr
 import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getStmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp, getCompIdent } from "./node.js";
 import { findVarValue, getVarValue, getModuleFrameEntry, getScope, varIsInScope } from "./variable.js";
 import { createMethodInvocation, callMethodTask } from "./task.js";
-import { setProcPrepTask, awaitProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask, funcProcPrepTask, tryProcEvalTask, withCallerProcTask, importProcPrepTask } from "./procTask.js";
+import { setProcPrepTask, awaitProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask, funcProcPrepTask, tryProcEvalTask, importProcPrepTask } from "./procTask.js";
 
 interface ProcDef extends MethodDict {
     name: string;
@@ -751,25 +751,6 @@ export const globalProcDefs: ProcDef[] = [
             const catchBody = comps.getMember(3).getMap();
             return task.runTask(
                 tryProcEvalTask, { tryBody, catchBody, varSpace },
-                (value) => task.returnValue(null),
-            );
-        },
-    },
-    {
-        name: "WITH_CALLER",
-        prep: (task, worker) => {
-            const comps = worker.getMember(symbols.COMPS).getList();
-            assertCompAmount(comps, 3);
-            assertWorkGradeExprs(comps, 1, 1);
-            assertStmtsComp(comps, 2);
-            return callDefaultPrep(task, worker);
-        },
-        eval: (task, worker, varSpace) => {
-            const comps = worker.getMember(symbols.COMPS).getList();
-            const exprsComp = comps.getMember(1).getMap();
-            const stmtsComp = comps.getMember(2).getMap();
-            return task.runTask(
-                withCallerProcTask, { exprsComp, stmtsComp, varSpace },
                 (value) => task.returnValue(null),
             );
         },
