@@ -1,0 +1,379 @@
+>>> testCase "LIST procedure"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(LIST (10, "text", NULL))
+PRINT(LIST (ADD(1, 2), LIST (4, 5)))
+PRINT(LIST ())
+PRINT(EQUAL(LIST (), LIST ()))
+>>> expectPrint
+LIST (10, "text", NULL)
+LIST (3, LIST (4, 5))
+LIST ()
+0
+=========================
+>>> testCase "LIST procedure with statement sequence"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(LIST {PRINT(1)})
+>>> expectError type: #SYNTAX_ERROR message: "Expected expression sequence component." lineNumber: 2
+=========================
+>>> testCase "LIST procedure with prep-grade expressions"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(LIST <1, 2>)
+>>> expectError type: #SYNTAX_ERROR message: "Expected work-grade expression sequence component." lineNumber: 1
+=========================
+>>> testCase "LIST procedure with too many components"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(LIST (1) (2))
+>>> expectError type: #SYNTAX_ERROR message: "Node has too many components." lineNumber: 1
+=========================
+>>> testCase "MAP procedure"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myMap = (MAP [FIELDS [
+    ("a") = (1)
+    (ADD(1, 1)) = (SUB(10, 2))
+    (#INT) = (LIST (3))
+]])
+PRINT(myMap)
+PRINT(MEMBER(myMap, 2))
+PRINT(MAP [FIELDS []])
+>>> expectPrint
+MAP [FIELDS [("a") = (1), (2) = (8), (#INT) = (LIST (3))]]
+8
+MAP [FIELDS []]
+=========================
+>>> testCase "MAP procedure with wrong field separator"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(MAP [FIELDS [("a") : (1)]])
+>>> expectError type: #SYNTAX_ERROR message: "Expected \"=\" identifier component." lineNumber: 1
+=========================
+>>> testCase "MAP procedure with wrong attribute name"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(MAP [ITEMS [("a") = (1)]])
+>>> expectError type: #SYNTAX_ERROR message: "Expected \"FIELDS\" identifier component." lineNumber: 1
+=========================
+>>> testCase "MAP procedure with too many key expressions"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(MAP [FIELDS [("a", "b") = (1)]])
+>>> expectError type: #SYNTAX_ERROR message: "Expected 1 expression in sequence." lineNumber: 1
+=========================
+>>> testCase "MAP procedure with duplicate keys"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(MAP [FIELDS [(1) = ("a"), ("1") = ("b")]])
+PRINT(MAP [FIELDS [("a") = (1), (CONCAT(LIST ("", "a"))) = (2)]])
+>>> expectPrint
+MAP [FIELDS [(1) = ("a"), ("1") = ("b")]]
+>>> expectError type: #VALUE_ERROR lineNumber: 2
+=========================
+>>> testCase "PREP procedure"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("Work-phase")
+WORK_VAR @count = (0)
+WHILE (LESS(count, 2)) {
+    PRINT(PREP <RUN {
+        PRINT("Prep-phase")
+        RET (ADD(2, 3))
+    }>)
+    SET count = (ADD(count, 1))
+}
+>>> expectPrint
+Prep-phase
+Work-phase
+5
+5
+=========================
+>>> testCase "RUN procedure"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(RUN {
+    PRINT("Running")
+})
+PRINT(RUN {
+    RET (5)
+    PRINT("This line is not reached")
+})
+WORK_VAR @value = (RUN {
+    WORK_VAR @innerValue = (10)
+    RET (ADD(innerValue, 1))
+})
+PRINT(value)
+>>> expectPrint
+Running
+NULL
+5
+11
+=========================
+>>> testCase "RUN procedure with expression sequence"
+>>> setupFile ~/targetPackage/main.petrol
+RUN (1)
+>>> expectError type: #SYNTAX_ERROR message: "Expected statement sequence component." lineNumber: 1
+=========================
+>>> testCase "FUNC procedure"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @noArgs = <FUNC {
+    PRINT("Called noArgs")
+}>
+PREP_VAR @twoArgs = <FUNC {
+    [ARGS [@value1, @value2]]
+    RET (SUB(value1, value2))
+}>
+PREP_VAR @argList = <FUNC {
+    [ARGS @args]
+    RET (args)
+}>
+PRINT(noArgs())
+PRINT(twoArgs(10, 3))
+PRINT(argList())
+PRINT(argList(1, "a", NULL))
+WORK_VAR @workFunc = (FUNC {
+    [ARGS [@value]]
+    RET (MUL(value, 2))
+})
+PRINT(TYPE(workFunc))
+PRINT(CALL(workFunc, LIST (21)))
+>>> expectPrint
+Called noArgs
+NULL
+7
+LIST ()
+LIST (1, "a", NULL)
+#FUNC
+42
+=========================
+>>> testCase "FUNC procedure with wrong number of arguments"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @myFunc = <FUNC {
+    [ARGS [@value]]
+}>
+PRINT("This line is not reached")
+myFunc(1, 2)
+>>> expectError type: #VALUE_ERROR message: "Incorrect number of function arguments." lineNumber: 5
+=========================
+>>> testCase "FUNC procedure with wrong number of arguments using CALL"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myFunc = (FUNC {
+    [ARGS [@value]]
+})
+PRINT("Before call")
+CALL(myFunc)
+>>> expectPrint
+Before call
+>>> expectError type: #VALUE_ERROR message: "Incorrect number of function arguments." lineNumber: 5
+=========================
+>>> testCase "FUNC procedure with invalid argument attribute"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @myFunc = <FUNC {
+    [ARGS [@value1, value2]]
+}>
+>>> expectError type: #SYNTAX_ERROR message: "Expected declaration component." lineNumber: 2
+=========================
+>>> testCase "PREP_VAR procedure"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @myInt = <ADD(10, 5)>
+PREP_VAR @myList = <LIST (myInt, "text")>
+PRINT(myInt)
+PRINT(myList)
+PRINT(PREP <MUL(myInt, 2)>)
+>>> expectPrint
+15
+LIST (15, "text")
+30
+=========================
+>>> testCase "PREP_VAR procedure with work-grade expression"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @myVar = (5)
+>>> expectError type: #SYNTAX_ERROR message: "Expected prep-grade expression sequence component." lineNumber: 1
+=========================
+>>> testCase "PREP_VAR procedure without declaration"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR myVar = <5>
+>>> expectError type: #SYNTAX_ERROR message: "Expected declaration component." lineNumber: 1
+=========================
+>>> testCase "WORK_VAR procedure"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @var1 = (ADD(10, 5))
+WORK_VAR @var2
+PRINT(var1)
+PRINT(var2)
+SET var2 = (LIST (var1))
+PRINT(var2)
+>>> expectPrint
+15
+NULL
+LIST (15)
+=========================
+>>> testCase "WORK_VAR procedure with too many expressions"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myVar = (1, 2)
+>>> expectError type: #SYNTAX_ERROR message: "Expected 1 expression in sequence." lineNumber: 1
+=========================
+>>> testCase "WORK_VAR procedure without equal sign"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myVar (1)
+>>> expectError type: #SYNTAX_ERROR message: "Node has too few components." lineNumber: 1
+=========================
+>>> testCase "PREP_SYMBOL procedure"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_SYMBOL @#mySymbol
+PREP_SYMBOL @otherSymbol
+PRINT(#mySymbol)
+PRINT(TYPE(#mySymbol))
+PRINT(otherSymbol)
+PRINT(EQUAL(#mySymbol, #mySymbol))
+PRINT(EQUAL(#mySymbol, SYMBOL("#mySymbol")))
+PRINT(MEMBER(MAP [FIELDS [(#mySymbol) = (123)]], #mySymbol))
+>>> expectPrint
+#mySymbol
+#SYMBOL
+otherSymbol
+1
+0
+123
+=========================
+>>> testCase "GET procedure"
+>>> setupFile ~/targetPackage/otherModule.petrol
+PREP_VAR @otherVar = <LIST (10, 20)>
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./otherModule.petrol"> AS @otherModule
+IMPORT <#FILE_SYSTEM> AS @fileSystem
+PRINT(GET <otherModule> otherVar)
+PRINT(<GET <fileSystem> PATH_NAME>("/abc/def"))
+PREP_VAR @myVar = <GET <otherModule> otherVar>
+PRINT(MEMBER(myVar, 1))
+>>> expectPrint
+LIST (10, 20)
+def
+20
+=========================
+>>> testCase "GET procedure with work-vars"
+>>> setupFile ~/targetPackage/thirdModule.petrol
+WORK_VAR @thirdVar = ("third")
+>>> setupFile ~/targetPackage/otherModule.petrol
+IMPORT <"./thirdModule.petrol"> [VARS [@thirdVar]]
+WORK_VAR @otherVar = (10)
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./otherModule.petrol"> AS @otherModule
+PRINT(GET <otherModule> otherVar)
+PRINT(GET <otherModule> thirdVar)
+SET <otherModule> otherVar = (20)
+PRINT(GET <otherModule> otherVar)
+RUN {
+    PRINT(GET <otherModule> otherVar)
+}
+>>> expectPrint
+10
+third
+20
+20
+=========================
+>>> testCase "SET procedure"
+>>> setupFile ~/targetPackage/otherModule.petrol
+WORK_VAR @otherVar = (10)
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./otherModule.petrol"> AS @otherModule [VARS [@otherVar]]
+WORK_VAR @myVar = (1)
+SET myVar = (ADD(myVar, 1))
+PRINT(myVar)
+RUN {
+    SET myVar = ("text")
+}
+PRINT(myVar)
+SET <otherModule> otherVar = (20)
+PRINT(otherVar)
+>>> expectPrint
+2
+text
+20
+=========================
+>>> testCase "SET procedure with imported work-vars"
+>>> setupFile ~/targetPackage/thirdModule.petrol
+WORK_VAR @thirdVar = (30)
+>>> setupFile ~/targetPackage/otherModule.petrol
+IMPORT <"./thirdModule.petrol"> AS @thirdModule [VARS [@thirdVar]]
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./otherModule.petrol"> AS @otherModule [VARS [thirdVar AS @importedVar]]
+SET importedVar = (31)
+PRINT(importedVar)
+SET <otherModule> thirdVar = (32)
+PRINT(importedVar)
+PRINT(GET <otherModule> thirdVar)
+>>> expectPrint
+31
+32
+32
+=========================
+>>> testCase "SET procedure with prep-var"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @myVar = <1>
+PRINT("This line is not reached")
+SET myVar = (2)
+>>> expectError type: #TYPE_ERROR message: "SET destination must be work-var." lineNumber: 3
+=========================
+>>> testCase "SET procedure with built-in constant"
+>>> setupFile ~/targetPackage/main.petrol
+SET ADD = (SUB)
+>>> expectError type: #TYPE_ERROR message: "SET destination must be work-var." lineNumber: 1
+=========================
+>>> testCase "SET procedure with prep-var in other module"
+>>> setupFile ~/targetPackage/otherModule.petrol
+PREP_VAR @otherVar = <1>
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./otherModule.petrol"> AS @otherModule
+SET <otherModule> otherVar = (2)
+>>> expectError type: #TYPE_ERROR message: "SET destination must be work-var." lineNumber: 2
+=========================
+>>> testCase "SET procedure with imported prep-var"
+>>> setupFile ~/targetPackage/otherModule.petrol
+PREP_VAR @otherVar = <1>
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./otherModule.petrol"> [VARS [@otherVar]]
+SET otherVar = (2)
+>>> expectError type: #TYPE_ERROR message: "SET destination must be work-var." lineNumber: 2
+=========================
+>>> testCase "SET procedure with missing variable"
+>>> setupFile ~/targetPackage/main.petrol
+SET myVar = (1)
+>>> expectError type: #VALUE_ERROR lineNumber: 1
+=========================
+>>> testCase "SET procedure without equal sign"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myVar
+SET myVar (1)
+>>> expectError type: #SYNTAX_ERROR message: "Node has too few components." lineNumber: 2
+=========================
+>>> testCase "Fields stored by PREP, GET, and SET procedures"
+>>> setupFile ~/targetPackage/otherModule.petrol
+PREP_VAR @otherVar = <10>
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @capturedComps = <MAP [FIELDS []]>
+COMMENT "Preps the second component and stores it in `capturedComps`."
+PREP_VAR @capture = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @comps = (MEMBER(worker, #COMPS))
+            WORK_VAR @name = (MEMBER(MEMBER(comps, 1), #STR))
+            SET_MEMBER(capturedComps, name, MEMBER(comps, 2))
+            CALL_METHOD(MEMBER(comps, 2), #PREP)
+        })
+    ]])
+]]>
+IMPORT <"./otherModule.petrol"> AS @otherModule
+WORK_VAR @myVar = (1)
+capture "prep" (PREP <ADD(2, 3)>)
+capture "get" (GET <otherModule> otherVar)
+capture "set" {
+    SET myVar = (2)
+}
+WORK_VAR @prepExpr = (MEMBER(MEMBER(MEMBER(capturedComps, "prep"), #EXPRS), 0))
+PRINT(MEMBER(prepExpr, #VALUE))
+WORK_VAR @getExpr = (MEMBER(MEMBER(MEMBER(capturedComps, "get"), #EXPRS), 0))
+WORK_VAR @otherScope = (MEMBER(otherModule, #SCOPE))
+PRINT(EQUAL(MEMBER(getExpr, #SRC_VAR), FIND_VAR(otherScope, "otherVar")))
+WORK_VAR @setStmt = (MEMBER(MEMBER(MEMBER(capturedComps, "set"), #STMTS), 0))
+PRINT(EQUAL(MEMBER(setStmt, #DEST_VAR), FIND_VAR(SCOPE(setStmt), "myVar")))
+PRINT(MEMBER(MEMBER(setStmt, #DEST_VAR), #IDENT))
+>>> expectPrint
+5
+1
+1
+myVar

@@ -111,21 +111,36 @@ export const getModuleFrameEntry = (variable: PetMap): PetMap => {
     return frameEntries.getMember(varName).getMap();
 };
 
-// `variable` is an imported variable.
-// Returns a frame entry, prep-var, or null.
-const resolveImportVar = (variable: PetMap): PetMap => {
+// Returns a work-var or prep-var.
+const resolveVar = (variable: PetMap): PetMap => {
     while (true) {
-        variable = variable.getMember(symbols.IMPORT_VAR).getMap();
         const varType = getVarType(variable);
-        if (varType === symbols.PREP_VAR) {
+        if (varType === symbols.PREP_VAR || varType === symbols.WORK_VAR) {
             return variable;
         } else if (varType === symbols.IMPORT_VAR) {
-            continue;
-        } else if (varType === symbols.WORK_VAR) {
-            return getModuleFrameEntry(variable);
+            variable = variable.getMember(symbols.IMPORT_VAR).getMap();
         } else {
             throw new PetTypeError(`Unknown variable type: ${varType.toString()}`);
         }
+    }
+};
+
+// Returns #PREP_VAR or #WORK_VAR.
+export const getResolvedVarType = (variable: PetMap): PetSymbol => {
+    const resolvedVar = resolveVar(variable);
+    return getVarType(resolvedVar);
+};
+
+// `variable` is a variable at the top level of a module OR an imported variable.
+// Returns a frame entry or prep-var.
+export const findModuleVarValue = (variable: PetMap): PetMap => {
+    const resolvedVar = resolveVar(variable);
+    const varType = getVarType(resolvedVar);
+    if (varType === symbols.PREP_VAR) {
+        return resolvedVar;
+    } else {
+        // `resolvedVar` is a work-var.
+        return getModuleFrameEntry(resolvedVar);
     }
 };
 
@@ -144,7 +159,7 @@ const getFrameEntry = (frame: PetMap, workVar: PetMap): PetMap => {
         }
         const parentFrame = frame.getOptionalMember(symbols.PARENT);
         if (typeof parentFrame === "undefined") {
-            throw new ValueError(`Could not find find frame for "${varName.toString()}".`);
+            throw new ValueError(`Could not find frame for "${varName.toString()}".`);
         } else {
             frame = parentFrame.getMap();
         }
@@ -152,13 +167,13 @@ const getFrameEntry = (frame: PetMap, workVar: PetMap): PetMap => {
 };
 
 // varSpace is either a frame or a scope.
-// Returns a frame entry, prep-var, or null.
+// Returns a frame entry or prep-var.
 export const findVarValue = (varSpace: PetMap, variable: PetMap): PetMap => {
     const varType = getVarType(variable);
     if (varType === symbols.PREP_VAR) {
         return variable;
     } else if (varType === symbols.IMPORT_VAR) {
-        return resolveImportVar(variable);
+        return findModuleVarValue(variable);
     } else if (varType === symbols.WORK_VAR) {
         if (getVarSpaceType(varSpace) === VarSpaceType.Frame) {
             return getFrameEntry(varSpace, variable);
@@ -170,13 +185,24 @@ export const findVarValue = (varSpace: PetMap, variable: PetMap): PetMap => {
     }
 };
 
-// varSpace is either a frame or a scope.
-export const getVarValue = (varSpace: PetMap, variable: PetMap): PetValue => {
-    const result = findVarValue(varSpace, variable);
+// valueContainer is either a frame entry or a prep-var.
+const deferVarValue = (variable: PetMap, valueContainer: PetMap): PetValue => {
     const varName = variable.getMember(symbols.IDENT).toStringStrict();
-    return result.deferMember(
+    return valueContainer.deferMember(
         symbols.VALUE, `Waiting for value of variable "${varName}" to be assigned.`,
     );
+};
+
+// varSpace is either a frame or a scope.
+export const getVarValue = (varSpace: PetMap, variable: PetMap): PetValue => {
+    const valueContainer = findVarValue(varSpace, variable);
+    return deferVarValue(variable, valueContainer);
+};
+
+// `variable` is a variable at the top level of a module or an imported variable.
+export const getModuleVarValue = (variable: PetMap): PetValue => {
+    const valueContainer = findModuleVarValue(variable);
+    return deferVarValue(variable, valueContainer);
 };
 
 // `entity` is a node or a component.

@@ -8,7 +8,7 @@ import { FileExistsFunc } from "./builtInFunc.js";
 import { SetProcParts, setUpImportVars } from "./procedure.js";
 import { PetTypeError, createBreakExcep } from "./exception.js";
 import { getPackage, assertCompAmount, assertMinCompAmount, getPrepGradeExprs, getStmtsComp } from "./node.js";
-import { getVariable, findVarValue, getScope, VarSpaceType, getVarSpaceType, createFrame, getSignatureVars } from "./variable.js";
+import { getVariable, getResolvedVarType, findVarValue, getScope, VarSpaceType, getVarSpaceType, createFrame, getSignatureVars } from "./variable.js";
 import { TaskDef } from "./task.js";
 
 export interface MapFieldComps {
@@ -74,7 +74,7 @@ export const mapProcEvalTask: TaskDef<MapProcEvalParams, MapProcEvalState> = {
                         const fieldValue = values.getMember(1);
                         // Something something quadratic time complexity whatever who cares
                         const nextMap = map.shallowCopy();
-                        nextMap.setMember(fieldKey, fieldValue);
+                        nextMap.addField(fieldKey, fieldValue);
                         return task.repeatStage({ map: nextMap, compsIndex: compsIndex + 1 });
                     },
                 );
@@ -110,7 +110,11 @@ export const setProcPrepTask: TaskDef<{ stmt: PetMap, parts: SetProcParts }, nul
             );
         },
         (task) => {
-            const { parts: { valueComp } } = task.params;
+            const { stmt, parts: { valueComp } } = task.params;
+            const destVar = stmt.getMember(symbols.DEST_VAR).getMap();
+            if (getResolvedVarType(destVar) !== symbols.WORK_VAR) {
+                throw new PetTypeError("SET destination must be work-var.");
+            }
             return task.callMethod(
                 valueComp, symbols.PREP, [],
                 (value) => task.returnValue(null),

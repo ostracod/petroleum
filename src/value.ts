@@ -575,7 +575,8 @@ export class PetMap implements ObservableBunchIface {
         this.fields = new Map();
         this.observatory = new MemberObservatory(this);
         for (const entry of entries) {
-            this.setMember(toKnownValue(entry[0]), toPetValue(entry[1]));
+            const key = toKnownValue(entry[0]);
+            this.addField(key, toPetValue(entry[1]));
         }
     }
     
@@ -617,6 +618,14 @@ export class PetMap implements ObservableBunchIface {
     
     hasKey(key: KnownValue | PetValue): boolean {
         return (typeof this.getOptionalMember(key) !== "undefined");
+    }
+    
+    addField(inputKey: KnownValue | PetValue, value: KnownValue | PetValue): void {
+        const key = toKnownValue(inputKey);
+        if (this.hasKey(key)) {
+            throw new ValueError(`Duplicate map key ${knownValueToString(key)}.`);
+        }
+        this.setMember(key, value);
     }
     
     deleteField(key: KnownValue | PetValue): void {

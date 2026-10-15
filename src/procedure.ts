@@ -6,7 +6,7 @@ import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc } from "./val
 import { MethodDict, createMethodMap, callDefaultPrep } from "./method.js";
 import { PetException, createBreakExcep, createContExcep, createSyntaxError } from "./exception.js";
 import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getStmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp, getCompIdent } from "./node.js";
-import { findVarValue, getVarValue, getModuleFrameEntry, getScope, varIsInScope } from "./variable.js";
+import { findVarValue, findModuleVarValue, getModuleVarValue, getScope, varIsInScope } from "./variable.js";
 import { createMethodInvocation, callMethodTask } from "./task.js";
 import { setProcPrepTask, awaitProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask, funcProcPrepTask, tryProcEvalTask, importProcPrepTask } from "./procTask.js";
 
@@ -389,7 +389,7 @@ export const globalProcDefs: ProcDef[] = [
         },
         eval: (task, worker, varSpace) => {
             const srcVar = worker.getMember(symbols.SRC_VAR).getMap();
-            const value = getVarValue(varSpace, srcVar);
+            const value = getModuleVarValue(srcVar);
             return task.returnValue(value);
         },
         accessedVars: (task, worker, scope) => {
@@ -429,7 +429,7 @@ export const globalProcDefs: ProcDef[] = [
             if (typeof moduleComp === "undefined") {
                 frameEntry = findVarValue(varSpace, destVar);
             } else {
-                frameEntry = getModuleFrameEntry(destVar);
+                frameEntry = findModuleVarValue(destVar);
             }
             return task.callMethod(
                 valueComp, symbols.EVAL, [varSpace],
