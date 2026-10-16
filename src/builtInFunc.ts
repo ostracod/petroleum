@@ -2,7 +2,7 @@
 import "./value.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { KnownValue, PetValue, wrapKnownValue, knownValueToString, minIntValue, maxIntValue, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
+import { KnownValue, PetValue, wrapKnownValue, knownValueToLiteral, minIntValue, maxIntValue, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
 import { PetTypeError, ValueError, StateError } from "./exception.js";
 import { getChildWorkers } from "./node.js";
 import { findVariable, findVarValue, getScope, createFrame } from "./variable.js";
@@ -524,7 +524,7 @@ export const globalFuncDefs: FuncDef[] = [
         argAmount: 3,
         call: (task, args) => {
             const bunch = args[0].getObservableBunch();
-            const result = bunch.deferMember(args[1], args[2].toString());
+            const result = bunch.deferMember(args[1], args[2].toMessage());
             return task.returnValue(result);
         },
     },
@@ -594,7 +594,7 @@ export const globalFuncDefs: FuncDef[] = [
             const arg = args[0].getKnownValue();
             const result = (arg instanceof PetString)
                 ? arg
-                : new PetString(knownValueToString(arg));
+                : new PetString(knownValueToLiteral(arg));
             return task.returnValue(result);
         },
     },
@@ -730,7 +730,7 @@ export const globalFuncDefs: FuncDef[] = [
         name: "PRINT",
         argAmount: 1,
         call: (task, args) => {
-            task.context.logger.print(args[0].toString());
+            task.context.logger.print(args[0].toMessage());
             return task.returnValue(null);
         },
     },

@@ -2,7 +2,7 @@
 import "./builtInFunc.js";
 
 import { symbols } from "./symbol.js";
-import { KnownValue, knownValueToString, PetMap, PetFunc } from "./value.js";
+import { KnownValue, knownValueToLiteral, PetMap, PetFunc } from "./value.js";
 import { DefFunc } from "./builtInFunc.js";
 import { DeferralException, ValueError } from "./exception.js";
 import { getChildWorkers, getFuncArgsComp, assertMaxCompAmount, getWorkGradeExprs } from "./node.js";
@@ -103,7 +103,7 @@ export const getMethodWithDefault = (methodMap: PetMap, methodKey: KnownValue): 
     }
     throw new DeferralException(
         methodMap, methodKey,
-        `Waiting for method key ${knownValueToString(methodKey)} to be defined`,
+        `Waiting for method key ${knownValueToLiteral(methodKey)} to be defined`,
     );
 };
 

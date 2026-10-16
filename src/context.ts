@@ -6,7 +6,7 @@ import { PetValue, KnownValue, PetString, PetList, PetMap } from "./value.js";
 import { DefFunc, globalFuncDefs } from "./builtInFunc.js";
 import { WorkerMethodsMap, createWorkerMethodsMap } from "./method.js";
 import { createProcedure, globalProcDefs } from "./procedure.js";
-import { ValueError, CoroEndException } from "./exception.js";
+import { ValueError, StateError, CoroEndException } from "./exception.js";
 import { createBuiltInModules } from "./builtInModule.js";
 import { ModuleParser } from "./moduleParser.js";
 import { PackageResolver } from "./package.js";
@@ -202,6 +202,9 @@ export class PetContext {
     }
     
     addUserModule(module: PetMap): void {
+        if (!this.isPrepping) {
+            throw new StateError("Cannot import module after all modules have finished prep-phase.");
+        }
         const modulePath = module.getMember(symbols.FILE_PATH).toStringStrict();
         this.userModuleIndexes.set(modulePath, this.userModules.length);
         this.userModules.push(module);

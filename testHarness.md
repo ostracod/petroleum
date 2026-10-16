@@ -38,7 +38,12 @@ Each test case consists of a sequence of directives. Each directive has this str
 $dataLines
 ```
 
-`$args` and `$dataLines` are optional. Arguments in `$args` are separated by spaces. Each argument may be a string enclosed by quotation marks (`"`). Quotation marks in argument strings can be escaped with a backslash (`\`). In the example below, the arguments are `123` and `this is a "very" cool example`:
+`$args` and `$dataLines` are optional. Arguments in `$args` are separated by spaces. Each argument may be a string enclosed by quotation marks (`"`). Argument strings may contain the following escape sequences:
+
+* `\"` = Quotation mark
+* `\\` = Backslash
+
+In the example below, the arguments are `123` and `this is a "very" cool example`:
 
 ```
 >>> dummyDirective 123 "This is a \"very\" cool example"

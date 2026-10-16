@@ -198,7 +198,7 @@ DEL_FIELD(myMap, "a")
 >>> expectPrint
 NULL
 MAP [FIELDS [("b") = (2)]]
->>> expectError type: #VALUE_ERROR lineNumber: 5
+>>> expectError type: #VALUE_ERROR message: "Key \"a\" does not exist in map." lineNumber: 5
 =========================
 >>> testCase "SLICE function with string"
 >>> setupFile ~/targetPackage/main.petrol

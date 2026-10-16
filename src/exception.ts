@@ -2,7 +2,7 @@
 import "./procedure.js";
 
 import { PetSymbol, symbols, spinCountSymbol } from "./symbol.js";
-import { KnownValue, PetValue, toPetValue, toPetString, knownValueToString, PetString, ObservableBunch, PetMap, PetFunc, EvalState } from "./value.js";
+import { KnownValue, PetValue, toPetValue, toPetString, knownValueToLiteral, PetString, ObservableBunch, PetMap, PetFunc, EvalState } from "./value.js";
 import { ConstantFunc } from "./builtInFunc.js";
 import { getModule } from "./node.js";
 import { Action } from "./task.js";
@@ -194,10 +194,10 @@ export const getExcepReport = (exception: PetMap): string => {
     let output: string;
     if (excepType === symbols.ERROR_EXCEP) {
         const errorType = exception.getMember(symbols.ERROR_TYPE);
-        const message = exception.getMember(symbols.MESSAGE).toString();
+        const message = exception.getMember(symbols.MESSAGE).toMessage();
         output = `Encountered ${errorType.toString()} error: ` + message;
     } else {
-        output = `Encountered ${knownValueToString(excepType)} exception.`;
+        output = `Encountered ${knownValueToLiteral(excepType)} exception.`;
     }
     const stackTrace = exception.getMember(symbols.EVAL_STATE).getStackTrace().toString();
     if (stackTrace.length > 0) {

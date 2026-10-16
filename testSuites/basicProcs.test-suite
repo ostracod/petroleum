@@ -62,7 +62,7 @@ PRINT(MAP [FIELDS [(1) = ("a"), ("1") = ("b")]])
 PRINT(MAP [FIELDS [("a") = (1), (CONCAT(LIST ("", "a"))) = (2)]])
 >>> expectPrint
 MAP [FIELDS [(1) = ("a"), ("1") = ("b")]]
->>> expectError type: #VALUE_ERROR lineNumber: 2
+>>> expectError type: #VALUE_ERROR message: "Duplicate map key \"a\"." lineNumber: 2
 =========================
 >>> testCase "PREP procedure"
 >>> setupFile ~/targetPackage/main.petrol

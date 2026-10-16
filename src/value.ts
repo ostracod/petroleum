@@ -131,9 +131,16 @@ export class PetValue {
         return Number(this.getInt());
     }
     
-    toString(parents: KnownValue[] = []): string {
+    // If the known value is a PetString, returns the string content in quotes.
+    toLiteral(parents: KnownValue[] = []): string {
         const value = this.getKnownValue();
-        return knownValueToString(value, parents);
+        return knownValueToLiteral(value, parents);
+    }
+    
+    // If the known value is a PetString, returns the unquoted string content.
+    toMessage(): string {
+        const value = this.getKnownValue();
+        return knownValueToMessage(value);
     }
     
     toStringStrict(): string {
@@ -176,8 +183,8 @@ const toMapKey = (value: KnownValue | PetValue): MapKey => (
     (value instanceof PetValue) ? value.toMapKey() : knownValueToMapKey(value)
 );
 
-const toString = (value: KnownValue | PetValue): string => (
-    (value instanceof PetValue) ? value.toString() : knownValueToString(value)
+const toLiteral = (value: KnownValue | PetValue): string => (
+    (value instanceof PetValue) ? value.toLiteral() : knownValueToLiteral(value)
 );
 
 export const toPetString = (value: string | PetString): PetString => (
@@ -277,7 +284,7 @@ export class PetString {
         return this.hexString;
     }
     
-    toStringLiteral(): string {
+    toLiteral(): string {
         const text = this.toString();
         const literalParts: string[] = [];
         for (let index = 0; index < text.length; index++) {
@@ -295,11 +302,11 @@ export class PetString {
     }
 }
 
-export const knownValueToString = (value: KnownValue, parents: KnownValue[] = []): string => {
+export const knownValueToLiteral = (value: KnownValue, parents: KnownValue[] = []): string => {
     if (value === null) {
         return "NULL";
     } else if (value instanceof PetString) {
-        return (parents.length > 0) ? value.toStringLiteral() : value.toString();
+        return value.toLiteral();
     } else if (value instanceof PetList || value instanceof PetMap) {
         if (parents.some((parent) => (parent === value))) {
             return "...";
@@ -310,6 +317,10 @@ export const knownValueToString = (value: KnownValue, parents: KnownValue[] = []
         return value.toString();
     }
 };
+
+export const knownValueToMessage = (value: KnownValue): string => (
+    (value instanceof PetString) ? value.toString() : knownValueToLiteral(value)
+);
 
 const knownValueToMapKey = (value: KnownValue): MapKey => (
     (value instanceof PetString) ? value.toHexString() : value
@@ -546,7 +557,7 @@ export class PetList implements ObservableBunchIface {
         const nextParents = [...parents, this];
         const textList: string[] = [];
         for (const element of this.elements) {
-            textList.push(element.toString(nextParents));
+            textList.push(element.toLiteral(nextParents));
         }
         const elementsText = textList.join(", ");
         return `LIST (${elementsText})`;
@@ -589,7 +600,7 @@ export class PetMap implements ObservableBunchIface {
     getMember(key: KnownValue | PetValue): PetValue {
         const value = this.getOptionalMember(key);
         if (typeof value === "undefined") {
-            throw new ValueError(`Key ${toString(key)} does not exist in map.`);
+            throw new ValueError(`Key ${toLiteral(key)} does not exist in map.`);
         }
         return value;
     }
@@ -623,7 +634,7 @@ export class PetMap implements ObservableBunchIface {
     addField(inputKey: KnownValue | PetValue, value: KnownValue | PetValue): void {
         const key = toKnownValue(inputKey);
         if (this.hasKey(key)) {
-            throw new ValueError(`Duplicate map key ${knownValueToString(key)}.`);
+            throw new ValueError(`Duplicate map key ${knownValueToLiteral(key)}.`);
         }
         this.setMember(key, value);
     }
@@ -631,7 +642,7 @@ export class PetMap implements ObservableBunchIface {
     deleteField(key: KnownValue | PetValue): void {
         const mapKey = toMapKey(key);
         if (!this.fields.has(mapKey)) {
-            throw new ValueError(`Key ${toString(key)} does not exist in map.`);
+            throw new ValueError(`Key ${toLiteral(key)} does not exist in map.`);
         }
         this.fields.delete(mapKey);
     }
@@ -640,8 +651,8 @@ export class PetMap implements ObservableBunchIface {
         const nextParents = [...parents, this];
         const textList: string[] = [];
         this.fields.forEach(({ key, value }) => {
-            const keyString = knownValueToString(key, nextParents);
-            const valueString = value.toString(nextParents);
+            const keyString = knownValueToLiteral(key, nextParents);
+            const valueString = value.toLiteral(nextParents);
             textList.push(`(${keyString}) = (${valueString})`);
         });
         const fieldsText = textList.join(", ");

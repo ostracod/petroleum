@@ -4,7 +4,7 @@ import "./fileSystem.js";
 import * as fs from "fs";
 import * as pathUtils from "path";
 import { symbols } from "./symbol.js";
-import { knownValueToString, MemberObserver, PetMap } from "./value.js";
+import { knownValueToLiteral, MemberObserver, PetMap } from "./value.js";
 import { ModulePos, modulePosToString, getExcepReport } from "./exception.js";
 import { Spinner } from "./scheduler.js";
 import { ContextOptions, PetContext } from "./context.js";
@@ -150,12 +150,12 @@ export class TestLogger extends Logger {
         const pos = stackTrace.getTopEntry();
         const excepType = exception.getMember(symbols.EXCEP_TYPE).getKnownValue();
         if (excepType === symbols.ERROR_EXCEP) {
-            const errorType = exception.getMember(symbols.ERROR_TYPE).toString();
-            const message = exception.getMember(symbols.MESSAGE).toString();
+            const errorType = exception.getMember(symbols.ERROR_TYPE).toLiteral();
+            const message = exception.getMember(symbols.MESSAGE).toMessage();
             const testError = new TestError(errorType, message, pos);
             this.errors.push(testError);
         } else {
-            const testException = new TestException(knownValueToString(excepType), pos);
+            const testException = new TestException(knownValueToLiteral(excepType), pos);
             this.exceptions.push(testException);
         }
     }
@@ -218,8 +218,8 @@ const parseFirstDirectiveLine = (line: string): { name: string, args: string[] }
                     }
                     const escapedChar = line.charAt(index);
                     index += 1;
-                    if (escapedChar === "\"") {
-                        characters.push("\"");
+                    if (escapedChar === "\"" || escapedChar === "\\") {
+                        characters.push(escapedChar);
                     } else {
                         throw new Error("Unsupported escape sequence: " + line);
                     }
