@@ -36,7 +36,7 @@ if (firstArg === "--test") {
     const applicationArgs = process.argv.slice(3);
     const context = new PetContext(entryPackagePath, applicationArgs);
     context.run();
-    if (context.hasReportedProblem) {
+    if (context.hasReportedProblem()) {
         process.exit(1);
     }
 }

@@ -303,7 +303,7 @@ export const awaitProcEvalTask: TaskDef<AwaitProcEvalParams, AwaitProcEvalState>
                     const bunch = valueList.getMember(0).getObservableBunch();
                     const location = valueList.getMember(1).getKnownValue();
                     const condition = valueList.getMember(2).getFunc();
-                    const message = valueList.getMember(3).getPetString();
+                    const message = valueList.getMember(3).getStringOrNull();
                     return task.awaitMember(
                         bunch, location, condition, message,
                         task.advanceStage({ bunch, location }),

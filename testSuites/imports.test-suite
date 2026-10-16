@@ -76,8 +76,6 @@ Evaluating lateModule
 IMPORT <"./missingModule.petrol">
 PRINT("This line is not reached")
 >>> expectStuck message: "Waiting for /home/testUser/targetPackage/missingModule.petrol to exist" lineNumber: 1
->>> expectStuck message: "Waiting for worker to finish prep-phase."
->>> expectStuck message: "Waiting for worker to finish prep-phase."
 =========================
 >>> testCase "IMPORT procedure with missing variable"
 >>> setupFile ~/targetPackage/otherModule.petrol

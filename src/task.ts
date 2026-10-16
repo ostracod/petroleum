@@ -147,14 +147,14 @@ export class Task<ParamsT = any, StateT = any> {
         bunch: ObservableBunch,
         location: KnownValue | PetValue,
         condition: PetFunc,
-        message: string | PetString,
+        message: string | PetString | null,
         nextAction: Action,
     ): Action {
         const observer = new MemberObserver(
             bunch,
             toKnownValue(location),
             condition,
-            message,
+            (typeof message === "string") ? new PetString(message) : message,
             new EvalState(this, nextAction),
         );
         return this.runTask(
@@ -168,7 +168,7 @@ export class Task<ParamsT = any, StateT = any> {
             worker,
             symbols.PHASE,
             new NotEqualFunc(symbols.PREP_PHASE),
-            "Waiting for worker to finish prep-phase.",
+            null,
             nextAction,
         );
     }
@@ -766,7 +766,7 @@ export const handleExcepTask: TaskDef<{ exception: PetValue }, null> = {
                 const bunch = exception.getMember(symbols.BUNCH).getObservableBunch();
                 const location = exception.getMember(symbols.LOC).getKnownValue();
                 const condition = exception.getMember(symbols.COND).getFunc();
-                const message = exception.getMember(symbols.MESSAGE).getPetString();
+                const message = exception.getMember(symbols.MESSAGE).getStringOrNull();
                 bunch.observatory.addObserver(
                     scheduler, location, condition, message, evalState,
                 );

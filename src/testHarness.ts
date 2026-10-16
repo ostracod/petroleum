@@ -161,7 +161,7 @@ export class TestLogger extends Logger {
     }
     
     reportObserverHelper(observer: MemberObserver): void {
-        const message = observer.getStringMessage();
+        const message = observer.message?.toString() ?? "";
         const pos = observer.evalState.getTopEntry()!;
         const sticker = new TestSticker(message, pos);
         this.stickers.push(sticker);

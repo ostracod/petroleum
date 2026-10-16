@@ -2,7 +2,7 @@
 import "./procedure.js";
 
 import { PetSymbol, symbols, spinCountSymbol } from "./symbol.js";
-import { KnownValue, PetValue, toPetValue, toPetString, knownValueToLiteral, PetString, ObservableBunch, PetMap, PetFunc, EvalState } from "./value.js";
+import { KnownValue, PetValue, toPetValue, knownValueToLiteral, PetString, ObservableBunch, PetMap, PetFunc, EvalState } from "./value.js";
 import { ConstantFunc } from "./builtInFunc.js";
 import { getModule } from "./node.js";
 import { Action } from "./task.js";
@@ -31,7 +31,7 @@ export const createAwaitExcep = (
     bunch: ObservableBunch,
     location: KnownValue,
     condition: PetFunc,
-    message: PetString | string,
+    message: PetString | null,
     evalState?: EvalState,
 ): PetMap => {
     const output = new PetMap([
@@ -39,7 +39,7 @@ export const createAwaitExcep = (
         [symbols.BUNCH, bunch],
         [symbols.LOC, location],
         [symbols.COND, condition],
-        [symbols.MESSAGE, toPetString(message)],
+        [symbols.MESSAGE, message],
     ]);
     if (typeof evalState !== "undefined") {
         output.setMember(symbols.EVAL_STATE, evalState);
@@ -56,7 +56,7 @@ export const createSpinExcep = (
     const output = new PetMap([
         [symbols.EXCEP_TYPE, symbols.SPIN_EXCEP],
         [symbols.COND, condition],
-        [symbols.MESSAGE, toPetString(message)],
+        [symbols.MESSAGE, message],
     ]);
     if (typeof evalState !== "undefined") {
         output.setMember(symbols.EVAL_STATE, evalState);
@@ -75,7 +75,7 @@ export class AwaitException extends PetException {
         condition: PetFunc,
         message: string,
     ) {
-        super(createAwaitExcep(bunch, location, condition, message));
+        super(createAwaitExcep(bunch, location, condition, new PetString(message)));
     }
     
     override createEvalState(currentAction: Action): EvalState {

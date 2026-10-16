@@ -95,6 +95,14 @@ export class PetValue {
         return this.getInstance(PetString, "string");
     }
     
+    getStringOrNull(): PetString | null {
+        const value = this.getKnownValue();
+        if (!(value === null || value instanceof PetString)) {
+            throw new PetTypeError("Expected string or null.");
+        }
+        return value;
+    }
+    
     getList(): PetList {
         return this.getInstance(PetList, "list");
     }
@@ -185,10 +193,6 @@ const toMapKey = (value: KnownValue | PetValue): MapKey => (
 
 const toLiteral = (value: KnownValue | PetValue): string => (
     (value instanceof PetValue) ? value.toLiteral() : knownValueToLiteral(value)
-);
-
-export const toPetString = (value: string | PetString): PetString => (
-    (value instanceof PetString) ? value : new PetString(value)
 );
 
 export const toPetList = (values: (KnownValue | PetValue)[] | PetList): PetList => (
@@ -376,14 +380,14 @@ export class MemberObserver {
     bunch: ObservableBunch;
     location: KnownValue;
     condition: PetFunc;
-    message: string | PetString;
+    message: PetString | null;
     evalState: EvalState;
     
     constructor(
         bunch: ObservableBunch,
         location: KnownValue,
         condition: PetFunc,
-        message: PetString | string,
+        message: PetString | null,
         evalState: EvalState,
     ) {
         this.bunch = bunch;
@@ -403,12 +407,11 @@ export class MemberObserver {
         );
     }
     
-    getStringMessage(): string {
-        return (this.message instanceof PetString) ? this.message.toString() : this.message;
-    }
-    
     getStuckReport(): string {
-        const header = "Stuck awaiting member: " + this.getStringMessage();
+        let header = "Stuck awaiting member";
+        if (this.message !== null) {
+            header += ": " + this.message.toString();
+        }
         return header + "\n" + this.evalState.toString();
     }
 }
@@ -427,7 +430,7 @@ class MemberObservatory {
         scheduler: Scheduler,
         location: KnownValue,
         condition: PetFunc,
-        message: PetString,
+        message: PetString | null,
         evalState: EvalState,
     ): void {
         this.scheduler = scheduler;

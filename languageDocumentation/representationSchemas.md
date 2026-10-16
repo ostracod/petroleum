@@ -306,6 +306,7 @@ Await exceptions have the following fields:
     * The function accepts a single argument and returns a boolean.
     * The scheduler will read the member in the `#BUNCH` field value at the location determined by the `#LOC` field value. Then the scheduler will pass the member as the argument to the function.
 * The `#MESSAGE` field stores a human-readable string explaining why the coroutine paused.
+    * If this field stores null, Petroleum will not report this exception to the user.
 * The `#EVAL_STATE` field stores the evaluation state which the scheduler will resume.
 
 Error exceptions have the following fields:
