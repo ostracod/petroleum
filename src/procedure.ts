@@ -513,8 +513,7 @@ export const globalProcDefs: ProcDef[] = [
                     assertWorkGradeExprs(comps, index + 1, 1);
                     assertStmtsComp(comps, index + 2);
                 } else if (text === "ELSE") {
-                    nextIndex = index + 2;
-                    assertMinCompAmount(comps, nextIndex);
+                    assertCompAmount(comps, index + 2);
                     assertStmtsComp(comps, index + 1);
                     break;
                 } else {

@@ -1,0 +1,190 @@
+>>> testCase "IMPORT procedure"
+>>> setupFile ~/targetPackage/otherModule.petrol
+PREP_VAR @prepVar = <10>
+WORK_VAR @workVar = (20)
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./otherModule.petrol"> AS @otherModule
+IMPORT <"./otherModule.petrol"> [VARS [@prepVar, workVar AS @myWorkVar]]
+IMPORT <"./otherModule.petrol"> AS @sameModule [VARS [prepVar AS @myPrepVar]]
+PRINT(MEMBER(otherModule, #MODULE_TYPE))
+PRINT(MEMBER(otherModule, #FILE_PATH))
+PRINT(EQUAL(otherModule, sameModule))
+PRINT(prepVar)
+PRINT(myWorkVar)
+PRINT(myPrepVar)
+PRINT(GET <otherModule> workVar)
+>>> expectPrint
+#PETROL_MODULE
+/home/testUser/targetPackage/otherModule.petrol
+1
+10
+20
+10
+20
+=========================
+>>> testCase "IMPORT procedure without module name or variables"
+>>> setupFile ~/targetPackage/otherModule.petrol
+PRINT("Evaluating otherModule")
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./otherModule.petrol">
+>>> expectPrint
+Evaluating otherModule
+=========================
+>>> testCase "IMPORT procedure with path in subdirectory"
+>>> setupFile ~/targetPackage/utils/otherModule.petrol
+PREP_VAR @otherVar = <"In subdirectory">
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./utils/otherModule.petrol"> [VARS [@otherVar]]
+PRINT(otherVar)
+>>> expectPrint
+In subdirectory
+=========================
+>>> testCase "IMPORT procedure with built-in module"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#FILE_SYSTEM> AS @fileSystem [VARS [@EXISTS, PATH_NAME AS @pathName]]
+PRINT(MEMBER(fileSystem, #MODULE_TYPE))
+PRINT(EXISTS("./main.petrol"))
+PRINT(EXISTS("./missing.petrol"))
+PRINT(pathName("/abc/def"))
+>>> expectPrint
+#BUILT_IN_MODULE
+1
+0
+def
+=========================
+>>> testCase "IMPORT procedure with module created later"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#FILE_SYSTEM> AS @fileSystem
+IMPORT <"./lateModule.petrol"> [VARS [@lateVar]]
+PREP <RUN {
+    SCHED {
+        PRINT("Creating lateModule")
+        <GET <fileSystem> WRITE_FILE>(
+            "./lateModule.petrol",
+            "PRINT(\"Evaluating lateModule\")\nPREP_VAR @lateVar = <123>"
+        )
+    }
+}>
+PRINT(lateVar)
+>>> expectPrint
+Creating lateModule
+Evaluating lateModule
+123
+=========================
+>>> testCase "IMPORT procedure with missing module"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./missingModule.petrol">
+PRINT("This line is not reached")
+>>> expectStuck message: "Waiting for /home/testUser/targetPackage/missingModule.petrol to exist" lineNumber: 1
+>>> expectStuck message: "Waiting for worker to finish prep-phase."
+>>> expectStuck message: "Waiting for worker to finish prep-phase."
+=========================
+>>> testCase "IMPORT procedure with missing variable"
+>>> setupFile ~/targetPackage/otherModule.petrol
+PREP_VAR @otherVar = <10>
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./otherModule.petrol"> [VARS [@missingVar]]
+>>> expectError type: #VALUE_ERROR lineNumber: 1
+=========================
+>>> testCase "IMPORT procedure with invalid specifier"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <123>
+>>> expectError type: #TYPE_ERROR message: "Module specifier must be string or symbol." lineNumber: 1
+=========================
+>>> testCase "IMPORT procedure with module name missing declaration"
+>>> setupFile ~/targetPackage/otherModule.petrol
+PREP_VAR @otherVar = <10>
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./otherModule.petrol"> AS otherModule
+>>> expectError type: #SYNTAX_ERROR message: "Expected declaration component." lineNumber: 1
+=========================
+>>> testCase "IMPORT procedure with wrong attribute name"
+>>> setupFile ~/targetPackage/otherModule.petrol
+PREP_VAR @otherVar = <10>
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./otherModule.petrol"> [IMPORTS [@otherVar]]
+>>> expectError type: #SYNTAX_ERROR message: "Expected \"VARS\" identifier component." lineNumber: 1
+=========================
+>>> testCase "IMPORT procedure with variable rename using wrong keyword"
+>>> setupFile ~/targetPackage/otherModule.petrol
+PREP_VAR @otherVar = <10>
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./otherModule.petrol"> [VARS [otherVar TO @myVar]]
+>>> expectError type: #SYNTAX_ERROR message: "Expected \"AS\" identifier component." lineNumber: 1
+=========================
+>>> testCase "IMPORT_PACK procedure"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        { "specifier": "testDev.mathUtils", "version": "^2.0.0" }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/mathUtils/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.mathUtils",
+    "version": "1.0.0",
+    "mainModule": "./mathUtils.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/mathUtils/v1.0.0/mathUtils.petrol
+PREP_VAR @utilsVersion = <"1.0.0">
+PREP_VAR @double = <FUNC {
+    [ARGS [@value]]
+    RET (ADD(value, value))
+}>
+>>> setupFile ~/petroleumPackages/testDev/mathUtils/v2.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.mathUtils",
+    "version": "2.0.0",
+    "mainModule": "./mathUtils.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/mathUtils/v2.0.0/mathUtils.petrol
+PREP_VAR @utilsVersion = <"2.0.0">
+PREP_VAR @double = <FUNC {
+    [ARGS [@value]]
+    RET (MUL(value, 2))
+}>
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT_PACK <"testDev.mathUtils"> AS @mathUtils [VARS [@utilsVersion, double AS @myDouble]]
+PRINT(utilsVersion)
+PRINT(myDouble(21))
+PRINT(GET <mathUtils> utilsVersion)
+PRINT(MEMBER(mathUtils, #FILE_PATH))
+>>> expectPrint
+2.0.0
+42
+2.0.0
+/home/testUser/petroleumPackages/testDev/mathUtils/v2.0.0/mathUtils.petrol
+=========================
+>>> testCase "IMPORT_PACK procedure without module name or variables"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        { "specifier": "testDev.greeter", "version": "^1.0.0" }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/greeter/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.greeter",
+    "version": "1.0.0",
+    "mainModule": "./greeter.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/greeter/v1.0.0/greeter.petrol
+PRINT("Hello from greeter")
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT_PACK <"testDev.greeter">
+>>> expectPrint
+Hello from greeter

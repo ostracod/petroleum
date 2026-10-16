@@ -1,0 +1,341 @@
+>>> testCase "IF procedure"
+>>> setupFile ~/targetPackage/main.petrol
+IF (TRUE) {
+    PRINT("First")
+}
+IF (FALSE) {
+    PRINT("This line is not reached")
+}
+IF (5) {
+    PRINT("Second")
+}
+IF (FALSE) {
+    PRINT("This line is not reached")
+} ELSE {
+    PRINT("Third")
+}
+IF (TRUE) {
+    PRINT("Fourth")
+} ELSE {
+    PRINT("This line is not reached")
+}
+>>> expectPrint
+First
+Second
+Third
+Fourth
+=========================
+>>> testCase "IF procedure with ELSE_IF clauses"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @check = <FUNC {
+    [ARGS [@name, @value]]
+    PRINT(CONCAT(LIST ("Checking ", name)))
+    RET (value)
+}>
+IF (check("a", FALSE)) {
+    PRINT("This line is not reached")
+} ELSE_IF (check("b", TRUE)) {
+    PRINT("Evaluating b")
+} ELSE_IF (check("c", TRUE)) {
+    PRINT("This line is not reached")
+} ELSE {
+    PRINT("This line is not reached")
+}
+IF (check("d", FALSE)) {
+    PRINT("This line is not reached")
+} ELSE_IF (check("e", FALSE)) {
+    PRINT("This line is not reached")
+}
+IF (check("f", FALSE)) {
+    PRINT("This line is not reached")
+} ELSE_IF (check("g", FALSE)) {
+    PRINT("This line is not reached")
+} ELSE {
+    PRINT("Evaluating else")
+}
+>>> expectPrint
+Checking a
+Checking b
+Evaluating b
+Checking d
+Checking e
+Checking f
+Checking g
+Evaluating else
+=========================
+>>> testCase "IF procedure with wrong clause keyword"
+>>> setupFile ~/targetPackage/main.petrol
+IF (FALSE) {
+    PRINT("This line is not reached")
+} OTHERWISE {
+    PRINT("This line is not reached")
+}
+>>> expectError type: #SYNTAX_ERROR message: "Expected \"ELSE_IF\" or \"ELSE\" identifier component." lineNumber: 3
+=========================
+>>> testCase "IF procedure with ELSE_IF missing condition"
+>>> setupFile ~/targetPackage/main.petrol
+IF (FALSE) {
+    PRINT("This line is not reached")
+} ELSE_IF {
+    PRINT("This line is not reached")
+} ELSE {
+    PRINT("This line is not reached")
+}
+>>> expectError type: #SYNTAX_ERROR message: "Expected expression sequence component." lineNumber: 3
+=========================
+>>> testCase "IF procedure with clause after ELSE"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+IF (FALSE) {
+    PRINT("This line is not reached")
+} ELSE {
+    PRINT("This line is not reached")
+} ELSE_IF (TRUE) {
+    PRINT("This line is not reached")
+}
+>>> expectError type: #SYNTAX_ERROR message: "Node has too many components." lineNumber: 2
+=========================
+>>> testCase "WHILE procedure"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @count = (0)
+WHILE (LESS(count, 3)) {
+    PRINT(count)
+    SET count = (ADD(count, 1))
+}
+PRINT(count)
+WHILE (FALSE) {
+    PRINT("This line is not reached")
+}
+>>> expectPrint
+0
+1
+2
+3
+=========================
+>>> testCase "WHILE procedure without body"
+>>> setupFile ~/targetPackage/main.petrol
+WHILE (TRUE)
+>>> expectError type: #SYNTAX_ERROR message: "Node has too few components." lineNumber: 1
+=========================
+>>> testCase "BREAK procedure"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @count = (0)
+WHILE (TRUE) {
+    SET count = (ADD(count, 1))
+    IF (EQUAL(count, 3)) {
+        BREAK
+        PRINT("This line is not reached")
+    }
+    PRINT(count)
+}
+PRINT("After loop")
+>>> expectPrint
+1
+2
+After loop
+=========================
+>>> testCase "BREAK procedure in nested loops"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @outerCount = (0)
+WHILE (LESS(outerCount, 2)) {
+    SET outerCount = (ADD(outerCount, 1))
+    WORK_VAR @innerCount = (0)
+    WHILE (TRUE) {
+        SET innerCount = (ADD(innerCount, 1))
+        IF (GREATER(innerCount, 2)) {
+            BREAK
+        }
+        PRINT(CONCAT(LIST (STR(outerCount), ", ", STR(innerCount))))
+    }
+}
+>>> expectPrint
+1, 1
+1, 2
+2, 1
+2, 2
+=========================
+>>> testCase "CONT procedure"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @count = (0)
+WHILE (LESS(count, 5)) {
+    SET count = (ADD(count, 1))
+    IF (EQUAL(MOD(count, 2), 0)) {
+        CONT
+        PRINT("This line is not reached")
+    }
+    PRINT(count)
+}
+PRINT("After loop")
+>>> expectPrint
+1
+3
+5
+After loop
+=========================
+>>> testCase "BREAK and CONT exceptions"
+>>> setupFile ~/targetPackage/main.petrol
+TRY {
+    BREAK
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #EXCEP_TYPE))
+    PRINT(TYPE(MEMBER(excep, #EVAL_STATE)))
+}
+TRY {
+    CONT
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #EXCEP_TYPE))
+    PRINT(TYPE(MEMBER(excep, #EVAL_STATE)))
+}
+WORK_VAR @count = (0)
+WHILE (LESS(count, 2)) {
+    SET count = (ADD(count, 1))
+    TRY {
+        BREAK
+    } CATCH {
+        PRINT("Caught break")
+    }
+}
+>>> expectPrint
+#BREAK_EXCEP
+#EVAL_STATE
+#CONT_EXCEP
+#EVAL_STATE
+Caught break
+Caught break
+=========================
+>>> testCase "BREAK procedure outside of loop"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("Before break")
+BREAK
+PRINT("This line is not reached")
+>>> expectPrint
+Before break
+>>> expectExcep type: #BREAK_EXCEP lineNumber: 2
+=========================
+>>> testCase "CONT procedure outside of loop"
+>>> setupFile ~/targetPackage/main.petrol
+CONT
+>>> expectExcep type: #CONT_EXCEP lineNumber: 1
+=========================
+>>> testCase "BREAK procedure with too many components"
+>>> setupFile ~/targetPackage/main.petrol
+WHILE (TRUE) {
+    BREAK (1)
+}
+>>> expectError type: #SYNTAX_ERROR message: "Node has too many components." lineNumber: 2
+=========================
+>>> testCase "RET procedure"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @withValue = <FUNC {
+    RET ("Returned value")
+    PRINT("This line is not reached")
+}>
+PREP_VAR @withoutValue = <FUNC {
+    RET
+    PRINT("This line is not reached")
+}>
+PREP_VAR @inLoop = <FUNC {
+    WORK_VAR @count = (0)
+    WHILE (TRUE) {
+        SET count = (ADD(count, 1))
+        IF (EQUAL(count, 3)) {
+            RET (count)
+        }
+    }
+}>
+PRINT(withValue())
+PRINT(withoutValue())
+PRINT(inLoop())
+>>> expectPrint
+Returned value
+NULL
+3
+=========================
+>>> testCase "RET procedure with level"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @nested = <FUNC {
+    WORK_VAR @value = (RUN {
+        RET ("Level 0", 0)
+    })
+    PRINT(value)
+    RUN {
+        RET ("Level 1", 1)
+    }
+    PRINT("This line is not reached")
+}>
+PRINT(nested())
+PREP_VAR @exitCaller = <FUNC {
+    RET ("Level 1 from function", 1)
+}>
+PRINT(RUN {
+    exitCaller()
+    PRINT("This line is not reached")
+})
+PREP_VAR @exitTwice = <FUNC {
+    RUN {
+        RUN {
+            RET ("Level 2", 2)
+        }
+        PRINT("This line is not reached")
+    }
+    PRINT("This line is not reached")
+}>
+PRINT(exitTwice())
+>>> expectPrint
+Level 0
+Level 1
+Level 1 from function
+Level 2
+=========================
+>>> testCase "RET exceptions"
+>>> setupFile ~/targetPackage/main.petrol
+TRY {
+    RET ("myValue", 2)
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #EXCEP_TYPE))
+    PRINT(MEMBER(excep, #VALUE))
+    PRINT(MEMBER(excep, #RET_LEVEL))
+    PRINT(TYPE(MEMBER(excep, #EVAL_STATE)))
+}
+TRY {
+    RET (5)
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #VALUE))
+    PRINT(MEMBER(excep, #RET_LEVEL))
+}
+TRY {
+    RET
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #VALUE))
+    PRINT(MEMBER(excep, #RET_LEVEL))
+}
+>>> expectPrint
+#RET_EXCEP
+myValue
+2
+#EVAL_STATE
+5
+0
+NULL
+0
+=========================
+>>> testCase "RET procedure outside of function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("Before return")
+RET (5)
+PRINT("This line is not reached")
+>>> expectPrint
+Before return
+>>> expectExcep type: #RET_EXCEP lineNumber: 2
+=========================
+>>> testCase "RET procedure with too many expressions"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @myFunc = <FUNC {
+    RET (1, 2, 3)
+}>
+>>> expectError type: #SYNTAX_ERROR message: "Expected 1 or 2 expressions in sequence." lineNumber: 2
