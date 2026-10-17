@@ -1,0 +1,219 @@
+>>> testCase "ABORT procedure"
+>>> setupFile ~/targetPackage/main.petrol
+TRY {
+    ABORT (#VALUE_ERROR, "Bad value")
+    PRINT("This line is not reached")
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #EXCEP_TYPE))
+    PRINT(MEMBER(excep, #ERROR_TYPE))
+    PRINT(MEMBER(excep, #MESSAGE))
+    PRINT(TYPE(MEMBER(excep, #EVAL_STATE)))
+}
+>>> expectPrint
+#ERROR_EXCEP
+#VALUE_ERROR
+Bad value
+#EVAL_STATE
+=========================
+>>> testCase "ABORT procedure with custom error type"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_SYMBOL @#MY_ERROR
+PRINT("Before abort")
+ABORT (#MY_ERROR, "Custom error")
+PRINT("This line is not reached")
+>>> expectPrint
+Before abort
+>>> expectError type: #MY_ERROR message: "Custom error" lineNumber: 3
+=========================
+>>> testCase "ABORT procedure with too few expressions"
+>>> setupFile ~/targetPackage/main.petrol
+ABORT (#VALUE_ERROR)
+>>> expectError type: #SYNTAX_ERROR message: "Expected 2 expressions in sequence." lineNumber: 1
+=========================
+>>> testCase "THROW procedure"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_SYMBOL @#MY_EXCEP
+WORK_VAR @myExcep = (MAP [FIELDS [
+    (#EXCEP_TYPE) = (#MY_EXCEP)
+    ("myData") = (123)
+]])
+TRY {
+    THROW (myExcep)
+    PRINT("This line is not reached")
+} CATCH {
+    [EXCEP @excep]
+    PRINT(EQUAL(excep, myExcep))
+    PRINT(MEMBER(excep, #EXCEP_TYPE))
+    PRINT(MEMBER(excep, "myData"))
+    PRINT(TYPE(MEMBER(excep, #EVAL_STATE)))
+}
+>>> expectPrint
+1
+#MY_EXCEP
+123
+#EVAL_STATE
+=========================
+>>> testCase "THROW procedure with existing evaluation state"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_SYMBOL @#MY_EXCEP
+WORK_VAR @firstEvalState
+TRY {
+    TRY {
+        THROW (MAP [FIELDS [(#EXCEP_TYPE) = (#MY_EXCEP)]])
+        PRINT("Resumed after first throw")
+    } CATCH {
+        [EXCEP @excep]
+        SET firstEvalState = (MEMBER(excep, #EVAL_STATE))
+        THROW (excep)
+    }
+    PRINT("After inner TRY")
+} CATCH {
+    [EXCEP @excep]
+    PRINT(EQUAL(MEMBER(excep, #EVAL_STATE), firstEvalState))
+    RESUME (MEMBER(excep, #EVAL_STATE))
+}
+PRINT("After outer TRY")
+>>> expectPrint
+1
+Resumed after first throw
+After inner TRY
+After outer TRY
+=========================
+>>> testCase "THROW procedure with uncaught custom exception"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_SYMBOL @#MY_EXCEP
+PRINT("Before throw")
+THROW (MAP [FIELDS [(#EXCEP_TYPE) = (#MY_EXCEP)]])
+PRINT("This line is not reached")
+>>> expectPrint
+Before throw
+>>> expectExcep type: #MY_EXCEP lineNumber: 3
+=========================
+>>> testCase "THROW procedure with error exception"
+>>> setupFile ~/targetPackage/main.petrol
+THROW (MAP [FIELDS [
+    (#EXCEP_TYPE) = (#ERROR_EXCEP)
+    (#ERROR_TYPE) = (#STATE_ERROR)
+    (#MESSAGE) = ("Thrown error")
+]])
+>>> expectError type: #STATE_ERROR message: "Thrown error" lineNumber: 1
+=========================
+>>> testCase "TRY procedure"
+>>> setupFile ~/targetPackage/main.petrol
+TRY {
+    PRINT("No exception")
+} CATCH {
+    PRINT("This line is not reached")
+}
+TRY {
+    PRINT(DIV(10, 0))
+    PRINT("This line is not reached")
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #ERROR_TYPE))
+    PRINT(MEMBER(excep, #MESSAGE))
+}
+TRY {
+    ABORT (#STATE_ERROR, "Ignored error")
+} CATCH {
+    PRINT("Caught without variable")
+}
+PRINT("After TRY")
+>>> expectPrint
+No exception
+#VALUE_ERROR
+Cannot divide by zero.
+Caught without variable
+After TRY
+=========================
+>>> testCase "TRY procedure nested"
+>>> setupFile ~/targetPackage/main.petrol
+TRY {
+    TRY {
+        ABORT (#STATE_ERROR, "First error")
+    } CATCH {
+        [EXCEP @excep]
+        PRINT(CONCAT(LIST ("Inner caught: ", MEMBER(excep, #MESSAGE))))
+        ABORT (#STATE_ERROR, "Second error")
+    }
+    PRINT("This line is not reached")
+} CATCH {
+    [EXCEP @excep]
+    PRINT(CONCAT(LIST ("Outer caught: ", MEMBER(excep, #MESSAGE))))
+}
+TRY {
+    ABORT (#STATE_ERROR, "Uncaught error")
+} CATCH {
+    PRINT("Caught")
+    ABORT (#STATE_ERROR, "Error in CATCH")
+}
+>>> expectPrint
+Inner caught: First error
+Outer caught: Second error
+Caught
+>>> expectError type: #STATE_ERROR message: "Error in CATCH" lineNumber: 18
+=========================
+>>> testCase "TRY procedure with wrong keyword"
+>>> setupFile ~/targetPackage/main.petrol
+TRY {
+    PRINT("This line is not reached")
+} EXCEPT {
+    PRINT("This line is not reached")
+}
+>>> expectError type: #SYNTAX_ERROR message: "Expected \"CATCH\" identifier component." lineNumber: 3
+=========================
+>>> testCase "TRY procedure with wrong attribute name"
+>>> setupFile ~/targetPackage/main.petrol
+TRY {
+    PRINT("This line is not reached")
+} CATCH {
+    [EXCEPTION @excep]
+}
+>>> expectError type: #SYNTAX_ERROR message: "Expected \"EXCEP\" identifier component." lineNumber: 4
+=========================
+>>> testCase "TRY procedure with too many block attributes"
+>>> setupFile ~/targetPackage/main.petrol
+TRY {
+    PRINT("This line is not reached")
+} CATCH {
+    [EXCEP @excep1, EXCEP @excep2]
+}
+>>> expectError type: #SYNTAX_ERROR message: "CATCH body cannot have more than one block attribute." lineNumber: 3
+=========================
+>>> testCase "RESUME procedure"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_SYMBOL @#MY_EXCEP
+WORK_VAR @myList = (LIST ())
+TRY {
+    ADD_ELEM(myList, 30)
+    THROW (MAP [FIELDS [(#EXCEP_TYPE) = (#MY_EXCEP)]])
+    ADD_ELEM(myList, 31)
+} CATCH {
+    [EXCEP @excep]
+    ADD_ELEM(myList, 40)
+    RESUME (MEMBER(excep, #EVAL_STATE))
+    PRINT("This line is not reached")
+}
+PRINT(myList)
+>>> expectPrint
+LIST (30, 40, 31)
+=========================
+>>> testCase "RESUME procedure after ABORT"
+>>> setupFile ~/targetPackage/main.petrol
+TRY {
+    PRINT("Before abort")
+    ABORT (#STATE_ERROR, "Recoverable error")
+    PRINT("After abort")
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #MESSAGE))
+    RESUME (MEMBER(excep, #EVAL_STATE))
+    PRINT("This line is not reached")
+}
+PRINT("After TRY")
+>>> expectPrint
+Before abort
+Recoverable error
+After abort
+After TRY

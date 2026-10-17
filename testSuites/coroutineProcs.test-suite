@@ -1,0 +1,173 @@
+>>> testCase "SCHED procedure"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST ())
+SCHED {
+    ADD_ELEM(myList, "Scheduled")
+    PRINT(myList)
+}
+ADD_ELEM(myList, "Main 1")
+ADD_ELEM(myList, "Main 2")
+PRINT("Main finished")
+>>> expectPrint
+Main finished
+LIST ("Main 1", "Main 2", "Scheduled")
+=========================
+>>> testCase "SCHED procedure with local variable"
+>>> setupFile ~/targetPackage/main.petrol
+RUN {
+    WORK_VAR @localVar = ("Local value")
+    SCHED {
+        PRINT(localVar)
+    }
+}
+PRINT("After RUN")
+>>> expectPrint
+After RUN
+Local value
+=========================
+>>> testCase "SCHED procedure with error"
+>>> setupFile ~/targetPackage/main.petrol
+SCHED {
+    ABORT (#STATE_ERROR, "Error in coroutine")
+}
+PRINT("Main finished")
+>>> expectPrint
+Main finished
+>>> expectError type: #STATE_ERROR message: "Error in coroutine" lineNumber: 2
+=========================
+>>> testCase "SCHED procedure with expression sequence"
+>>> setupFile ~/targetPackage/main.petrol
+SCHED (1)
+>>> expectError type: #SYNTAX_ERROR message: "Expected statement sequence component." lineNumber: 1
+=========================
+>>> testCase "SPIN procedure"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST ())
+SCHED {
+    ADD_ELEM(myList, "Scheduled")
+}
+SPIN (FUNC {
+    RET (TRUE)
+}, "Not waiting")
+ADD_ELEM(myList, "Main")
+SPIN (FUNC {
+    RET (EQUAL(LEN(myList), 2))
+}, "Waiting for scheduled coroutine")
+PRINT(myList)
+>>> expectPrint
+LIST ("Main", "Scheduled")
+=========================
+>>> testCase "SPIN procedure stuck"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("Before spin")
+SPIN (FUNC {RET (FALSE)}, "Waiting forever")
+PRINT("This line is not reached")
+>>> expectPrint
+Before spin
+>>> expectStuck message: "Waiting forever" lineNumber: 2
+=========================
+>>> testCase "AWAIT procedure with present member"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myMap = (MAP [FIELDS [("a") = (10)]])
+WORK_VAR @isTen = (FUNC {
+    [ARGS [@member]]
+    RET (EQUAL(member, 10))
+})
+PRINT(AWAIT (myMap, "a", isTen, "Waiting for field"))
+>>> expectPrint
+10
+=========================
+>>> testCase "AWAIT procedure with missing member"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myMap = (MAP [FIELDS []])
+WORK_VAR @myList = (LIST (10))
+SCHED {
+    PRINT("Populating members")
+    SET_MEMBER(myMap, "a", 20)
+    ADD_ELEM(myList, 30)
+}
+WORK_VAR @alwaysTrue = (FUNC {
+    [ARGS [@member]]
+    RET (TRUE)
+})
+PRINT(AWAIT (myMap, "a", alwaysTrue, "Waiting for field"))
+PRINT(AWAIT (myList, 1, alwaysTrue, "Waiting for element"))
+>>> expectPrint
+Populating members
+20
+30
+=========================
+>>> testCase "AWAIT procedure with condition"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST (0))
+SCHED {
+    WORK_VAR @count = (0)
+    WHILE (LESS(count, 5)) {
+        SET count = (ADD(count, 1))
+        SET_MEMBER(myList, 0, count)
+    }
+}
+WORK_VAR @value = (AWAIT (myList, 0, FUNC {
+    [ARGS [@member]]
+    RET (GREATER_EQUAL(member, 3))
+}, "Waiting for element to be at least 3"))
+PRINT(GREATER_EQUAL(value, 3))
+>>> expectPrint
+1
+=========================
+>>> testCase "AWAIT procedure stuck"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myMap = (MAP [FIELDS [("a") = (1)]])
+WORK_VAR @isTwo = (FUNC {[ARGS [@member]], RET (EQUAL(member, 2))})
+PRINT("Before await")
+AWAIT (myMap, "a", isTwo, "Waiting for field to be 2")
+PRINT("This line is not reached")
+>>> expectPrint
+Before await
+>>> expectStuck message: "Waiting for field to be 2" lineNumber: 4
+=========================
+>>> testCase "AWAIT procedure stuck with null message"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myMap = (MAP [FIELDS []])
+WORK_VAR @alwaysTrue = (FUNC {[ARGS [@member]], RET (TRUE)})
+PRINT("Before await")
+AWAIT (myMap, "a", alwaysTrue, NULL)
+PRINT("This line is not reached")
+>>> expectPrint
+Before await
+=========================
+>>> testCase "AWAIT exception"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myMap = (MAP [FIELDS []])
+WORK_VAR @alwaysTrue = (FUNC {[ARGS [@member]], RET (TRUE)})
+SCHED {
+    PRINT("Setting field")
+    SET_MEMBER(myMap, "a", 50)
+}
+TRY {
+    PRINT(AWAIT (myMap, "a", alwaysTrue, "Waiting for field"))
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #EXCEP_TYPE))
+    PRINT(EQUAL(MEMBER(excep, #BUNCH), myMap))
+    PRINT(MEMBER(excep, #LOC))
+    PRINT(EQUAL(MEMBER(excep, #COND), alwaysTrue))
+    PRINT(MEMBER(excep, #MESSAGE))
+    PRINT(TYPE(MEMBER(excep, #EVAL_STATE)))
+    THROW (excep)
+}
+>>> expectPrint
+#AWAIT_EXCEP
+1
+a
+1
+Waiting for field
+#EVAL_STATE
+Setting field
+50
+=========================
+>>> testCase "AWAIT procedure with too few expressions"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myMap = (MAP [FIELDS []])
+AWAIT (myMap, "a", FUNC {[ARGS [@member]], RET (TRUE)})
+>>> expectError type: #SYNTAX_ERROR message: "Expected 4 expressions in sequence." lineNumber: 2

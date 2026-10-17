@@ -377,3 +377,18 @@ PRINT(MEMBER(MEMBER(setStmt, #DEST_VAR), #IDENT))
 1
 1
 myVar
+=========================
+>>> testCase "COMMENT procedure"
+>>> setupFile ~/targetPackage/main.petrol
+COMMENT "This comment has no effect."
+PRINT("First")
+COMMENT "PRINT(\"This line is not reached\")"
+PRINT("Second")
+>>> expectPrint
+First
+Second
+=========================
+>>> testCase "COMMENT procedure without string"
+>>> setupFile ~/targetPackage/main.petrol
+COMMENT myComment
+>>> expectError type: #SYNTAX_ERROR message: "Expected string component." lineNumber: 1
