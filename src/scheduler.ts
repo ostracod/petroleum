@@ -124,14 +124,14 @@ export class Scheduler {
     context: PetContext;
     nonSpinCoros: CoroQueue;
     spinCoros: CoroQueue;
-    waitingObservers: Set<MemberObserver>;
+    observersToReport: Set<MemberObserver>;
     stuckSpinningDelay: number;
     
     constructor(context: PetContext) {
         this.context = context;
         this.nonSpinCoros = new CoroQueue();
         this.spinCoros = new CoroQueue();
-        this.waitingObservers = new Set();
+        this.observersToReport = new Set();
         this.stuckSpinningDelay = 0;
     }
     

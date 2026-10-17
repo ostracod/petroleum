@@ -2,7 +2,7 @@
 import "./scheduler.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { PetValue, KnownValue, PetString, MemberObserver, PetList, PetMap } from "./value.js";
+import { PetValue, KnownValue, PetString, PetList, PetMap } from "./value.js";
 import { DefFunc, globalFuncDefs } from "./builtInFunc.js";
 import { WorkerMethodsMap, createWorkerMethodsMap } from "./method.js";
 import { createProcedure, globalProcDefs } from "./procedure.js";
@@ -35,7 +35,7 @@ export class PetContext {
     workerMethodsMap: WorkerMethodsMap;
     globalScope: PetMap;
     isPrepping: boolean;
-    aggregatedExceps: PetMap[];
+    excepsToReport: PetMap[];
     
     constructor(
         entryPackagePath: string,
@@ -54,7 +54,7 @@ export class PetContext {
         this.preppingWorkers = new Set();
         this.globalScope = this.createGlobalScope();
         this.isPrepping = true;
-        this.aggregatedExceps = [];
+        this.excepsToReport = [];
         const packageResolver = new PackageResolver(
             this.fileSystem,
             entryPackagePath,
@@ -122,6 +122,14 @@ export class PetContext {
         return this.logger.hasReportedProblem;
     }
     
+    handlePrepFinished(): void {
+        for (const exception of this.excepsToReport) {
+            this.logger.reportException(exception);
+        }
+        this.excepsToReport = [];
+        this.isPrepping = false;
+    }
+    
     run(): void {
         if (this.hasReportedProblem()) {
             return;
@@ -138,34 +146,19 @@ export class PetContext {
                 break;
             }
         }
-        const { waitingObservers } = this.scheduler;
-        const isStuck = (isStuckSpinning || waitingObservers.size > 0);
-        if (!this.hasReportedProblem() && isStuck) {
-            if (this.aggregatedExceps.length > 0) {
-                for (const exception of this.aggregatedExceps) {
-                    this.logger.reportException(exception);
-                }
-            } else {
-                const observersWithoutMessages: MemberObserver[] = [];
-                for (const observer of waitingObservers) {
-                    if (observer.message === null) {
-                        observersWithoutMessages.push(observer);
-                    } else {
-                        this.logger.reportObserver(observer);
-                    }
-                }
-                if (isStuckSpinning) {
-                    let coroutine = this.scheduler.spinCoros.firstCoro;
-                    while (coroutine !== null) {
-                        this.logger.reportSpinner(coroutine.spinner!);
-                        coroutine = coroutine.nextCoro;
-                    }
-                }
-                if (!this.hasReportedProblem()) {
-                    // We don't expect this to happen, but just in case...
-                    for (const observer of observersWithoutMessages) {
-                        this.logger.reportObserver(observer);
-                    }
+        if (this.excepsToReport.length > 0) {
+            for (const exception of this.excepsToReport) {
+                this.logger.reportException(exception);
+            }
+        } else {
+            for (const observer of this.scheduler.observersToReport) {
+                this.logger.reportObserver(observer);
+            }
+            if (isStuckSpinning) {
+                let coroutine = this.scheduler.spinCoros.firstCoro;
+                while (coroutine !== null) {
+                    this.logger.reportSpinner(coroutine.spinner!);
+                    coroutine = coroutine.nextCoro;
                 }
             }
         }
@@ -242,7 +235,7 @@ export class PetContext {
     
     handleUncaughtExcep(exception: PetMap): void {
         if (this.isPrepping) {
-            this.aggregatedExceps.push(exception);
+            this.excepsToReport.push(exception);
         } else {
             this.logger.reportException(exception);
         }

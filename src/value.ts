@@ -444,7 +444,9 @@ class MemberObservatory {
             this.bunch, location, condition, message, evalState,
         );
         observers.push(observer);
-        this.scheduler.waitingObservers.add(observer);
+        if (message !== null) {
+            this.scheduler.observersToReport.add(observer);
+        }
     }
     
     handleMemberChange(location: KnownValue): void {
@@ -455,7 +457,7 @@ class MemberObservatory {
         }
         this.observers.delete(mapKey);
         for (const observer of observers) {
-            this.scheduler.waitingObservers.delete(observer);
+            this.scheduler.observersToReport.delete(observer);
             this.scheduler.scheduleTask(awaitCondTask, { observer });
         }
     }

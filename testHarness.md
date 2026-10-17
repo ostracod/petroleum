@@ -114,7 +114,7 @@ Validates that the application has thrown an unhandled error exception. `$type` 
 >>> expectStuck message: $message path: $path lineNumber: $lineNumber
 ```
 
-Validates that the application is stuck spinning or awaiting. `$message` is the message of the spin or await exception. `$path` is the path of the module which is stuck. `$lineNumber` is the line number which is stuck. `message: $message`, `path: $path`, and `lineNumber: $lineNumber` are all optional.
+Validates that a coroutine was reported to be stuck spinning or awaiting. `$message` is the message of the spin or await exception. `$path` is the path of the module which is stuck. `$lineNumber` is the line number which is stuck. `message: $message`, `path: $path`, and `lineNumber: $lineNumber` are all optional.
 
 ## Example Test Suites
 

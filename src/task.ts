@@ -237,11 +237,7 @@ export const mainTask: TaskDef<null, { moduleIndex: number }> = {
                     task.repeatStage({ moduleIndex: moduleIndex + 1 }),
                 );
             } else {
-                const { context } = task;
-                for (const exception of context.aggregatedExceps) {
-                    context.logger.reportException(exception);
-                }
-                context.isPrepping = false;
+                task.context.handlePrepFinished();
                 const globalFrame = createFrame(task.context.globalScope, null);
                 for (const module of userModules) {
                     const scope = module.getMember(symbols.SCOPE).getMap();

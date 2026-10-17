@@ -195,7 +195,7 @@ export const getExcepReport = (exception: PetMap): string => {
     if (excepType === symbols.ERROR_EXCEP) {
         const errorType = exception.getMember(symbols.ERROR_TYPE);
         const message = exception.getMember(symbols.MESSAGE).toMessage();
-        output = `Encountered ${errorType.toString()} error: ` + message;
+        output = `Encountered ${errorType.toLiteral()} error: ` + message;
     } else {
         output = `Encountered ${knownValueToLiteral(excepType)} exception.`;
     }
