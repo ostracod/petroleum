@@ -165,10 +165,24 @@ const getCompWithType = (
     return comp;
 };
 
-export const getStmtsComp = (comps: PetList, index: number): PetMap => getCompWithType(
-    comps, index, symbols.STMTS_COMP,
-    "Expected statement sequence component.",
-);
+export const getStmtsComp = (
+    comps: PetList,
+    index: number,
+    allowBlockAttrs = false,
+): PetMap => {
+    const stmtsComp = getCompWithType(
+        comps, index, symbols.STMTS_COMP,
+        "Expected statement sequence component.",
+    );
+    if (!allowBlockAttrs) {
+        const blockAttrs = stmtsComp.getMember(symbols.ATTRS).getList();
+        if (blockAttrs.getLength() > 0) {
+            const blockAttr = blockAttrs.getMember(0).getMap();
+            throw createSyntaxError("Unexpected block attribute.", blockAttr);
+        }
+    }
+    return stmtsComp;
+};
 
 export const getExprsComp = (
     comps: PetList,
@@ -241,8 +255,12 @@ export const getCompIdent = (comps: PetList, index: number): PetString => {
     return identComp.getMember(symbols.IDENT).getPetString();
 };
 
-export const assertStmtsComp = (comps: PetList, index: number): void => {
-    getStmtsComp(comps, index);
+export const assertStmtsComp = (
+    comps: PetList,
+    index: number,
+    allowBlockAttrs = false,
+): void => {
+    getStmtsComp(comps, index, allowBlockAttrs);
 };
 
 export const assertExprsComp = (
@@ -285,6 +303,18 @@ export const assertIdentComp = (
             || comp.getMember(symbols.IDENT).toStringStrict() !== expectedText) {
         throw createSyntaxError(`Expected "${expectedText}" identifier component.`, comp);
     }
+};
+
+export const getAttrComps = (
+    attr: PetMap,
+    expectedText: string,
+    expectedAmount: number,
+): PetList => {
+    const comps = attr.getMember(symbols.COMPS).getList();
+    assertMinCompAmount(comps, 1, attr);
+    assertIdentComp(comps, 0, expectedText);
+    assertCompAmount(comps, expectedAmount, attr);
+    return comps;
 };
 
 

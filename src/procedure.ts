@@ -5,7 +5,7 @@ import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc } from "./value.js";
 import { MethodDict, createMethodMap, callDefaultPrep } from "./method.js";
 import { PetException, createBreakExcep, createContExcep, createSyntaxError } from "./exception.js";
-import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getStmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp, getCompIdent } from "./node.js";
+import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getStmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp, getCompIdent, getAttrComps } from "./node.js";
 import { findVarValue, findModuleVarValue, getModuleVarValue, getScope, varIsInScope } from "./variable.js";
 import { createMethodInvocation, callMethodTask } from "./task.js";
 import { setProcPrepTask, awaitProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask, funcProcPrepTask, tryProcEvalTask, importProcPrepTask } from "./procTask.js";
@@ -23,9 +23,7 @@ export const createProcedure = (procDef: ProcDef): PetMap => {
 };
 
 const validateMapAttr = (attr: PetMap): void => {
-    const comps = attr.getMember(symbols.COMPS).getList();
-    assertCompAmount(comps, 2, attr);
-    assertIdentComp(comps, 0, "FIELDS");
+    const comps = getAttrComps(attr, "FIELDS", 2);
     const attrsComp = getAttrsComp(comps, 1);
     const fieldAttrs = attrsComp.getMember(symbols.ATTRS).getList();
     for (const fieldAttrValue of fieldAttrs.elements) {
@@ -140,9 +138,7 @@ export const setUpImportVars = (comps: PetList, module: PetMap): void => {
     const attrsComp = getAttrsComp(comps, compIndex);
     const attrs = attrsComp.getMember(symbols.ATTRS).getList();
     for (const attr of attrs.elements) {
-        const attrComps = attr.getMap().getMember(symbols.COMPS).getList();
-        assertCompAmount(attrComps, 2);
-        assertIdentComp(attrComps, 0, "VARS");
+        const attrComps = getAttrComps(attr.getMap(), "VARS", 2);
         const varAttrsComp = getAttrsComp(attrComps, 1);
         const varAttrs = varAttrsComp.getMember(symbols.ATTRS).getList();
         for (const varAttrValue of varAttrs.elements) {
@@ -712,7 +708,7 @@ export const globalProcDefs: ProcDef[] = [
             return task.callMethod(
                 exprsComp, symbols.EVAL, [varSpace],
                 (values) => {
-                    const exception = values.getList().getMember(0);
+                    const exception = values.getList().getMember(0).getMap();
                     throw new PetException(exception);
                 },
             );
@@ -725,7 +721,7 @@ export const globalProcDefs: ProcDef[] = [
             assertCompAmount(comps, 4);
             assertStmtsComp(comps, 1);
             assertIdentComp(comps, 2, "CATCH");
-            const catchBody = getStmtsComp(comps, 3);
+            const catchBody = getStmtsComp(comps, 3, true);
             const attrs = catchBody.getMember(symbols.ATTRS).getList();
             const attrAmount = attrs.getLength();
             if (attrAmount > 1) {
@@ -735,9 +731,7 @@ export const globalProcDefs: ProcDef[] = [
             }
             if (attrAmount === 1) {
                 const attr = attrs.getMember(0).getMap();
-                const attrComps = attr.getMember(symbols.COMPS).getList();
-                assertCompAmount(attrComps, 2, attr);
-                assertIdentComp(attrComps, 0, "EXCEP");
+                const attrComps = getAttrComps(attr, "EXCEP", 2);
                 const declComp = getDeclComp(attrComps, 1);
                 const variable = declComp.getMember(symbols.VAR).getMap();
                 variable.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);

@@ -249,7 +249,7 @@ export const funcProcPrepTask: TaskDef<{ expr: PetMap }, null> = {
             const { expr } = task.params;
             const comps = expr.getMember(symbols.COMPS).getList();
             assertCompAmount(comps, 2);
-            const stmtsComp = getStmtsComp(comps, 1);
+            const stmtsComp = getStmtsComp(comps, 1, true);
             const { argVars, argsVar } = getSignatureVars(stmtsComp);
             if (typeof argVars === "undefined") {
                 argsVar!.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);

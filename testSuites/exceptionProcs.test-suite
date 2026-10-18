@@ -99,6 +99,31 @@ THROW (MAP [FIELDS [
 ]])
 >>> expectError type: #STATE_ERROR message: "Thrown error" lineNumber: 1
 =========================
+>>> testCase "THROW procedure with non-map value"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("Before throw")
+THROW (#BREAK_EXCEP)
+PRINT("This line is not reached")
+>>> expectPrint
+Before throw
+>>> expectError type: #TYPE_ERROR message: "Expected map." lineNumber: 2
+=========================
+>>> testCase "THROW procedure with non-map value in TRY"
+>>> setupFile ~/targetPackage/main.petrol
+TRY {
+    THROW (123)
+    PRINT("This line is not reached")
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #ERROR_TYPE))
+    PRINT(MEMBER(excep, #MESSAGE))
+}
+PRINT("After TRY")
+>>> expectPrint
+#TYPE_ERROR
+Expected map.
+After TRY
+=========================
 >>> testCase "TRY procedure"
 >>> setupFile ~/targetPackage/main.petrol
 TRY {

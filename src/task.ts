@@ -6,7 +6,7 @@ import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, nullValue, P
 import { NotEqualFunc } from "./builtInFunc.js";
 import { getMethodWithDefault } from "./method.js";
 import { PetSyntaxError, ValueError, StateError, createSyntaxError } from "./exception.js";
-import { workerIsInvocation, getWorkerMethodMap, getFuncArgsComp, assertCompAmount, assertIdentComp, getStmtsComp } from "./node.js";
+import { workerIsInvocation, getWorkerMethodMap, getFuncArgsComp, getStmtsComp, getAttrComps } from "./node.js";
 import { createFrame, VarSpaceType, getVarSpaceType, getVariable, getVarValue, getScope } from "./variable.js";
 import { Spinner } from "./scheduler.js";
 import { PetContext } from "./context.js";
@@ -274,13 +274,12 @@ export const prepModuleTask: TaskDef<{ module: PetMap }, null> = {
             const attrs = stmtsComp.getMember(symbols.ATTRS).getList();
             const attrAmount = attrs.getLength();
             if (attrAmount > 1) {
-                throw new PetSyntaxError("Module cannot have more than one attribute.");
+                const attr = attrs.getMember(1).getMap();
+                throw createSyntaxError("Module cannot have more than one attribute.", attr);
             }
             if (attrAmount === 1) {
                 const attr = attrs.getMember(0).getMap();
-                const attrComps = attr.getMember(symbols.COMPS).getList();
-                assertCompAmount(attrComps, 2);
-                assertIdentComp(attrComps, 0, "INIT");
+                const attrComps = getAttrComps(attr, "INIT", 2);
                 const initStmtsComp = getStmtsComp(attrComps, 1);
                 const scope = initStmtsComp.getMember(symbols.SCOPE).getMap();
                 const moduleScope = module.getMember(symbols.SCOPE).getMap();

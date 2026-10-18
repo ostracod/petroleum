@@ -62,8 +62,9 @@ export class Coroutine {
                 if (error instanceof PetException) {
                     const { mapValue } = error;
                     const { task } = this.action;
-                    const exception = mapValue.tryMap();
+                    const exception = mapValue.tryKnownValue();
                     if (typeof exception !== "undefined"
+                            && exception instanceof PetMap
                             && !exception.hasKey(symbols.EVAL_STATE)) {
                         const evalState = error.createEvalState(this.action);
                         exception.setMember(symbols.EVAL_STATE, evalState);

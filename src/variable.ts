@@ -5,7 +5,7 @@ import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, PetString, PetMap } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
 import { AwaitException, PetSyntaxError, PetTypeError, ValueError, StateError } from "./exception.js";
-import { assertCompAmount, assertIdentComp, getDeclComp } from "./node.js";
+import { assertCompAmount, getDeclComp, getAttrComps } from "./node.js";
 
 export const createFrame = (scope: PetMap, parentFrame: PetMap | null): PetMap => {
     const permaFrameValue = scope.getOptionalMember(symbols.PERMA_FRAME);
@@ -250,9 +250,7 @@ export const getSignatureVars = (stmtsComp: PetMap): SignatureVars => {
         throw new PetSyntaxError("FUNC procedure cannot have more than one block attribute.");
     }
     const attr = attrs.getMember(0).getMap();
-    const comps = attr.getMember(symbols.COMPS).getList();
-    assertCompAmount(comps, 2, attr);
-    assertIdentComp(comps, 0, "ARGS");
+    const comps = getAttrComps(attr, "ARGS", 2);
     const comp = comps.getMember(1).getMap();
     const compType = comp.getMember(symbols.COMP_TYPE).getSymbol();
     if (compType === symbols.ATTRS_COMP) {

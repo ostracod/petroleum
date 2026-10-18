@@ -73,20 +73,6 @@ export class PetValue {
         return value;
     }
     
-    tryInstance<T>(
-        classConstructor: abstract new (...args: any[]) => T,
-        displayName: string,
-    ): T | undefined {
-        const value = this.tryKnownValue();
-        if (typeof value === "undefined") {
-            return undefined;
-        }
-        if (!(value instanceof classConstructor)) {
-            throw new PetTypeError(`Expected ${displayName}.`);
-        }
-        return value;
-    }
-    
     getSymbol(): PetSymbol {
         return this.getInstance(PetSymbol, "symbol");
     }
@@ -109,10 +95,6 @@ export class PetValue {
     
     getMap(): PetMap {
         return this.getInstance(PetMap, "map");
-    }
-    
-    tryMap(): PetMap | undefined {
-        return this.tryInstance(PetMap, "map");
     }
     
     getFunc(): PetFunc {

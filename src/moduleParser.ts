@@ -255,6 +255,10 @@ export class ModuleParser {
         const posFields = this.getPosFields();
         // Pass over "@" symbol.
         this.advance(1);
+        const firstChar = this.peekText(1);
+        if (firstChar === null || !isIdentFirstChar(firstChar)) {
+            throw this.createError("Expected identifier in declaration component.");
+        }
         const identifier = new PetString(this.readIdentifier());
         const variable = new PetMap([
             [symbols.VAR_TYPE, null],
@@ -371,7 +375,7 @@ export class ModuleParser {
                 break;
             }
             output.push(component);
-            this.skipChars([" "]);
+            this.skipChars([" ", "\t"]);
         }
         return output;
     }
@@ -380,7 +384,7 @@ export class ModuleParser {
     parseCompsSequence(): PetMap[][] {
         const output: PetMap[][] = [];
         while (true) {
-            this.skipChars([" ", "\n"]);
+            this.skipChars([" ", "\t", "\n", "\r"]);
             const components = this.parseComponents();
             if (components.length <= 0) {
                 break;

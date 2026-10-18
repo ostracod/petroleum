@@ -1,0 +1,364 @@
+>>> testCase "Missing close parenthesis"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(ADD(1,
+    2)
+PRINT(3)
+>>> expectError type: #SYNTAX_ERROR message: "Expected close parenthesis." lineNumber: 4
+=========================
+>>> testCase "Missing close angle bracket"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PREP_VAR @myVar = <ADD(1, 2)
+>>> expectError type: #SYNTAX_ERROR message: "Expected close angle bracket." lineNumber: 2
+=========================
+>>> testCase "Missing close curly brace"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+RUN {
+    PRINT(1)
+>>> expectError type: #SYNTAX_ERROR message: "Expected close curly brace." lineNumber: 3
+=========================
+>>> testCase "Missing close bracket"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(MAP [FIELDS [("a") = (1)])
+>>> expectError type: #SYNTAX_ERROR message: "Expected close bracket." lineNumber: 2
+=========================
+>>> testCase "Mismatched close bracket"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(LIST (1, 2>)
+>>> expectError type: #SYNTAX_ERROR message: "Expected close parenthesis." lineNumber: 2
+=========================
+>>> testCase "Unexpected close parenthesis"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(1))
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected character \")\"." lineNumber: 2
+=========================
+>>> testCase "Unexpected close curly brace"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+}
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected character \"}\"." lineNumber: 2
+=========================
+>>> testCase "Unexpected character"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+'text'
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected character \"'\"." lineNumber: 2
+=========================
+>>> testCase "Malformed integer literals"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(123abc)
+PRINT(12.5)
+>>> expectError type: #SYNTAX_ERROR message: "First component in invocation is invalid." lineNumber: 2
+>>> expectError type: #SYNTAX_ERROR message: "First component in invocation is invalid." lineNumber: 3
+=========================
+>>> testCase "Integer literal exceeds 64 bits"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(9223372036854775808)
+>>> expectError type: #VALUE_ERROR message: "Signed integer literal exceeds 64 bits." lineNumber: 2
+=========================
+>>> testCase "Missing end quotation mark"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT("text)
+PRINT(1)
+>>> expectError type: #SYNTAX_ERROR message: "Missing end quotation mark." lineNumber: 3
+=========================
+>>> testCase "Unknown escape sequence"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT("a\qb")
+>>> expectError type: #SYNTAX_ERROR message: "Unknown escaped string character \"q\"." lineNumber: 2
+=========================
+>>> testCase "Missing escaped character"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT("text\
+>>> expectError type: #SYNTAX_ERROR message: "Missing escaped string character." lineNumber: 2
+=========================
+>>> testCase "Expression sequence component as expression"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT((1))
+>>> expectError type: #SYNTAX_ERROR message: "Unknown expression type." lineNumber: 2
+=========================
+>>> testCase "Declaration component as expression"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(@myVar)
+>>> expectError type: #SYNTAX_ERROR message: "Unknown expression type." lineNumber: 2
+=========================
+>>> testCase "Invalid first component of invocation"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+"text"(1)
+PRINT(123 (1))
+>>> expectError type: #SYNTAX_ERROR message: "First component in invocation is invalid." lineNumber: 2
+>>> expectError type: #SYNTAX_ERROR message: "First component in invocation is invalid." lineNumber: 3
+=========================
+>>> testCase "Work-grade expression sequence as first component of invocation"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT((ADD)(1, 2))
+>>> expectError type: #SYNTAX_ERROR message: "Expected prep-grade expression sequence component." lineNumber: 2
+=========================
+>>> testCase "Multiple expressions as first component of invocation"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(<ADD, SUB>(1, 2))
+>>> expectError type: #SYNTAX_ERROR message: "Expected 1 expression in sequence." lineNumber: 2
+=========================
+>>> testCase "Components after function arguments"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(ADD(1, 2) (3))
+>>> expectError type: #SYNTAX_ERROR message: "Node has too many components." lineNumber: 2
+=========================
+>>> testCase "Prep-grade function arguments"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(ADD<1, 2>)
+>>> expectError type: #SYNTAX_ERROR message: "Expected work-grade expression sequence component." lineNumber: 2
+=========================
+>>> testCase "Missing separator between nodes"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(1) PRINT(2)
+>>> expectError type: #SYNTAX_ERROR message: "Node has too many components." lineNumber: 2
+=========================
+>>> testCase "Repeated separator between nodes"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(1),, PRINT(2)
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected character \",\"." lineNumber: 2
+=========================
+>>> testCase "Too many block attributes statements"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @myFunc = <FUNC {
+    [ARGS [@value1]]
+    [ARGS [@value2]]
+    RET (value1)
+}>
+>>> expectError type: #SYNTAX_ERROR message: "First component in invocation is invalid." lineNumber: 3
+=========================
+>>> testCase "Block attributes statement after other statements"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @myFunc = <FUNC {
+    PRINT("This line is not reached")
+    [ARGS [@value]]
+}>
+>>> expectError type: #SYNTAX_ERROR message: "First component in invocation is invalid." lineNumber: 3
+=========================
+>>> testCase "Block attributes statement with extra component"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @myFunc = <FUNC {
+    [ARGS [@value]] PRINT(value)
+}>
+>>> expectError type: #SYNTAX_ERROR message: "First component in invocation is invalid." lineNumber: 2
+=========================
+>>> testCase "Declaration identifier starts with digit"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+WORK_VAR @1abc = (1)
+>>> expectError type: #SYNTAX_ERROR message: "Expected identifier in declaration component." lineNumber: 2
+=========================
+>>> testCase "Declaration without identifier"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+WORK_VAR @ = (1)
+>>> expectError type: #SYNTAX_ERROR message: "Expected identifier in declaration component." lineNumber: 2
+=========================
+>>> testCase "Declaration at end of line"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+WORK_VAR @
+>>> expectError type: #SYNTAX_ERROR message: "Expected identifier in declaration component." lineNumber: 2
+=========================
+>>> testCase "Declaration identifier with symbol characters"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @_my.var?2 = (5)
+PRINT(_my.var?2)
+>>> expectPrint
+5
+=========================
+>>> testCase "Block attributes statement in RUN body"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+RUN { [FOO], PRINT(1) }
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected block attribute." lineNumber: 2
+=========================
+>>> testCase "Block attributes statement in IF body"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+IF (1) { [FOO], PRINT(1) }
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected block attribute." lineNumber: 2
+=========================
+>>> testCase "Block attributes statement in ELSE_IF body"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+IF (0) { PRINT(1) } ELSE_IF (1) { [FOO], PRINT(2) }
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected block attribute." lineNumber: 2
+=========================
+>>> testCase "Block attributes statement in ELSE body"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+IF (0) { PRINT(1) } ELSE { [FOO], PRINT(2) }
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected block attribute." lineNumber: 2
+=========================
+>>> testCase "Block attributes statement in WHILE body"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+WHILE (0) { [FOO], PRINT(1) }
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected block attribute." lineNumber: 2
+=========================
+>>> testCase "Block attributes statement in SCHED body"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+SCHED { [FOO], PRINT(1) }
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected block attribute." lineNumber: 2
+=========================
+>>> testCase "Block attributes statement in TRY body"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+TRY { [FOO], PRINT(1) } CATCH { PRINT(2) }
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected block attribute." lineNumber: 2
+=========================
+>>> testCase "Block attributes statement in INIT module attribute body"
+>>> setupFile ~/targetPackage/main.petrol
+[INIT { [FOO], PRINT(1) }]
+PRINT(2)
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected block attribute." lineNumber: 1
+=========================
+>>> testCase "Unknown module attribute"
+>>> setupFile ~/targetPackage/main.petrol
+[FOO]
+PRINT(1)
+>>> expectError type: #SYNTAX_ERROR message: "Expected \"INIT\" identifier component." lineNumber: 1
+=========================
+>>> testCase "Module attribute without identifier"
+>>> setupFile ~/targetPackage/main.petrol
+[(1)]
+PRINT(1)
+>>> expectError type: #SYNTAX_ERROR message: "Expected \"INIT\" identifier component." lineNumber: 1
+=========================
+>>> testCase "Tabs as whitespace"
+>>> setupFile ~/targetPackage/main.petrol
+	PRINT(1)
+WORK_VAR	@myList	=	(LIST (2,	3))	
+	
+PRINT(myList)
+RUN {
+	PRINT("a\tb")
+}
+>>> expectPrint
+1
+LIST (2, 3)
+a	b
+=========================
+>>> testCase "Windows line endings"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(1)
+WORK_VAR @value = (ADD(2,
+    3))
+RUN {
+    PRINT(value)
+}
+PRINT("end")
+>>> expectPrint
+1
+5
+end
+=========================
+>>> testCase "Syntax error with Windows line endings"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+
+PRINT(1))
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected character \")\"." lineNumber: 3
+=========================
+>>> testCase "INIT module attribute"
+>>> setupFile ~/targetPackage/main.petrol
+[INIT {
+    PRINT("In INIT")
+}]
+PRINT("After INIT")
+>>> expectPrint
+In INIT
+After INIT
+=========================
+>>> testCase "Module attribute with too few components"
+>>> setupFile ~/targetPackage/main.petrol
+[INIT]
+PRINT("This line is not reached")
+>>> expectError type: #SYNTAX_ERROR message: "Node has too few components." lineNumber: 1
+=========================
+>>> testCase "Module attribute with too many components"
+>>> setupFile ~/targetPackage/main.petrol
+[INIT {PRINT(1)} {PRINT(2)}]
+PRINT("This line is not reached")
+>>> expectError type: #SYNTAX_ERROR message: "Node has too many components." lineNumber: 1
+=========================
+>>> testCase "Too many module attributes"
+>>> setupFile ~/targetPackage/main.petrol
+[
+    INIT {PRINT(1)}
+    INIT {PRINT(2)}
+]
+PRINT("This line is not reached")
+>>> expectError type: #SYNTAX_ERROR message: "Module cannot have more than one attribute." lineNumber: 3
+=========================
+>>> testCase "Unknown FUNC block attribute"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PREP_VAR @myFunc = <FUNC {
+    [FOO]
+    RET (1)
+}>
+>>> expectError type: #SYNTAX_ERROR message: "Expected \"ARGS\" identifier component." lineNumber: 3
+=========================
+>>> testCase "FUNC block attribute with too few components"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PREP_VAR @myFunc = <FUNC {
+    [ARGS]
+    RET (1)
+}>
+>>> expectError type: #SYNTAX_ERROR message: "Node has too few components." lineNumber: 3
+=========================
+>>> testCase "Unknown CATCH block attribute"
+>>> setupFile ~/targetPackage/main.petrol
+TRY {
+    PRINT("This line is not reached")
+} CATCH {
+    [FOO]
+}
+>>> expectError type: #SYNTAX_ERROR message: "Expected \"EXCEP\" identifier component." lineNumber: 4
+=========================
+>>> testCase "CATCH block attribute with too few components"
+>>> setupFile ~/targetPackage/main.petrol
+TRY {
+    PRINT("This line is not reached")
+} CATCH {
+    [EXCEP]
+}
+>>> expectError type: #SYNTAX_ERROR message: "Node has too few components." lineNumber: 4
+=========================
+>>> testCase "Unknown MAP attribute"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(MAP [FOO])
+>>> expectError type: #SYNTAX_ERROR message: "Expected \"FIELDS\" identifier component." lineNumber: 2
+=========================
+>>> testCase "Unknown IMPORT attribute"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+IMPORT <"./otherModule.petrol"> [FOO]
+>>> setupFile ~/targetPackage/otherModule.petrol
+PREP_VAR @myVar = <1>
+>>> expectError type: #SYNTAX_ERROR message: "Expected \"VARS\" identifier component." lineNumber: 2
