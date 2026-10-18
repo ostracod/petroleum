@@ -634,8 +634,7 @@ export const callMethodTask: TaskDef<MethodInvocation, null> = {
                         (value) => task.advanceStage(null),
                     );
                 }
-            }
-            if (methodKey === symbols.EVAL || methodKey === symbols.ACCESSED_VARS) {
+            } else {
                 return task.callMethod(
                     worker, symbols.PREP, [],
                     (value) => task.advanceStage(null),

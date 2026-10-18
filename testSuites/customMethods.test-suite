@@ -36,20 +36,20 @@ SET_MEMBER(FUNC_INVOC_METHODS, #describe, FUNC {
 WORK_VAR @myVar = (10)
 capture "myStmt" (123, "text", myVar, ADD(1, 2))
 WORK_VAR @exprs = (MEMBER(MEMBER(MEMBER(MEMBER(capturedCode, "myStmt"), #COMPS), 2), #EXPRS))
+PRINT(MEMBER(MEMBER(exprs, 0), #PHASE))
 PRINT(CALL_METHOD(MEMBER(exprs, 0), #describe, LIST ("Found ")))
 PRINT(CALL_METHOD(MEMBER(exprs, 1), #describe, LIST ("Found ")))
 PRINT(CALL_METHOD(MEMBER(exprs, 2), #describe, LIST ("Found ")))
-COMMENT "The invocable of an invocation is only known after prep-phase."
-CALL_METHOD(MEMBER(exprs, 3), #PREP)
 PRINT(CALL_METHOD(MEMBER(exprs, 3), #describe, LIST ("Found ")))
-COMMENT "Custom methods do not cause workers to enter work-phase."
+COMMENT "Custom methods cause workers to enter work-phase first."
 PRINT(MEMBER(MEMBER(exprs, 0), #PHASE))
 >>> expectPrint
+#PREP_PHASE
 Found integer 123
 Found string text
 Found identifier myVar
 Found invocation of ADD
-#PREP_PHASE
+#WORK_PHASE
 =========================
 >>> testCase "Custom methods on components"
 >>> setupFile ~/targetPackage/main.petrol
@@ -90,7 +90,6 @@ capture "myStmt" {
 }
 WORK_VAR @stmtsComp = (MEMBER(MEMBER(MEMBER(capturedCode, "myStmt"), #COMPS), 2))
 WORK_VAR @printStmt = (MEMBER(MEMBER(stmtsComp, #STMTS), 0))
-CALL_METHOD(printStmt, #PREP)
 PRINT(CALL_METHOD(printStmt, #countArgs))
 >>> expectPrint
 1
@@ -164,18 +163,45 @@ PRINT("This line is not reached")
 Invoking method
 >>> expectStuck message: "Waiting for method key #missingMethod to be defined" lineNumber: 3
 =========================
->>> testCase "Custom method on invocation in prep-phase"
+>>> testCase "Custom method invokes PREP method first"
 >>> setupFile ~/targetPackage/main.petrol
 IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode]]
 PREP_SYMBOL @#describe
 SET_MEMBER(FUNC_INVOC_METHODS, #describe, FUNC {
     [ARGS [@worker]]
-    RET ("This line is not reached")
+    RET (CONCAT(LIST ("Invocation of ", STR(MEMBER(worker, #INVOC)), " in ", STR(MEMBER(worker, #PHASE)))))
 })
-capture "myStmt" (ADD(1, 2))
-WORK_VAR @exprs = (MEMBER(MEMBER(MEMBER(MEMBER(capturedCode, "myStmt"), #COMPS), 2), #EXPRS))
-PRINT(MEMBER(MEMBER(exprs, 0), #PHASE))
-PRINT(CALL_METHOD(MEMBER(exprs, 0), #describe))
+PREP_SYMBOL @#greet
+PREP_VAR @greeter = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            PRINT("Prepping greeter")
+        })
+        (#greet) = (FUNC {
+            [ARGS [@worker]]
+            RET (CONCAT(LIST ("Hello in ", STR(MEMBER(worker, #PHASE)))))
+        })
+    ]])
+]]>
+capture "funcStmt" (ADD(1, 2))
+capture "procStmt" {
+    greeter
+}
+WORK_VAR @funcExpr = (MEMBER(MEMBER(MEMBER(MEMBER(capturedCode, "funcStmt"), #COMPS), 2), #EXPRS))
+SET funcExpr = (MEMBER(funcExpr, 0))
+WORK_VAR @procStmt = (MEMBER(MEMBER(MEMBER(MEMBER(capturedCode, "procStmt"), #COMPS), 2), #STMTS))
+SET procStmt = (MEMBER(procStmt, 0))
+PRINT(MEMBER(funcExpr, #PHASE))
+PRINT(CALL_METHOD(funcExpr, #describe))
+PRINT(MEMBER(procStmt, #PHASE))
+PRINT(CALL_METHOD(procStmt, #greet))
+PRINT(CALL_METHOD(procStmt, #greet))
 >>> expectPrint
 #PREP_PHASE
->>> expectError type: #TYPE_ERROR message: "Invocable is not yet known because invocation is in prep-phase." lineNumber: 7
+Invocation of ADD in #WORK_PHASE
+#PREP_PHASE
+Prepping greeter
+Hello in #WORK_PHASE
+Hello in #WORK_PHASE
