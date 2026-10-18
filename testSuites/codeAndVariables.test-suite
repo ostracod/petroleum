@@ -1,6 +1,6 @@
->>> testCase "CLONE_CODE function with expression"
->>> setupFile ~/targetPackage/main.petrol
+>>> commonFile ~/targetPackage/testUtils.petrol
 PREP_VAR @capturedCode = <MAP [FIELDS []]>
+COMMENT "Usage: capture \"name\" $comps"
 COMMENT "Stores the invocation statement in `capturedCode` without prepping child workers."
 PREP_VAR @capture = <MAP [FIELDS [
     (#IS_PROC) = (TRUE)
@@ -12,6 +12,7 @@ PREP_VAR @capture = <MAP [FIELDS [
         })
     ]])
 ]]>
+COMMENT "Usage: currentFrame ()"
 COMMENT "Returns the frame passed to the #EVAL method."
 PREP_VAR @currentFrame = <MAP [FIELDS [
     (#IS_PROC) = (TRUE)
@@ -22,6 +23,10 @@ PREP_VAR @currentFrame = <MAP [FIELDS [
         })
     ]])
 ]]>
+=========================
+>>> testCase "CLONE_CODE function with expression"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode, @currentFrame]]
 capture "myStmt" (ADD(3, 4))
 WORK_VAR @exprsComp = (MEMBER(MEMBER(MEMBER(capturedCode, "myStmt"), #COMPS), 2))
 WORK_VAR @expr = (MEMBER(MEMBER(exprsComp, #EXPRS), 0))
@@ -55,28 +60,7 @@ ADD
 =========================
 >>> testCase "CLONE_CODE function with statement sequence"
 >>> setupFile ~/targetPackage/main.petrol
-PREP_VAR @capturedCode = <MAP [FIELDS []]>
-COMMENT "Stores the invocation statement in `capturedCode` without prepping child workers."
-PREP_VAR @capture = <MAP [FIELDS [
-    (#IS_PROC) = (TRUE)
-    (#METHODS) = (MAP [FIELDS [
-        (#PREP) = (FUNC {
-            [ARGS [@worker]]
-            WORK_VAR @nameComp = (MEMBER(MEMBER(worker, #COMPS), 1))
-            SET_MEMBER(capturedCode, MEMBER(nameComp, #STR), worker)
-        })
-    ]])
-]]>
-COMMENT "Returns the frame passed to the #EVAL method."
-PREP_VAR @currentFrame = <MAP [FIELDS [
-    (#IS_PROC) = (TRUE)
-    (#METHODS) = (MAP [FIELDS [
-        (#EVAL) = (FUNC {
-            [ARGS [@worker, @frame]]
-            RET (frame)
-        })
-    ]])
-]]>
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode, @currentFrame]]
 capture "myStmt" {
     WORK_VAR @myVar = (5)
     PRINT(myVar)
@@ -151,18 +135,7 @@ Count: 2
 =========================
 >>> testCase "CLONE_CODE function with prepped workers"
 >>> setupFile ~/targetPackage/main.petrol
-PREP_VAR @capturedCode = <MAP [FIELDS []]>
-COMMENT "Stores the invocation statement in `capturedCode` without prepping child workers."
-PREP_VAR @capture = <MAP [FIELDS [
-    (#IS_PROC) = (TRUE)
-    (#METHODS) = (MAP [FIELDS [
-        (#PREP) = (FUNC {
-            [ARGS [@worker]]
-            WORK_VAR @nameComp = (MEMBER(MEMBER(worker, #COMPS), 1))
-            SET_MEMBER(capturedCode, MEMBER(nameComp, #STR), worker)
-        })
-    ]])
-]]>
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode]]
 PREP_VAR @tryClone = <FUNC {
     [ARGS [@code]]
     TRY {
@@ -225,18 +198,7 @@ cloneSelf
 =========================
 >>> testCase "SCOPE function"
 >>> setupFile ~/targetPackage/main.petrol
-PREP_VAR @capturedCode = <MAP [FIELDS []]>
-COMMENT "Stores the invocation statement in `capturedCode` without prepping child workers."
-PREP_VAR @capture = <MAP [FIELDS [
-    (#IS_PROC) = (TRUE)
-    (#METHODS) = (MAP [FIELDS [
-        (#PREP) = (FUNC {
-            [ARGS [@worker]]
-            WORK_VAR @nameComp = (MEMBER(MEMBER(worker, #COMPS), 1))
-            SET_MEMBER(capturedCode, MEMBER(nameComp, #STR), worker)
-        })
-    ]])
-]]>
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode]]
 capture "topStmt"
 RUN {
     capture "runStmt" (ADD(1, 2))
@@ -272,18 +234,7 @@ PRINT(EQUAL(SCOPE(MEMBER(MEMBER(stmtsComp, #STMTS), 0)), blockScope))
 =========================
 >>> testCase "FIND_VAR function"
 >>> setupFile ~/targetPackage/main.petrol
-PREP_VAR @capturedCode = <MAP [FIELDS []]>
-COMMENT "Stores the invocation statement in `capturedCode` without prepping child workers."
-PREP_VAR @capture = <MAP [FIELDS [
-    (#IS_PROC) = (TRUE)
-    (#METHODS) = (MAP [FIELDS [
-        (#PREP) = (FUNC {
-            [ARGS [@worker]]
-            WORK_VAR @nameComp = (MEMBER(MEMBER(worker, #COMPS), 1))
-            SET_MEMBER(capturedCode, MEMBER(nameComp, #STR), worker)
-        })
-    ]])
-]]>
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode]]
 PREP_VAR @shadowedVar = <10>
 WORK_VAR @topVar = (20)
 RUN {
@@ -332,16 +283,7 @@ NULL
 >>> setupFile ~/targetPackage/otherModule.petrol
 WORK_VAR @otherVar = (50)
 >>> setupFile ~/targetPackage/main.petrol
-COMMENT "Returns the frame passed to the #EVAL method."
-PREP_VAR @currentFrame = <MAP [FIELDS [
-    (#IS_PROC) = (TRUE)
-    (#METHODS) = (MAP [FIELDS [
-        (#EVAL) = (FUNC {
-            [ARGS [@worker, @frame]]
-            RET (frame)
-        })
-    ]])
-]]>
+IMPORT <"./testUtils.petrol"> [VARS [@currentFrame]]
 IMPORT <"./otherModule.petrol"> [VARS [otherVar AS @importedVar]]
 IMPORT <#FILE_SYSTEM> [VARS [@PATH_NAME]]
 WORK_VAR @scope = (MEMBER(currentFrame (), #SCOPE))
@@ -369,16 +311,7 @@ otherVar
 =========================
 >>> testCase "FIND_VAR_VALUE function"
 >>> setupFile ~/targetPackage/main.petrol
-COMMENT "Returns the frame passed to the #EVAL method."
-PREP_VAR @currentFrame = <MAP [FIELDS [
-    (#IS_PROC) = (TRUE)
-    (#METHODS) = (MAP [FIELDS [
-        (#EVAL) = (FUNC {
-            [ARGS [@worker, @frame]]
-            RET (frame)
-        })
-    ]])
-]]>
+IMPORT <"./testUtils.petrol"> [VARS [@currentFrame]]
 PREP_VAR @myPrepVar = <10>
 WORK_VAR @myWorkVar = (20)
 WORK_VAR @frame = (currentFrame ())
@@ -411,32 +344,11 @@ FIND_VAR_VALUE(scope, workVar)
 30
 0
 1
->>> expectError type: #STATE_ERROR lineNumber: 32
+>>> expectError type: #STATE_ERROR lineNumber: 23
 =========================
 >>> testCase "NEW_FRAME function"
 >>> setupFile ~/targetPackage/main.petrol
-PREP_VAR @capturedCode = <MAP [FIELDS []]>
-COMMENT "Stores the invocation statement in `capturedCode` without prepping child workers."
-PREP_VAR @capture = <MAP [FIELDS [
-    (#IS_PROC) = (TRUE)
-    (#METHODS) = (MAP [FIELDS [
-        (#PREP) = (FUNC {
-            [ARGS [@worker]]
-            WORK_VAR @nameComp = (MEMBER(MEMBER(worker, #COMPS), 1))
-            SET_MEMBER(capturedCode, MEMBER(nameComp, #STR), worker)
-        })
-    ]])
-]]>
-COMMENT "Returns the frame passed to the #EVAL method."
-PREP_VAR @currentFrame = <MAP [FIELDS [
-    (#IS_PROC) = (TRUE)
-    (#METHODS) = (MAP [FIELDS [
-        (#EVAL) = (FUNC {
-            [ARGS [@worker, @frame]]
-            RET (frame)
-        })
-    ]])
-]]>
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode, @currentFrame]]
 capture "myStmt" {
     WORK_VAR @var1 = (10)
     WORK_VAR @var2
@@ -503,19 +415,10 @@ LIST ("myVar")
 =========================
 >>> testCase "NEW_FRAME function with module scope"
 >>> setupFile ~/targetPackage/main.petrol
-COMMENT "Returns the frame passed to the #EVAL method."
-PREP_VAR @currentFrame = <MAP [FIELDS [
-    (#IS_PROC) = (TRUE)
-    (#METHODS) = (MAP [FIELDS [
-        (#EVAL) = (FUNC {
-            [ARGS [@worker, @frame]]
-            RET (frame)
-        })
-    ]])
-]]>
+IMPORT <"./testUtils.petrol"> [VARS [@currentFrame]]
 WORK_VAR @moduleScope = (MEMBER(currentFrame (), #SCOPE))
 PRINT(EQUAL(MEMBER(moduleScope, #PERMA_FRAME), currentFrame ()))
 NEW_FRAME(moduleScope, NULL)
 >>> expectPrint
 1
->>> expectError type: #STATE_ERROR lineNumber: 13
+>>> expectError type: #STATE_ERROR lineNumber: 4

@@ -1,3 +1,19 @@
+>>> commonFile ~/targetPackage/testUtils.petrol
+PREP_VAR @capturedCode = <MAP [FIELDS []]>
+COMMENT "Usage: captureAndPrep \"name\" $comp"
+COMMENT "Stores the invocation statement in `capturedCode` and preps the component after the name."
+PREP_VAR @captureAndPrep = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @comps = (MEMBER(worker, #COMPS))
+            SET_MEMBER(capturedCode, MEMBER(MEMBER(comps, 1), #STR), worker)
+            CALL_METHOD(MEMBER(comps, 2), #PREP)
+        })
+    ]])
+]]>
+=========================
 >>> testCase "LIST procedure"
 >>> setupFile ~/targetPackage/main.petrol
 PRINT(LIST (10, "text", NULL))
@@ -343,33 +359,23 @@ SET myVar (1)
 >>> setupFile ~/targetPackage/otherModule.petrol
 PREP_VAR @otherVar = <10>
 >>> setupFile ~/targetPackage/main.petrol
-PREP_VAR @capturedComps = <MAP [FIELDS []]>
-COMMENT "Preps the second component and stores it in `capturedComps`."
-PREP_VAR @capture = <MAP [FIELDS [
-    (#IS_PROC) = (TRUE)
-    (#METHODS) = (MAP [FIELDS [
-        (#PREP) = (FUNC {
-            [ARGS [@worker]]
-            WORK_VAR @comps = (MEMBER(worker, #COMPS))
-            WORK_VAR @name = (MEMBER(MEMBER(comps, 1), #STR))
-            SET_MEMBER(capturedComps, name, MEMBER(comps, 2))
-            CALL_METHOD(MEMBER(comps, 2), #PREP)
-        })
-    ]])
-]]>
+IMPORT <"./testUtils.petrol"> [VARS [@captureAndPrep, @capturedCode]]
 IMPORT <"./otherModule.petrol"> AS @otherModule
 WORK_VAR @myVar = (1)
-capture "prep" (PREP <ADD(2, 3)>)
-capture "get" (GET <otherModule> otherVar)
-capture "set" {
+captureAndPrep "prep" (PREP <ADD(2, 3)>)
+captureAndPrep "get" (GET <otherModule> otherVar)
+captureAndPrep "set" {
     SET myVar = (2)
 }
-WORK_VAR @prepExpr = (MEMBER(MEMBER(MEMBER(capturedComps, "prep"), #EXPRS), 0))
+WORK_VAR @prepComp = (MEMBER(MEMBER(MEMBER(capturedCode, "prep"), #COMPS), 2))
+WORK_VAR @prepExpr = (MEMBER(MEMBER(prepComp, #EXPRS), 0))
 PRINT(MEMBER(prepExpr, #VALUE))
-WORK_VAR @getExpr = (MEMBER(MEMBER(MEMBER(capturedComps, "get"), #EXPRS), 0))
+WORK_VAR @getComp = (MEMBER(MEMBER(MEMBER(capturedCode, "get"), #COMPS), 2))
+WORK_VAR @getExpr = (MEMBER(MEMBER(getComp, #EXPRS), 0))
 WORK_VAR @otherScope = (MEMBER(otherModule, #SCOPE))
 PRINT(EQUAL(MEMBER(getExpr, #SRC_VAR), FIND_VAR(otherScope, "otherVar")))
-WORK_VAR @setStmt = (MEMBER(MEMBER(MEMBER(capturedComps, "set"), #STMTS), 0))
+WORK_VAR @setComp = (MEMBER(MEMBER(MEMBER(capturedCode, "set"), #COMPS), 2))
+WORK_VAR @setStmt = (MEMBER(MEMBER(setComp, #STMTS), 0))
 PRINT(EQUAL(MEMBER(setStmt, #DEST_VAR), FIND_VAR(SCOPE(setStmt), "myVar")))
 PRINT(MEMBER(MEMBER(setStmt, #DEST_VAR), #IDENT))
 >>> expectPrint
