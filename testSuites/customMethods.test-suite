@@ -1,0 +1,181 @@
+>>> commonFile ~/targetPackage/testUtils.petrol
+PREP_VAR @capturedCode = <MAP [FIELDS []]>
+COMMENT "Usage: capture \"name\" $comps"
+COMMENT "Stores the invocation statement in `capturedCode` without prepping child workers."
+PREP_VAR @capture = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @nameComp = (MEMBER(MEMBER(worker, #COMPS), 1))
+            SET_MEMBER(capturedCode, MEMBER(nameComp, #STR), worker)
+        })
+    ]])
+]]>
+=========================
+>>> testCase "Custom methods on expressions"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode]]
+PREP_SYMBOL @#describe
+SET_MEMBER(INT_EXPR_METHODS, #describe, FUNC {
+    [ARGS [@worker, @prefix]]
+    RET (CONCAT(LIST (prefix, "integer ", STR(MEMBER(worker, #INT)))))
+})
+SET_MEMBER(STR_EXPR_METHODS, #describe, FUNC {
+    [ARGS [@worker, @prefix]]
+    RET (CONCAT(LIST (prefix, "string ", MEMBER(worker, #STR))))
+})
+SET_MEMBER(IDENT_EXPR_METHODS, #describe, FUNC {
+    [ARGS [@worker, @prefix]]
+    RET (CONCAT(LIST (prefix, "identifier ", MEMBER(worker, #IDENT))))
+})
+SET_MEMBER(FUNC_INVOC_METHODS, #describe, FUNC {
+    [ARGS [@worker, @prefix]]
+    RET (CONCAT(LIST (prefix, "invocation of ", STR(MEMBER(worker, #INVOC)))))
+})
+WORK_VAR @myVar = (10)
+capture "myStmt" (123, "text", myVar, ADD(1, 2))
+WORK_VAR @exprs = (MEMBER(MEMBER(MEMBER(MEMBER(capturedCode, "myStmt"), #COMPS), 2), #EXPRS))
+PRINT(CALL_METHOD(MEMBER(exprs, 0), #describe, LIST ("Found ")))
+PRINT(CALL_METHOD(MEMBER(exprs, 1), #describe, LIST ("Found ")))
+PRINT(CALL_METHOD(MEMBER(exprs, 2), #describe, LIST ("Found ")))
+COMMENT "The invocable of an invocation is only known after prep-phase."
+CALL_METHOD(MEMBER(exprs, 3), #PREP)
+PRINT(CALL_METHOD(MEMBER(exprs, 3), #describe, LIST ("Found ")))
+COMMENT "Custom methods do not cause workers to enter work-phase."
+PRINT(MEMBER(MEMBER(exprs, 0), #PHASE))
+>>> expectPrint
+Found integer 123
+Found string text
+Found identifier myVar
+Found invocation of ADD
+#PREP_PHASE
+=========================
+>>> testCase "Custom methods on components"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode]]
+PREP_SYMBOL @#countNodes
+SET_MEMBER(EXPR_COMP_METHODS, #countNodes, FUNC {
+    [ARGS [@worker]]
+    RET (LEN(MEMBER(worker, #EXPRS)))
+})
+SET_MEMBER(STMTS_COMP_METHODS, #countNodes, FUNC {
+    [ARGS [@worker]]
+    RET (LEN(MEMBER(worker, #STMTS)))
+})
+capture "exprsStmt" (1, 2, 3)
+capture "stmtsStmt" {
+    PRINT("This line is not reached")
+    PRINT("This line is not reached")
+}
+WORK_VAR @exprsComp = (MEMBER(MEMBER(MEMBER(capturedCode, "exprsStmt"), #COMPS), 2))
+WORK_VAR @stmtsComp = (MEMBER(MEMBER(MEMBER(capturedCode, "stmtsStmt"), #COMPS), 2))
+PRINT(CALL_METHOD(exprsComp, #countNodes))
+PRINT(CALL_METHOD(stmtsComp, #countNodes))
+>>> expectPrint
+3
+2
+=========================
+>>> testCase "Custom method on function invocation statement"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode]]
+PREP_SYMBOL @#countArgs
+SET_MEMBER(FUNC_INVOC_METHODS, #countArgs, FUNC {
+    [ARGS [@worker]]
+    WORK_VAR @argsComp = (MEMBER(MEMBER(worker, #COMPS), 1))
+    RET (LEN(MEMBER(argsComp, #EXPRS)))
+})
+capture "myStmt" {
+    PRINT("This line is not reached")
+}
+WORK_VAR @stmtsComp = (MEMBER(MEMBER(MEMBER(capturedCode, "myStmt"), #COMPS), 2))
+WORK_VAR @printStmt = (MEMBER(MEMBER(stmtsComp, #STMTS), 0))
+CALL_METHOD(printStmt, #PREP)
+PRINT(CALL_METHOD(printStmt, #countArgs))
+>>> expectPrint
+1
+=========================
+>>> testCase "Custom method on procedure"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_SYMBOL @#greet
+PREP_SYMBOL @#farewell
+PREP_VAR @workers = <MAP [FIELDS []]>
+PREP_VAR @greeter = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @name = (MEMBER(MEMBER(MEMBER(worker, #COMPS), 1), #STR))
+            SET_MEMBER(workers, name, worker)
+        })
+        (#greet) = (FUNC {
+            [ARGS [@worker, @greeting]]
+            WORK_VAR @name = (MEMBER(MEMBER(MEMBER(worker, #COMPS), 1), #STR))
+            RET (CONCAT(LIST (greeting, ", ", name)))
+        })
+    ]])
+]]>
+greeter "Alice"
+greeter "Bob"
+PRINT(CALL_METHOD(MEMBER(workers, "Alice"), #greet, LIST ("Hello")))
+PRINT(CALL_METHOD(MEMBER(workers, "Bob"), #greet, LIST ("Hi")))
+COMMENT "Methods may also be added to a procedure after it is created."
+SET_MEMBER(MEMBER(greeter, #METHODS), #farewell, FUNC {
+    [ARGS [@worker]]
+    RET (CONCAT(LIST ("Goodbye, ", MEMBER(MEMBER(MEMBER(worker, #COMPS), 1), #STR))))
+})
+PRINT(CALL_METHOD(MEMBER(workers, "Bob"), #farewell))
+>>> expectPrint
+Hello, Alice
+Hi, Bob
+Goodbye, Bob
+=========================
+>>> testCase "Custom method defined later"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode]]
+PREP_SYMBOL @#double
+capture "myStmt" (21)
+WORK_VAR @expr = (MEMBER(MEMBER(MEMBER(MEMBER(capturedCode, "myStmt"), #COMPS), 2), #EXPRS))
+SET expr = (MEMBER(expr, 0))
+SCHED {
+    PRINT("Defining method")
+    SET_MEMBER(INT_EXPR_METHODS, #double, FUNC {
+        [ARGS [@worker]]
+        RET (MUL(MEMBER(worker, #INT), 2))
+    })
+}
+PRINT("Invoking method")
+PRINT(CALL_METHOD(expr, #double))
+>>> expectPrint
+Invoking method
+Defining method
+42
+=========================
+>>> testCase "Custom method never defined"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode]]
+PREP_SYMBOL @#missingMethod
+capture "myStmt" (5)
+WORK_VAR @expr = (MEMBER(MEMBER(MEMBER(MEMBER(capturedCode, "myStmt"), #COMPS), 2), #EXPRS))
+PRINT("Invoking method")
+PRINT(CALL_METHOD(MEMBER(expr, 0), #missingMethod))
+PRINT("This line is not reached")
+>>> expectPrint
+Invoking method
+>>> expectStuck message: "Waiting for method key #missingMethod to be defined" lineNumber: 3
+=========================
+>>> testCase "Custom method on invocation in prep-phase"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode]]
+PREP_SYMBOL @#describe
+SET_MEMBER(FUNC_INVOC_METHODS, #describe, FUNC {
+    [ARGS [@worker]]
+    RET ("This line is not reached")
+})
+capture "myStmt" (ADD(1, 2))
+WORK_VAR @exprs = (MEMBER(MEMBER(MEMBER(MEMBER(capturedCode, "myStmt"), #COMPS), 2), #EXPRS))
+PRINT(MEMBER(MEMBER(exprs, 0), #PHASE))
+PRINT(CALL_METHOD(MEMBER(exprs, 0), #describe))
+>>> expectPrint
+#PREP_PHASE
+>>> expectError type: #TYPE_ERROR message: "Invocable is not yet known because invocation is in prep-phase." lineNumber: 7

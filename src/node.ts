@@ -64,6 +64,9 @@ export const getWorkerMethodMap = (methodsMap: WorkerMethodsMap, worker: PetMap)
                 return methodsMap.FUNC_INVOC_METHODS;
             } else if (invocable instanceof PetMap) {
                 return invocable.getMember(symbols.METHODS).getMap();
+            } else if (worker.getMember(symbols.PHASE).getSymbol() === symbols.PREP_PHASE
+                    && invocable === null) {
+                throw new PetTypeError("Invocable is not yet known because invocation is in prep-phase.");
             } else {
                 throw new PetTypeError("Invocable must be function or procedure.");
             }
