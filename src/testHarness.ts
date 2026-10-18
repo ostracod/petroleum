@@ -432,6 +432,21 @@ const getLabeledArgs = (parts: string[], names: string[]): Map<string, string> =
     return output;
 };
 
+const addTestFile = (
+    fileSystem: VirtualFileSystem,
+    inputPath: string,
+    contentLines: string[],
+): void => {
+    const path = fileSystem.replacePathTilde(inputPath);
+    const parentPath = getPathParent(path);
+    if (parentPath === null) {
+        throw new Error("Cannot create file whose path is the root directory.");
+    }
+    fileSystem.createMissingDirs(parentPath);
+    const buffer = Buffer.from(contentLines.join("\n"));
+    fileSystem.writeFile(path, buffer);
+};
+
 const checkPrintLines = (
     actualPrintLines: string[],
     expectedPrintLines: string[],
@@ -480,6 +495,88 @@ const checkProblems = <T1 extends TestProblem, T2 extends ExpectedProblem<T1>>(
     return failures;
 };
 
+class DirectivePool {
+    directives: TestDirective[];
+    
+    constructor(lines: string[]) {
+        let currentGroup: string[] | null = null;
+        const lineGroups: string[][] = [];
+        for (const line of lines) {
+            if (line.startsWith(">>> ")) {
+                currentGroup = [line];
+                lineGroups.push(currentGroup);
+            } else if (currentGroup === null) {
+                throw new Error("Unexpected data line before directives.");
+            } else {
+                currentGroup.push(line);
+            }
+        }
+        this.directives = lineGroups.map((lineGroup) => new TestDirective(lineGroup));
+    }
+    
+    hasDirective(name: string): boolean {
+        return this.directives.some((directive) => (directive.name === name));
+    }
+    
+    consumeDirectivesByCond(condition: (name: string) => boolean): TestDirective[] {
+        const output: TestDirective[] = [];
+        const nextDirectives: TestDirective[] = [];
+        for (const directive of this.directives) {
+            if (condition(directive.name)) {
+                output.push(directive);
+            } else {
+                nextDirectives.push(directive);
+            }
+        }
+        this.directives = nextDirectives;
+        return output;
+    }
+    
+    consumeDirectives(name: string): TestDirective[] {
+        return this.consumeDirectivesByCond((inputName) => (inputName === name));
+    }
+    
+    consumeProblemDirectives(
+        directiveName: string,
+        argNames: string[],
+    ): Map<string, string>[] {
+        const problemDirectives = this.consumeDirectives(directiveName);
+        return problemDirectives.map(
+            (directive) => getLabeledArgs(directive.args, argNames),
+        );
+    }
+    
+    assertEmpty() {
+        if (this.directives.length > 0) {
+            throw new Error("Unexpected directive: " + this.directives[0].name);
+        }
+    }
+}
+
+class TestInit {
+    // Map from path to file content.
+    commonFiles: Map<string, string[]>;
+    
+    constructor(pool: DirectivePool) {
+        this.commonFiles = new Map();
+        const fileDirectives = pool.consumeDirectives("commonFile");
+        for (const directive of fileDirectives) {
+            if (directive.args.length !== 1) {
+                throw new Error("commonFile directive expects exactly one argument.");
+            }
+            const path = directive.args[0];
+            this.commonFiles.set(path, directive.dataLines);
+        }
+        pool.assertEmpty();
+    }
+    
+    initFileSystem(fileSystem: VirtualFileSystem): void {
+        for (const [path, contentLines] of this.commonFiles.entries()) {
+            addTestFile(fileSystem, path, contentLines);
+        }
+    }
+}
+
 class TestCase {
     testSuite: TestSuite;
     name: string;
@@ -490,41 +587,10 @@ class TestCase {
     expectedErrors: ExpectedError[];
     expectedStickers: ExpectedSticker[];
     
-    constructor(testSuite: TestSuite, lines: string[]) {
+    constructor(testSuite: TestSuite, pool: DirectivePool) {
         this.testSuite = testSuite;
-        let currentGroup: string[] | null = null;
-        const lineGroups: string[][] = [];
-        for (const line of lines) {
-            if (line.startsWith(">>> ")) {
-                currentGroup = [line];
-                lineGroups.push(currentGroup);
-            } else if (currentGroup === null) {
-                throw new Error("Unexpected data line before directives in test case.");
-            } else {
-                currentGroup.push(line);
-            }
-        }
-        let directives = lineGroups.map((lineGroup) => new TestDirective(lineGroup));
-        const consumeDirectivesByCond = (
-            condition: (name: string) => boolean,
-        ): TestDirective[] => {
-            const output: TestDirective[] = [];
-            const nextDirectives: TestDirective[] = [];
-            for (const directive of directives) {
-                if (condition(directive.name)) {
-                    output.push(directive);
-                } else {
-                    nextDirectives.push(directive);
-                }
-            }
-            directives = nextDirectives;
-            return output;
-        };
-        const consumeDirectives = (name: string): TestDirective[] => (
-            consumeDirectivesByCond((inputName) => (inputName === name))
-        );
         
-        const caseDirectives = consumeDirectives("testCase");
+        const caseDirectives = pool.consumeDirectives("testCase");
         if (caseDirectives.length !== 1) {
             throw new Error("Every test case must contain exactly one testCase directive.");
         }
@@ -537,9 +603,9 @@ class TestCase {
         }
         this.name = caseDirective.args[0];
         
-        this.setupDirectives = consumeDirectivesByCond((name) => name.startsWith("setup"));
+        this.setupDirectives = pool.consumeDirectivesByCond((name) => name.startsWith("setup"));
         
-        const argsDirectives = consumeDirectives("appArgs");
+        const argsDirectives = pool.consumeDirectives("appArgs");
         if (argsDirectives.length > 1) {
             throw new Error("Test case cannot contain more than one appArgs directive.");
         }
@@ -553,7 +619,7 @@ class TestCase {
             this.appArgs = [];
         }
         
-        const printDirectives = consumeDirectives("expectPrint");
+        const printDirectives = pool.consumeDirectives("expectPrint");
         if (printDirectives.length > 1) {
             throw new Error("Test case cannot contain more than one expectPrint directive.");
         }
@@ -567,57 +633,42 @@ class TestCase {
             this.expectedPrintLines = [];
         }
         
-        const consumeProblemDirectives = (
-            directiveName: string,
-            argNames: string[],
-        ): Map<string, string>[] => {
-            const problemDirectives = consumeDirectives(directiveName);
-            return problemDirectives.map(
-                (directive) => getLabeledArgs(directive.args, argNames),
-            );
-        };
-        
-        const exceptionMaps = consumeProblemDirectives(
+        const exceptionMaps = pool.consumeProblemDirectives(
             "expectExcep", ["type", "path", "lineNumber"],
         );
         this.expectedExceptions = exceptionMaps.map((map) => new ExpectedException(
             map.get("type"), map.get("path"), map.get("lineNumber"),
         ));
         
-        const errorMaps = consumeProblemDirectives(
+        const errorMaps = pool.consumeProblemDirectives(
             "expectError", ["type", "message", "path", "lineNumber"],
         );
         this.expectedErrors = errorMaps.map((map) => new ExpectedError(
             map.get("type"), map.get("message"), map.get("path"), map.get("lineNumber"),
         ));
         
-        const stickerMaps = consumeProblemDirectives(
+        const stickerMaps = pool.consumeProblemDirectives(
             "expectStuck", ["message", "path", "lineNumber"],
         );
         this.expectedStickers = stickerMaps.map((map) => new ExpectedSticker(
             map.get("message"), map.get("path"), map.get("lineNumber"),
         ));
         
-        if (directives.length > 0) {
-            throw new Error("Unexpected directive: " + directives[0].name);
-        }
+        pool.assertEmpty();
     }
     
     createFileSystem(): VirtualFileSystem {
         const fileSystem = new VirtualFileSystem();
+        const { testInit } = this.testSuite;
+        if (testInit !== null) {
+            testInit.initFileSystem(fileSystem);
+        }
         for (const { name, args, dataLines } of this.setupDirectives) {
             if (name === "setupFile") {
                 if (args.length !== 1) {
                     throw new Error("setupFile directive expects exactly one argument.");
                 }
-                const path = fileSystem.replacePathTilde(args[0]);
-                const parentPath = getPathParent(path);
-                if (parentPath === null) {
-                    throw new Error("Cannot create file whose path is the root directory.");
-                }
-                fileSystem.createMissingDirs(parentPath);
-                const buffer = Buffer.from(dataLines.join("\n"));
-                fileSystem.writeFile(path, buffer);
+                addTestFile(fileSystem, args[0], dataLines);
             } else if (name === "setupDir") {
                 if (args.length !== 1) {
                     throw new Error("setupDir directive expects exactly one argument.");
@@ -668,15 +719,15 @@ const isSeparatorLine = (line: string): boolean => {
     return true;
 };
 
-const splitLinesByTestCases = (lines: string[]): string[][] => {
-    let currentGroup: string[] = [];
-    const output = [currentGroup];
+const splitLinesBySections = (lines: string[]): string[][] => {
+    let currentSection: string[] = [];
+    const output = [currentSection];
     for (const line of lines) {
         if (isSeparatorLine(line)) {
-            currentGroup = [];
-            output.push(currentGroup);
+            currentSection = [];
+            output.push(currentSection);
         } else {
-            currentGroup.push(line);
+            currentSection.push(line);
         }
     }
     return output;
@@ -684,6 +735,7 @@ const splitLinesByTestCases = (lines: string[]): string[][] => {
 
 class TestSuite {
     path: string;
+    testInit: TestInit | null;
     testCases: TestCase[];
     
     constructor(path: string) {
@@ -699,8 +751,20 @@ class TestSuite {
             truncIndex = nextTruncIndex;
         }
         lines.length = truncIndex;
-        const lineGroups = splitLinesByTestCases(lines);
-        this.testCases = lineGroups.map((lineGroup) => new TestCase(this, lineGroup));
+        const sections = splitLinesBySections(lines);
+        this.testInit = null;
+        this.testCases = [];
+        for (const sectionLines of sections) {
+            const pool = new DirectivePool(sectionLines);
+            if (pool.hasDirective("testCase")) {
+                const testCase = new TestCase(this, pool);
+                this.testCases.push(testCase);
+            } else if (this.testInit === null) {
+                this.testInit = new TestInit(pool);
+            } else {
+                throw new Error("Test suite cannot have more than one initialization section.");
+            }
+        }
         const names = new Set<string>();
         for (const { name } of this.testCases) {
             if (names.has(name)) {

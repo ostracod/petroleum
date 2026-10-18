@@ -21,17 +21,17 @@ Runs all test suites in `<dirPath>`.
 
 ## Test Suite Syntax
 
-Each test suite consists of a sequence of test cases delimited by test case separators. Each test case separator is a line containing at least three equal signs (`=`) and no other characters. It is recommended to use more than three equal signs for visual clarity. For example:
+Each test suite consists of a sequence of sections delimited by section separators. Each section separator is a line containing at least three equal signs (`=`) and no other characters. It is recommended to use more than three equal signs for visual clarity. For example:
 
 ```
-$testCase1
+$section1
 =========================
-$testCase2
+$section2
 =========================
-$testCase3
+$section3
 ```
 
-Each test case consists of a sequence of directives. Each directive has this structure:
+Each section consists of a sequence of directives. Each directive has this structure:
 
 ```
 >>> $directiveName $args
@@ -49,6 +49,8 @@ In the example below, the arguments are `123` and `this is a "very" cool example
 >>> dummyDirective 123 "This is a \"very\" cool example"
 ```
 
+There are two types of sections: "test case sections" and "initialization sections". Test case sections contain a `testCase` directive, while initialization sections do not.
+
 ## Test File System
 
 When running test suites, the interpreter uses a virtual file system instead of the actual file system on disk. This prevents test suites from messing up files on the host computer, and improves the speed of running tests. The following paths are available in each virtual file system:
@@ -64,13 +66,13 @@ When running test suites, the interpreter uses a virtual file system instead of 
 
 ## Test Case Directives
 
-The test harness recognizes the following directives:
+The following directives are valid in a test case section:
 
 ```
 >>> testCase $name
 ```
 
-Declares the name of the test case. Every test case must contain this directive.
+Declares the name of the test case.
 
 ```
 >>> setupFile $path
@@ -115,6 +117,17 @@ Validates that the application has thrown an unhandled error exception. `$type` 
 ```
 
 Validates that a coroutine was reported to be stuck spinning or awaiting. `$message` is the message of the spin or await exception. `$path` is the path of the module which is stuck. `$lineNumber` is the line number which is stuck. `message: $message`, `path: $path`, and `lineNumber: $lineNumber` are all optional.
+
+## Initialization Directives
+
+The following directives are valid in an initialization section:
+
+```
+>>> commonFile $path
+$fileContent
+```
+
+Defines a common file at `$path` containing `$fileContent`. The file will be created before running every test case in the suite. This is useful for test suites which need the same helper functions or procedures in many test cases.
 
 ## Example Test Suites
 
@@ -189,6 +202,27 @@ PRINT(libUtilsValue)
 PREP_VAR @libUtilsValue = <123>
 >>> expectPrint
 123
+```
+
+The example below demonstrates usage of the `commonFile` directive:
+
+```
+>>> commonFile ~/targetPackage/helper.petrol
+PREP_VAR @helperValue = <444>
+=========================
+>>> testCase "Import helper value"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./helper.petrol"> [VARS [@helperValue]]
+PRINT(helperValue)
+>>> expectPrint
+444
+=========================
+>>> testCase "Import and add"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./helper.petrol"> [VARS [@helperValue]]
+PRINT(ADD(helperValue, 6))
+>>> expectPrint
+450
 ```
 
 
