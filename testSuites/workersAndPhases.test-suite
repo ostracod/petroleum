@@ -74,6 +74,30 @@ PREP_VAR @slow = <MAP [FIELDS [
         })
     ]])
 ]]>
+COMMENT "Usage: evalInPrep $comp"
+COMMENT "The #PREP method evaluates the component and prints the result."
+PREP_VAR @evalInPrep = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @comp = (MEMBER(MEMBER(worker, #COMPS), 1))
+            PRINT(CALL_METHOD(comp, #EVAL, LIST (SCOPE(worker))))
+        })
+    ]])
+]]>
+COMMENT "Usage: evalInWork $comp"
+COMMENT "The #EVAL method evaluates the component and prints the result."
+PREP_VAR @evalInWork = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @varSpace]]
+            WORK_VAR @comp = (MEMBER(MEMBER(worker, #COMPS), 1))
+            PRINT(CALL_METHOD(comp, #EVAL, LIST (varSpace)))
+        })
+    ]])
+]]>
 =========================
 >>> testCase "PREP method enters work-phase"
 >>> setupFile ~/targetPackage/main.petrol
@@ -349,3 +373,74 @@ Evaluating a in #WORK_PHASE
 Evaluating b in #WORK_PHASE
 1
 0
+=========================
+>>> testCase "Worker grade matches parent phase"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@evalInPrep, @evalInWork]]
+PRINT("Work-phase started")
+evalInPrep <ADD(1, 2)>
+evalInWork (ADD(3, 4))
+COMMENT "The work-grade arguments of LIST are evaluated when LIST is in work-phase."
+evalInPrep <LIST (5, 6)>
+>>> expectPrint
+LIST (3)
+LIST (LIST (5, 6))
+Work-phase started
+LIST (7)
+=========================
+>>> testCase "Work-grade expression sequence evaluated during prep-phase of parent"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@evalInPrep]]
+PRINT("This line is not reached")
+evalInPrep (ADD(1, 2))
+>>> expectError type: #STATE_ERROR message: "Cannot evaluate work-grade worker when parent is in prep-phase." lineNumber: 3
+=========================
+>>> testCase "Statement sequence evaluated during prep-phase of parent"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@evalInPrep]]
+PRINT("This line is not reached")
+evalInPrep {
+    PRINT("This line is not reached")
+}
+>>> expectError type: #STATE_ERROR message: "Cannot evaluate work-grade worker when parent is in prep-phase." lineNumber: 3
+=========================
+>>> testCase "Work-grade expression evaluated during prep-phase of parent"
+>>> setupFile ~/targetPackage/main.petrol
+COMMENT "The #PREP method evaluates the first expression in the second component."
+PREP_VAR @evalExprInPrep = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @exprsComp = (MEMBER(MEMBER(worker, #COMPS), 1))
+            WORK_VAR @expr = (MEMBER(MEMBER(exprsComp, #EXPRS), 0))
+            PRINT(CALL_METHOD(expr, #EVAL, LIST (SCOPE(worker))))
+        })
+    ]])
+]]>
+PRINT("This line is not reached")
+evalExprInPrep (ADD(1, 2))
+>>> expectError type: #STATE_ERROR message: "Cannot evaluate work-grade worker when parent is in prep-phase." lineNumber: 14
+=========================
+>>> testCase "Prep-grade expression sequence evaluated during work-phase of parent"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@evalInWork]]
+PRINT("Before evaluation")
+evalInWork <ADD(1, 2)>
+PRINT("This line is not reached")
+>>> expectPrint
+Before evaluation
+>>> expectError type: #STATE_ERROR message: "Cannot evaluate prep-grade worker when parent is in work-phase." lineNumber: 3
+=========================
+>>> testCase "Prep-grade expression evaluated during work-phase of parent"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode]]
+capture "myStmt" <ADD(1, 2)>
+WORK_VAR @captureStmt = (MEMBER(capturedCode, "myStmt"))
+WORK_VAR @exprsComp = (MEMBER(MEMBER(captureStmt, #COMPS), 2))
+PRINT(MEMBER(captureStmt, #PHASE))
+CALL_METHOD(MEMBER(MEMBER(exprsComp, #EXPRS), 0), #EVAL, LIST (SCOPE(captureStmt)))
+PRINT("This line is not reached")
+>>> expectPrint
+#WORK_PHASE
+>>> expectError type: #STATE_ERROR message: "Cannot evaluate prep-grade worker when parent is in work-phase." lineNumber: 2
