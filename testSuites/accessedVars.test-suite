@@ -1,0 +1,271 @@
+>>> commonFile ~/targetPackage/testUtils.petrol
+PREP_VAR @capturedCode = <MAP [FIELDS []]>
+COMMENT "Usage: capture \"name\" $comps"
+COMMENT "Stores the invocation statement in `capturedCode` without prepping child workers."
+PREP_VAR @capture = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @nameComp = (MEMBER(MEMBER(worker, #COMPS), 1))
+            SET_MEMBER(capturedCode, MEMBER(nameComp, #STR), worker)
+        })
+    ]])
+]]>
+COMMENT "Usage: varNames($worker, $scope)"
+COMMENT "Returns the list of variable names returned by the #ACCESSED_VARS method."
+PREP_VAR @varNames = <FUNC {
+    [ARGS [@worker, @scope]]
+    RET (KEYS(CALL_METHOD(worker, #ACCESSED_VARS, LIST (scope))))
+}>
+COMMENT "Usage: getComp($name, $index)"
+COMMENT "Returns a component of the invocation statement captured with $name."
+PREP_VAR @getComp = <FUNC {
+    [ARGS [@name, @index]]
+    RET (MEMBER(MEMBER(MEMBER(capturedCode, name), #COMPS), index))
+}>
+COMMENT "Usage: getStmt($name, $index)"
+COMMENT "Returns a statement in the statement sequence captured with $name."
+PREP_VAR @getStmt = <FUNC {
+    [ARGS [@name, @index]]
+    RET (MEMBER(MEMBER(getComp(name, 2), #STMTS), index))
+}>
+COMMENT "Usage: getExpr($name, $index)"
+COMMENT "Returns an expression in the expression sequence captured with $name."
+PREP_VAR @getExpr = <FUNC {
+    [ARGS [@name, @index]]
+    RET (MEMBER(MEMBER(getComp(name, 2), #EXPRS), index))
+}>
+=========================
+>>> testCase "ACCESSED_VARS method of literal expressions"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode, @varNames, @getExpr]]
+capture "myStmt" (123, "text")
+WORK_VAR @scope = (SCOPE(MEMBER(capturedCode, "myStmt")))
+PRINT(CALL_METHOD(getExpr("myStmt", 0), #ACCESSED_VARS, LIST (scope)))
+PRINT(CALL_METHOD(getExpr("myStmt", 1), #ACCESSED_VARS, LIST (scope)))
+>>> expectPrint
+MAP [FIELDS []]
+MAP [FIELDS []]
+=========================
+>>> testCase "ACCESSED_VARS method of identifier expressions"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode, @varNames, @getExpr]]
+WORK_VAR @myVar = (1)
+capture "myStmt" (myVar, TRUE)
+WORK_VAR @scope = (SCOPE(MEMBER(capturedCode, "myStmt")))
+WORK_VAR @accessedVars = (CALL_METHOD(getExpr("myStmt", 0), #ACCESSED_VARS, LIST (scope)))
+PRINT(KEYS(accessedVars))
+PRINT(EQUAL(MEMBER(accessedVars, "myVar"), FIND_VAR(scope, "myVar")))
+COMMENT "Built-in constants are visible in the global scope."
+PRINT(varNames(getExpr("myStmt", 1), scope))
+COMMENT "Variables which are not visible in the scope are excluded."
+WORK_VAR @emptyScope = (MAP [FIELDS [(#IS_SCOPE) = (TRUE), (#VARS) = (MAP [FIELDS []])]])
+PRINT(varNames(getExpr("myStmt", 0), emptyScope))
+>>> expectPrint
+LIST ("myVar")
+1
+LIST ("TRUE")
+LIST ()
+=========================
+>>> testCase "ACCESSED_VARS method with shadowed variable"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode, @varNames, @getExpr]]
+WORK_VAR @myVar = ("outer")
+RUN {
+    WORK_VAR @myVar = ("inner")
+    capture "myStmt" (myVar)
+}
+WORK_VAR @innerScope = (SCOPE(MEMBER(capturedCode, "myStmt")))
+WORK_VAR @outerScope = (MEMBER(innerScope, #PARENT))
+COMMENT "The expression refers to the inner variable, which is not visible in the outer scope."
+PRINT(varNames(getExpr("myStmt", 0), outerScope))
+WORK_VAR @accessedVars = (CALL_METHOD(getExpr("myStmt", 0), #ACCESSED_VARS, LIST (innerScope)))
+PRINT(KEYS(accessedVars))
+PRINT(EQUAL(MEMBER(accessedVars, "myVar"), FIND_VAR(innerScope, "myVar")))
+>>> expectPrint
+LIST ()
+LIST ("myVar")
+1
+=========================
+>>> testCase "ACCESSED_VARS method of function invocation"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode, @varNames, @getExpr]]
+WORK_VAR @var1 = (1)
+WORK_VAR @var2 = (2)
+capture "myStmt" (ADD(var1, MUL(var2, var1)), ADD(1, 2))
+WORK_VAR @scope = (SCOPE(MEMBER(capturedCode, "myStmt")))
+PRINT(varNames(getExpr("myStmt", 0), scope))
+PRINT(varNames(getExpr("myStmt", 1), scope))
+>>> expectPrint
+LIST ("var1", "var2")
+LIST ()
+=========================
+>>> testCase "ACCESSED_VARS method of expression sequence components"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode, @varNames, @getComp]]
+WORK_VAR @var1 = (1)
+PREP_VAR @var2 = <2>
+capture "workGrade" (var1, 5, var2)
+capture "prepGrade" <var2>
+WORK_VAR @scope = (SCOPE(MEMBER(capturedCode, "workGrade")))
+PRINT(varNames(getComp("workGrade", 2), scope))
+COMMENT "Prep-grade expressions are not evaluated in work-phase."
+PRINT(varNames(getComp("prepGrade", 2), scope))
+>>> expectPrint
+LIST ("var1", "var2")
+LIST ()
+=========================
+>>> testCase "ACCESSED_VARS method of statement sequence component"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode, @varNames, @getComp]]
+WORK_VAR @var1 = (1)
+WORK_VAR @var2 = (2)
+capture "myStmt" {
+    WORK_VAR @localVar = (var1)
+    PRINT(ADD(localVar, var2))
+}
+WORK_VAR @scope = (SCOPE(MEMBER(capturedCode, "myStmt")))
+COMMENT "Variables declared inside the statement sequence are not visible in the outer scope."
+PRINT(varNames(getComp("myStmt", 2), scope))
+>>> expectPrint
+LIST ("var1", "var2")
+=========================
+>>> testCase "ACCESSED_VARS method of WORK_VAR procedure"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode, @varNames, @getStmt]]
+WORK_VAR @outerVar = (1)
+capture "myStmt" {
+    WORK_VAR @localVar1 = (outerVar)
+    WORK_VAR @localVar2
+}
+WORK_VAR @outerScope = (SCOPE(MEMBER(capturedCode, "myStmt")))
+WORK_VAR @innerScope = (SCOPE(getStmt("myStmt", 0)))
+PRINT(varNames(getStmt("myStmt", 0), innerScope))
+PRINT(varNames(getStmt("myStmt", 0), outerScope))
+PRINT(varNames(getStmt("myStmt", 1), innerScope))
+PRINT(varNames(getStmt("myStmt", 1), outerScope))
+>>> expectPrint
+LIST ("localVar1", "outerVar")
+LIST ("outerVar")
+LIST ("localVar2")
+LIST ()
+=========================
+>>> testCase "ACCESSED_VARS method of SET procedure"
+>>> setupFile ~/targetPackage/otherModule.petrol
+WORK_VAR @otherVar = (1)
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode, @varNames, @getComp, @getStmt]]
+IMPORT <"./otherModule.petrol"> AS @otherModule
+WORK_VAR @var1 = (1)
+WORK_VAR @var2 = (2)
+capture "myStmt" {
+    WORK_VAR @localVar = (0)
+    SET var1 = (var2)
+    SET localVar = (var2)
+    SET <otherModule> otherVar = (var1)
+}
+CALL_METHOD(getComp("myStmt", 2), #PREP)
+WORK_VAR @scope = (SCOPE(MEMBER(capturedCode, "myStmt")))
+WORK_VAR @accessedVars = (CALL_METHOD(getStmt("myStmt", 1), #ACCESSED_VARS, LIST (scope)))
+PRINT(KEYS(accessedVars))
+PRINT(EQUAL(MEMBER(accessedVars, "var1"), FIND_VAR(scope, "var1")))
+PRINT(varNames(getStmt("myStmt", 2), scope))
+PRINT(varNames(getStmt("myStmt", 2), SCOPE(getStmt("myStmt", 2))))
+COMMENT "The destination variable belongs to another module."
+PRINT(varNames(getStmt("myStmt", 3), scope))
+>>> expectPrint
+LIST ("var1", "var2")
+1
+LIST ("var2")
+LIST ("localVar", "var2")
+LIST ("var1")
+=========================
+>>> testCase "ACCESSED_VARS method of GET procedure"
+>>> setupFile ~/targetPackage/otherModule.petrol
+WORK_VAR @otherVar = (1)
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode, @varNames, @getExpr]]
+IMPORT <"./otherModule.petrol"> AS @otherModule
+capture "myStmt" (GET <otherModule> otherVar)
+WORK_VAR @getExpr1 = (getExpr("myStmt", 0))
+COMMENT "The source variable is not visible in the current module."
+PRINT(varNames(getExpr1, SCOPE(MEMBER(capturedCode, "myStmt"))))
+WORK_VAR @otherScope = (MEMBER(otherModule, #SCOPE))
+WORK_VAR @accessedVars = (CALL_METHOD(getExpr1, #ACCESSED_VARS, LIST (otherScope)))
+PRINT(KEYS(accessedVars))
+PRINT(EQUAL(MEMBER(accessedVars, "otherVar"), FIND_VAR(otherScope, "otherVar")))
+>>> expectPrint
+LIST ()
+LIST ("otherVar")
+1
+=========================
+>>> testCase "ACCESSED_VARS method of procedures with default method"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode, @varNames, @getStmt]]
+WORK_VAR @var1 = (1)
+WORK_VAR @var2 = (2)
+WORK_VAR @var3 = (3)
+PREP_VAR @prepVar = <4>
+capture "myStmt" {
+    IF (var1) {
+        PRINT(var2)
+    } ELSE {
+        PRINT(var3)
+    }
+    PREP_VAR @myFunc = <FUNC {
+        [ARGS [@arg]]
+        RET (ADD(arg, var2))
+    }>
+    TRY {
+        PRINT(var3)
+    } CATCH {
+        [EXCEP @excep]
+        PRINT(LIST (excep, var1))
+    }
+    PREP_VAR @myPrepVar = <prepVar>
+    RUN {
+        WORK_VAR @innerVar = (var2)
+        PRINT(innerVar)
+    }
+}
+WORK_VAR @scope = (SCOPE(MEMBER(capturedCode, "myStmt")))
+PRINT(varNames(getStmt("myStmt", 0), scope))
+WORK_VAR @funcExpr = (MEMBER(MEMBER(MEMBER(MEMBER(getStmt("myStmt", 1), #COMPS), 3), #EXPRS), 0))
+COMMENT "The argument variable is declared inside the function."
+PRINT(varNames(funcExpr, scope))
+PRINT(varNames(getStmt("myStmt", 2), scope))
+COMMENT "Prep-grade expressions are excluded even when they access visible variables."
+PRINT(varNames(getStmt("myStmt", 3), scope))
+PRINT(varNames(getStmt("myStmt", 4), scope))
+>>> expectPrint
+LIST ("var1", "var2", "var3")
+LIST ("var2")
+LIST ("var3", "var1")
+LIST ()
+LIST ("var2")
+=========================
+>>> testCase "ACCESSED_VARS method of custom procedure in nested worker"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode, @varNames, @getComp]]
+WORK_VAR @var1 = (1)
+PREP_VAR @customVars = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#ACCESSED_VARS) = (FUNC {
+            [ARGS [@worker, @scope]]
+            PRINT("Getting accessed vars of customVars")
+            RET (MAP [FIELDS [("customVar") = (FIND_VAR(scope, "var1"))]])
+        })
+    ]])
+]]>
+capture "myStmt" {
+    RUN {
+        customVars
+    }
+}
+WORK_VAR @scope = (SCOPE(MEMBER(capturedCode, "myStmt")))
+PRINT(varNames(getComp("myStmt", 2), scope))
+>>> expectPrint
+Getting accessed vars of customVars
+LIST ("customVar")
