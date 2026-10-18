@@ -280,3 +280,308 @@ First invocation finished
 Second invocation finished
 #WORK_PHASE
 1
+=========================
+>>> testCase "PREP method of expression sequence component"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @capturedCode = <MAP [FIELDS []]>
+COMMENT "Stores the invocation statement in `capturedCode` without prepping child workers."
+PREP_VAR @capture = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @nameComp = (MEMBER(MEMBER(worker, #COMPS), 1))
+            SET_MEMBER(capturedCode, MEMBER(nameComp, #STR), worker)
+        })
+    ]])
+]]>
+PREP_VAR @preppedNames = <MAP [FIELDS []]>
+PREP_VAR @evalVarSpaces = <MAP [FIELDS []]>
+COMMENT "Records the name of each prepped worker and the variable space of each evaluation."
+PREP_VAR @tracked = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @name = (MEMBER(MEMBER(MEMBER(worker, #COMPS), 1), #STR))
+            SET_MEMBER(preppedNames, name, TRUE)
+        })
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @varSpace]]
+            WORK_VAR @name = (MEMBER(MEMBER(MEMBER(worker, #COMPS), 1), #STR))
+            PRINT(CONCAT(LIST ("Evaluating ", name)))
+            SET_MEMBER(evalVarSpaces, name, varSpace)
+            RET (CONCAT(LIST ("Result ", name)))
+        })
+    ]])
+]]>
+PREP_VAR @prepState = <MAP [FIELDS [("canFinish") = (FALSE)]]>
+COMMENT "The #PREP method waits until `canFinish` is true."
+PREP_VAR @slow = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            SPIN (FUNC {
+                RET (MEMBER(prepState, "canFinish"))
+            }, "Waiting for canFinish")
+        })
+    ]])
+]]>
+capture "myStmt" (tracked "a", slow "b", tracked "c")
+WORK_VAR @exprsComp = (MEMBER(MEMBER(MEMBER(capturedCode, "myStmt"), #COMPS), 2))
+WORK_VAR @exprs = (MEMBER(exprsComp, #EXPRS))
+SCHED {
+    PRINT(MEMBER(exprsComp, #PHASE))
+    PRINT(MEMBER(MEMBER(exprs, 1), #PHASE))
+    SET_MEMBER(prepState, "canFinish", TRUE)
+}
+PRINT(LEN(preppedNames))
+CALL_METHOD(exprsComp, #PREP)
+PRINT(LEN(preppedNames))
+PRINT(HAS_KEY(preppedNames, "a"))
+PRINT(HAS_KEY(preppedNames, "c"))
+PRINT(MEMBER(exprsComp, #PHASE))
+PRINT(MEMBER(MEMBER(exprs, 0), #PHASE))
+PRINT(MEMBER(MEMBER(exprs, 1), #PHASE))
+PRINT(MEMBER(MEMBER(exprs, 2), #PHASE))
+>>> expectPrint
+0
+#PREP_PHASE
+#PREP_PHASE
+2
+1
+1
+#WORK_PHASE
+#WORK_PHASE
+#WORK_PHASE
+#WORK_PHASE
+=========================
+>>> testCase "PREP method of statement sequence component"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @capturedCode = <MAP [FIELDS []]>
+COMMENT "Stores the invocation statement in `capturedCode` without prepping child workers."
+PREP_VAR @capture = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @nameComp = (MEMBER(MEMBER(worker, #COMPS), 1))
+            SET_MEMBER(capturedCode, MEMBER(nameComp, #STR), worker)
+        })
+    ]])
+]]>
+PREP_VAR @preppedNames = <MAP [FIELDS []]>
+PREP_VAR @evalVarSpaces = <MAP [FIELDS []]>
+COMMENT "Records the name of each prepped worker and the variable space of each evaluation."
+PREP_VAR @tracked = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @name = (MEMBER(MEMBER(MEMBER(worker, #COMPS), 1), #STR))
+            SET_MEMBER(preppedNames, name, TRUE)
+        })
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @varSpace]]
+            WORK_VAR @name = (MEMBER(MEMBER(MEMBER(worker, #COMPS), 1), #STR))
+            PRINT(CONCAT(LIST ("Evaluating ", name)))
+            SET_MEMBER(evalVarSpaces, name, varSpace)
+            RET (CONCAT(LIST ("Result ", name)))
+        })
+    ]])
+]]>
+PREP_VAR @prepState = <MAP [FIELDS [("canFinish") = (FALSE)]]>
+COMMENT "The #PREP method waits until `canFinish` is true."
+PREP_VAR @slow = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            SPIN (FUNC {
+                RET (MEMBER(prepState, "canFinish"))
+            }, "Waiting for canFinish")
+        })
+    ]])
+]]>
+capture "myStmt" {
+    tracked "a"
+    slow "b"
+    tracked "c"
+}
+WORK_VAR @stmtsComp = (MEMBER(MEMBER(MEMBER(capturedCode, "myStmt"), #COMPS), 2))
+WORK_VAR @stmts = (MEMBER(stmtsComp, #STMTS))
+SCHED {
+    PRINT(MEMBER(stmtsComp, #PHASE))
+    PRINT(MEMBER(MEMBER(stmts, 1), #PHASE))
+    SET_MEMBER(prepState, "canFinish", TRUE)
+}
+PRINT(LEN(preppedNames))
+CALL_METHOD(stmtsComp, #PREP)
+PRINT(LEN(preppedNames))
+PRINT(HAS_KEY(preppedNames, "a"))
+PRINT(HAS_KEY(preppedNames, "c"))
+PRINT(MEMBER(stmtsComp, #PHASE))
+PRINT(MEMBER(MEMBER(stmts, 0), #PHASE))
+PRINT(MEMBER(MEMBER(stmts, 1), #PHASE))
+PRINT(MEMBER(MEMBER(stmts, 2), #PHASE))
+>>> expectPrint
+0
+#PREP_PHASE
+#PREP_PHASE
+2
+1
+1
+#WORK_PHASE
+#WORK_PHASE
+#WORK_PHASE
+#WORK_PHASE
+=========================
+>>> testCase "EVAL method of expression sequence component"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @capturedCode = <MAP [FIELDS []]>
+COMMENT "Stores the invocation statement in `capturedCode` without prepping child workers."
+PREP_VAR @capture = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @nameComp = (MEMBER(MEMBER(worker, #COMPS), 1))
+            SET_MEMBER(capturedCode, MEMBER(nameComp, #STR), worker)
+        })
+    ]])
+]]>
+PREP_VAR @preppedNames = <MAP [FIELDS []]>
+PREP_VAR @evalVarSpaces = <MAP [FIELDS []]>
+COMMENT "Records the name of each prepped worker and the variable space of each evaluation."
+PREP_VAR @tracked = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @name = (MEMBER(MEMBER(MEMBER(worker, #COMPS), 1), #STR))
+            SET_MEMBER(preppedNames, name, TRUE)
+        })
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @varSpace]]
+            WORK_VAR @name = (MEMBER(MEMBER(MEMBER(worker, #COMPS), 1), #STR))
+            PRINT(CONCAT(LIST ("Evaluating ", name)))
+            SET_MEMBER(evalVarSpaces, name, varSpace)
+            RET (CONCAT(LIST ("Result ", name)))
+        })
+    ]])
+]]>
+PREP_VAR @currentFrame = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @frame]]
+            RET (frame)
+        })
+    ]])
+]]>
+capture "myStmt" (tracked "a", ADD(10, 5), tracked "b")
+capture "emptyStmt" ()
+WORK_VAR @exprsComp = (MEMBER(MEMBER(MEMBER(capturedCode, "myStmt"), #COMPS), 2))
+WORK_VAR @frame = (currentFrame ())
+PRINT(CALL_METHOD(exprsComp, #EVAL, LIST (frame)))
+PRINT(EQUAL(MEMBER(evalVarSpaces, "a"), frame))
+PRINT(EQUAL(MEMBER(evalVarSpaces, "b"), frame))
+PRINT(CALL_METHOD(exprsComp, #EVAL, LIST (frame)))
+WORK_VAR @emptyComp = (MEMBER(MEMBER(MEMBER(capturedCode, "emptyStmt"), #COMPS), 2))
+PRINT(CALL_METHOD(emptyComp, #EVAL, LIST (frame)))
+>>> expectPrint
+Evaluating a
+Evaluating b
+LIST ("Result a", 15, "Result b")
+1
+1
+Evaluating a
+Evaluating b
+LIST ("Result a", 15, "Result b")
+LIST ()
+=========================
+>>> testCase "EVAL method of statement sequence component"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @capturedCode = <MAP [FIELDS []]>
+COMMENT "Stores the invocation statement in `capturedCode` without prepping child workers."
+PREP_VAR @capture = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @nameComp = (MEMBER(MEMBER(worker, #COMPS), 1))
+            SET_MEMBER(capturedCode, MEMBER(nameComp, #STR), worker)
+        })
+    ]])
+]]>
+PREP_VAR @preppedNames = <MAP [FIELDS []]>
+PREP_VAR @evalVarSpaces = <MAP [FIELDS []]>
+COMMENT "Records the name of each prepped worker and the variable space of each evaluation."
+PREP_VAR @tracked = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @name = (MEMBER(MEMBER(MEMBER(worker, #COMPS), 1), #STR))
+            SET_MEMBER(preppedNames, name, TRUE)
+        })
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @varSpace]]
+            WORK_VAR @name = (MEMBER(MEMBER(MEMBER(worker, #COMPS), 1), #STR))
+            PRINT(CONCAT(LIST ("Evaluating ", name)))
+            SET_MEMBER(evalVarSpaces, name, varSpace)
+            RET (CONCAT(LIST ("Result ", name)))
+        })
+    ]])
+]]>
+PREP_VAR @currentFrame = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @frame]]
+            RET (frame)
+        })
+    ]])
+]]>
+capture "myStmt" {
+    tracked "a"
+    WORK_VAR @myVar = (5)
+    tracked "b"
+}
+WORK_VAR @captureStmt = (MEMBER(capturedCode, "myStmt"))
+WORK_VAR @stmtsComp = (MEMBER(MEMBER(captureStmt, #COMPS), 2))
+WORK_VAR @outerFrame = (currentFrame ())
+PRINT(CALL_METHOD(stmtsComp, #EVAL, LIST (outerFrame)))
+WORK_VAR @frame = (MEMBER(evalVarSpaces, "a"))
+PRINT(MEMBER(frame, #IS_FRAME))
+PRINT(EQUAL(frame, outerFrame))
+PRINT(EQUAL(MEMBER(frame, #SCOPE), SCOPE(stmtsComp)))
+PRINT(EQUAL(MEMBER(frame, #PARENT), outerFrame))
+PRINT(EQUAL(MEMBER(evalVarSpaces, "b"), frame))
+PRINT(MEMBER(MEMBER(MEMBER(frame, #FRAME_ENTRIES), "myVar"), #VALUE))
+COMMENT "Each evaluation creates a new frame."
+CALL_METHOD(stmtsComp, #EVAL, LIST (outerFrame))
+PRINT(EQUAL(MEMBER(evalVarSpaces, "a"), frame))
+COMMENT "When the variable space is a scope, the new frame has no parent."
+CALL_METHOD(stmtsComp, #EVAL, LIST (SCOPE(captureStmt)))
+SET frame = (MEMBER(evalVarSpaces, "a"))
+PRINT(EQUAL(MEMBER(frame, #SCOPE), SCOPE(stmtsComp)))
+PRINT(HAS_KEY(frame, #PARENT))
+>>> expectPrint
+Evaluating a
+Evaluating b
+NULL
+1
+0
+1
+1
+1
+5
+Evaluating a
+Evaluating b
+0
+Evaluating a
+Evaluating b
+1
+0
