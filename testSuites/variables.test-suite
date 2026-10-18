@@ -153,3 +153,141 @@ PREP_VAR @myFunc = <FUNC {
     PREP_VAR @value = <1>
 }>
 >>> expectError type: #SYNTAX_ERROR message: "Cannot declare two variables with the same identifier in the same scope." lineNumber: 4
+=========================
+>>> testCase "Prep-vars initialized in any order"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @var1 = <ADD(var2, 1)>
+PREP_VAR @var2 = <MUL(var3, 2)>
+PREP_VAR @var3 = <5>
+PRINT(var1)
+>>> expectPrint
+11
+=========================
+>>> testCase "Deferred prep-var value unwrapped after initialization"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @releases = <MAP [FIELDS []]>
+PREP_VAR @slowVar = <RUN {
+    SPIN (FUNC {
+        RET (HAS_KEY(releases, "slowVar"))
+    }, "Waiting for release of slowVar")
+    PRINT("Initializing slowVar")
+    RET (5)
+}>
+PREP_VAR @myList = <RUN {
+    PRINT("Reading slowVar")
+    COMMENT "The deferred value is stored without pausing."
+    WORK_VAR @value = (slowVar)
+    PRINT("Read slowVar")
+    SET_MEMBER(releases, "slowVar", TRUE)
+    RET (LIST (value))
+}>
+PRINT(myList)
+>>> expectPrint
+Reading slowVar
+Read slowVar
+Initializing slowVar
+LIST (5)
+=========================
+>>> testCase "Deferred prep-var value pauses until initialization"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @releases = <MAP [FIELDS []]>
+PREP_VAR @slowVar = <RUN {
+    SPIN (FUNC {
+        RET (HAS_KEY(releases, "slowVar"))
+    }, "Waiting for release of slowVar")
+    PRINT("Initializing slowVar")
+    RET (5)
+}>
+PREP_VAR @sum = <RUN {
+    PRINT("Reading slowVar")
+    SET_MEMBER(releases, "reading", TRUE)
+    COMMENT "ADD must know the deferred value, so evaluation pauses."
+    WORK_VAR @value = (ADD(slowVar, 10))
+    PRINT("Read slowVar")
+    RET (value)
+}>
+PREP_VAR @releaser = <RUN {
+    SPIN (FUNC {
+        RET (HAS_KEY(releases, "reading"))
+    }, "Waiting for sum to read slowVar")
+    PRINT("Releasing slowVar")
+    SET_MEMBER(releases, "slowVar", TRUE)
+}>
+PRINT(sum)
+>>> expectPrint
+Reading slowVar
+Releasing slowVar
+Initializing slowVar
+Read slowVar
+15
+=========================
+>>> testCase "Deferred prep-var value never initialized"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @stuckVar = <RUN {
+    SPIN (FUNC {RET (FALSE)}, "Never finishes")
+    RET (1)
+}>
+PREP_VAR @sum = <ADD(stuckVar, 1)>
+PRINT("This line is not reached")
+>>> expectStuck message: "Never finishes" lineNumber: 2
+>>> expectStuck message: "Waiting for value of variable \"stuckVar\" to be assigned." lineNumber: 5
+=========================
+>>> testCase "Prep-vars accessible during work-phase"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @topVar = <10>
+PREP_VAR @myFunc = <FUNC {
+    PREP_VAR @funcVar = <RUN {
+        PRINT("Initializing funcVar")
+        RET (ADD(topVar, 1))
+    }>
+    RET (funcVar)
+}>
+PRINT("Work-phase started")
+PRINT(topVar)
+RUN {
+    PREP_VAR @runVar = <20>
+    PRINT(ADD(topVar, runVar))
+}
+PRINT(myFunc())
+PRINT(myFunc())
+>>> expectPrint
+Initializing funcVar
+Work-phase started
+10
+30
+11
+11
+=========================
+>>> testCase "Work-var accessed during prep-phase"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myVar = (1)
+PREP_VAR @copy = <myVar>
+>>> expectError type: #STATE_ERROR message: "Cannot access work-var value without frame." lineNumber: 2
+=========================
+>>> testCase "Work-var assigned during prep-phase"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myVar = (1)
+PREP <RUN {
+    SET myVar = (2)
+}>
+>>> expectError lineNumber: 3
+=========================
+>>> testCase "Work-var accessed by function during prep-phase"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myVar = (1)
+PREP_VAR @getMyVar = <FUNC {
+    RET (myVar)
+}>
+PREP_VAR @copy = <getMyVar()>
+>>> expectError lineNumber: 3
+=========================
+>>> testCase "Work-vars in statement sequence evaluated during prep-phase"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @myVar = <RUN {
+    WORK_VAR @innerVar = (3)
+    SET innerVar = (MUL(innerVar, 2))
+    RET (innerVar)
+}>
+PRINT(myVar)
+>>> expectPrint
+6
