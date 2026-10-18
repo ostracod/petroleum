@@ -1,0 +1,282 @@
+>>> testCase "PREP method enters work-phase"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @capturedCode = <MAP [FIELDS []]>
+COMMENT "Stores the invocation statement in `capturedCode` without prepping child workers."
+PREP_VAR @capture = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @nameComp = (MEMBER(MEMBER(worker, #COMPS), 1))
+            SET_MEMBER(capturedCode, MEMBER(nameComp, #STR), worker)
+        })
+    ]])
+]]>
+COMMENT "Prints whenever one of its methods is invoked."
+PREP_VAR @tracked = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            PRINT(CONCAT(LIST ("Prepping in ", STR(MEMBER(worker, #PHASE)))))
+        })
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @varSpace]]
+            PRINT(CONCAT(LIST ("Evaluating in ", STR(MEMBER(worker, #PHASE)))))
+            RET ("Eval result")
+        })
+        (#ACCESSED_VARS) = (FUNC {
+            [ARGS [@worker, @scope]]
+            PRINT(CONCAT(LIST ("Getting accessed vars in ", STR(MEMBER(worker, #PHASE)))))
+            RET (MAP [FIELDS []])
+        })
+    ]])
+]]>
+capture "myStmt" {
+    tracked
+}
+WORK_VAR @stmtsComp = (MEMBER(MEMBER(MEMBER(capturedCode, "myStmt"), #COMPS), 2))
+WORK_VAR @stmt = (MEMBER(MEMBER(stmtsComp, #STMTS), 0))
+PRINT(MEMBER(stmt, #PHASE))
+PRINT(MEMBER(stmt, #INVOC))
+PRINT(CALL_METHOD(stmt, #PREP))
+PRINT(MEMBER(stmt, #PHASE))
+PRINT(EQUAL(MEMBER(stmt, #INVOC), tracked))
+COMMENT "The #PREP method does not run again."
+CALL_METHOD(stmt, #PREP)
+PRINT(MEMBER(stmtsComp, #PHASE))
+CALL_METHOD(stmtsComp, #PREP)
+PRINT(MEMBER(stmtsComp, #PHASE))
+>>> expectPrint
+#PREP_PHASE
+NULL
+Prepping in #PREP_PHASE
+NULL
+#WORK_PHASE
+1
+#PREP_PHASE
+#WORK_PHASE
+=========================
+>>> testCase "PREP method of built-in workers enters work-phase"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @capturedCode = <MAP [FIELDS []]>
+COMMENT "Stores the invocation statement in `capturedCode` without prepping child workers."
+PREP_VAR @capture = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @nameComp = (MEMBER(MEMBER(worker, #COMPS), 1))
+            SET_MEMBER(capturedCode, MEMBER(nameComp, #STR), worker)
+        })
+    ]])
+]]>
+capture "myStmt" (ADD(1, 2), "text")
+WORK_VAR @exprsComp = (MEMBER(MEMBER(MEMBER(capturedCode, "myStmt"), #COMPS), 2))
+WORK_VAR @exprs = (MEMBER(exprsComp, #EXPRS))
+WORK_VAR @invocExpr = (MEMBER(exprs, 0))
+WORK_VAR @argsComp = (MEMBER(MEMBER(invocExpr, #COMPS), 1))
+WORK_VAR @phases = (FUNC {
+    RET (LIST (
+        MEMBER(exprsComp, #PHASE)
+        MEMBER(invocExpr, #PHASE)
+        MEMBER(argsComp, #PHASE)
+        MEMBER(MEMBER(MEMBER(argsComp, #EXPRS), 0), #PHASE)
+        MEMBER(MEMBER(exprs, 1), #PHASE)
+    ))
+})
+PRINT(CALL(phases))
+CALL_METHOD(exprsComp, #PREP)
+PRINT(CALL(phases))
+>>> expectPrint
+LIST (#PREP_PHASE, #PREP_PHASE, #PREP_PHASE, #PREP_PHASE, #PREP_PHASE)
+LIST (#WORK_PHASE, #WORK_PHASE, #WORK_PHASE, #WORK_PHASE, #WORK_PHASE)
+=========================
+>>> testCase "EVAL method invokes PREP method first"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @capturedCode = <MAP [FIELDS []]>
+COMMENT "Stores the invocation statement in `capturedCode` without prepping child workers."
+PREP_VAR @capture = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @nameComp = (MEMBER(MEMBER(worker, #COMPS), 1))
+            SET_MEMBER(capturedCode, MEMBER(nameComp, #STR), worker)
+        })
+    ]])
+]]>
+COMMENT "Prints whenever one of its methods is invoked."
+PREP_VAR @tracked = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            PRINT(CONCAT(LIST ("Prepping in ", STR(MEMBER(worker, #PHASE)))))
+        })
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @varSpace]]
+            PRINT(CONCAT(LIST ("Evaluating in ", STR(MEMBER(worker, #PHASE)))))
+            RET ("Eval result")
+        })
+        (#ACCESSED_VARS) = (FUNC {
+            [ARGS [@worker, @scope]]
+            PRINT(CONCAT(LIST ("Getting accessed vars in ", STR(MEMBER(worker, #PHASE)))))
+            RET (MAP [FIELDS []])
+        })
+    ]])
+]]>
+capture "myStmt" {
+    tracked
+}
+WORK_VAR @stmtsComp = (MEMBER(MEMBER(MEMBER(capturedCode, "myStmt"), #COMPS), 2))
+WORK_VAR @stmt = (MEMBER(MEMBER(stmtsComp, #STMTS), 0))
+PRINT(CALL_METHOD(stmt, #EVAL, LIST (NULL)))
+PRINT(MEMBER(stmt, #PHASE))
+PRINT(CALL_METHOD(stmt, #EVAL, LIST (NULL)))
+>>> expectPrint
+Prepping in #PREP_PHASE
+Evaluating in #WORK_PHASE
+Eval result
+#WORK_PHASE
+Evaluating in #WORK_PHASE
+Eval result
+=========================
+>>> testCase "EVAL method of built-in worker invokes PREP method first"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @capturedCode = <MAP [FIELDS []]>
+COMMENT "Stores the invocation statement in `capturedCode` without prepping child workers."
+PREP_VAR @capture = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @nameComp = (MEMBER(MEMBER(worker, #COMPS), 1))
+            SET_MEMBER(capturedCode, MEMBER(nameComp, #STR), worker)
+        })
+    ]])
+]]>
+capture "myStmt" (ADD(1, 2))
+WORK_VAR @exprsComp = (MEMBER(MEMBER(MEMBER(capturedCode, "myStmt"), #COMPS), 2))
+WORK_VAR @expr = (MEMBER(MEMBER(exprsComp, #EXPRS), 0))
+PRINT(MEMBER(expr, #PHASE))
+PRINT(CALL_METHOD(expr, #EVAL, LIST (SCOPE(expr))))
+PRINT(MEMBER(expr, #PHASE))
+PRINT(CALL_METHOD(exprsComp, #EVAL, LIST (SCOPE(exprsComp))))
+PRINT(MEMBER(exprsComp, #PHASE))
+>>> expectPrint
+#PREP_PHASE
+3
+#WORK_PHASE
+LIST (3)
+#WORK_PHASE
+=========================
+>>> testCase "ACCESSED_VARS method invokes PREP method first"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @capturedCode = <MAP [FIELDS []]>
+COMMENT "Stores the invocation statement in `capturedCode` without prepping child workers."
+PREP_VAR @capture = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @nameComp = (MEMBER(MEMBER(worker, #COMPS), 1))
+            SET_MEMBER(capturedCode, MEMBER(nameComp, #STR), worker)
+        })
+    ]])
+]]>
+COMMENT "Prints whenever one of its methods is invoked."
+PREP_VAR @tracked = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            PRINT(CONCAT(LIST ("Prepping in ", STR(MEMBER(worker, #PHASE)))))
+        })
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @varSpace]]
+            PRINT(CONCAT(LIST ("Evaluating in ", STR(MEMBER(worker, #PHASE)))))
+            RET ("Eval result")
+        })
+        (#ACCESSED_VARS) = (FUNC {
+            [ARGS [@worker, @scope]]
+            PRINT(CONCAT(LIST ("Getting accessed vars in ", STR(MEMBER(worker, #PHASE)))))
+            RET (MAP [FIELDS []])
+        })
+    ]])
+]]>
+capture "myStmt" {
+    tracked
+}
+WORK_VAR @captureStmt = (MEMBER(capturedCode, "myStmt"))
+WORK_VAR @stmtsComp = (MEMBER(MEMBER(captureStmt, #COMPS), 2))
+WORK_VAR @stmt = (MEMBER(MEMBER(stmtsComp, #STMTS), 0))
+PRINT(CALL_METHOD(stmt, #ACCESSED_VARS, LIST (SCOPE(captureStmt))))
+PRINT(MEMBER(stmt, #PHASE))
+PRINT(CALL_METHOD(stmt, #ACCESSED_VARS, LIST (SCOPE(captureStmt))))
+>>> expectPrint
+Prepping in #PREP_PHASE
+Getting accessed vars in #WORK_PHASE
+MAP [FIELDS []]
+#WORK_PHASE
+Getting accessed vars in #WORK_PHASE
+MAP [FIELDS []]
+=========================
+>>> testCase "PREP method only runs once with concurrent invocations"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @capturedCode = <MAP [FIELDS []]>
+COMMENT "Stores the invocation statement in `capturedCode` without prepping child workers."
+PREP_VAR @capture = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @nameComp = (MEMBER(MEMBER(worker, #COMPS), 1))
+            SET_MEMBER(capturedCode, MEMBER(nameComp, #STR), worker)
+        })
+    ]])
+]]>
+PREP_VAR @prepState = <MAP [FIELDS [
+    ("canFinish") = (FALSE)
+    ("prepCount") = (0)
+]]>
+COMMENT "The #PREP method waits until `canFinish` is true."
+PREP_VAR @slowPrep = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            SET_MEMBER(prepState, "prepCount", ADD(MEMBER(prepState, "prepCount"), 1))
+            PRINT("Prep started")
+            SPIN (FUNC {
+                RET (MEMBER(prepState, "canFinish"))
+            }, "Waiting for canFinish")
+            PRINT("Prep finished")
+        })
+    ]])
+]]>
+capture "myStmt" {
+    slowPrep
+}
+WORK_VAR @stmtsComp = (MEMBER(MEMBER(MEMBER(capturedCode, "myStmt"), #COMPS), 2))
+WORK_VAR @stmt = (MEMBER(MEMBER(stmtsComp, #STMTS), 0))
+SCHED {
+    PRINT("Second invocation started")
+    PRINT(MEMBER(stmt, #PHASE))
+    SET_MEMBER(prepState, "canFinish", TRUE)
+    CALL_METHOD(stmt, #PREP)
+    PRINT("Second invocation finished")
+    PRINT(MEMBER(stmt, #PHASE))
+    PRINT(MEMBER(prepState, "prepCount"))
+}
+CALL_METHOD(stmt, #PREP)
+PRINT("First invocation finished")
+>>> expectPrint
+Prep started
+Second invocation started
+#PREP_PHASE
+Prep finished
+First invocation finished
+Second invocation finished
+#WORK_PHASE
+1
