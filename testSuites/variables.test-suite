@@ -1,0 +1,155 @@
+>>> testCase "Variables visible in nested scopes"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @myPrepVar = <"prep-var">
+WORK_VAR @myWorkVar = ("work-var")
+RUN {
+    PRINT(myPrepVar)
+    PRINT(myWorkVar)
+    RUN {
+        WORK_VAR @innerVar = ("inner")
+        IF (TRUE) {
+            PRINT(myWorkVar)
+            PRINT(innerVar)
+        }
+    }
+}
+>>> expectPrint
+prep-var
+work-var
+work-var
+inner
+=========================
+>>> testCase "Variable declared later in same scope"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(myVar)
+WORK_VAR @myVar = (10)
+PRINT(myVar)
+RUN {
+    PRINT(innerVar)
+    WORK_VAR @innerVar = (20)
+    PRINT(innerVar)
+}
+>>> expectPrint
+NULL
+10
+NULL
+20
+=========================
+>>> testCase "Out-of-scope variables"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+RUN {
+    WORK_VAR @runVar = (1)
+}
+PRINT(runVar)
+IF (TRUE) {
+    WORK_VAR @ifVar = (2)
+}
+PRINT(ifVar)
+RUN {
+    PRINT(runVar)
+}
+PREP_VAR @myFunc1 = <FUNC {
+    WORK_VAR @funcVar = (3)
+}>
+PREP_VAR @myFunc2 = <FUNC {
+    RET (funcVar)
+}>
+>>> expectError type: #VALUE_ERROR message: "Could not find variable with name \"runVar\"." lineNumber: 5
+>>> expectError type: #VALUE_ERROR message: "Could not find variable with name \"ifVar\"." lineNumber: 9
+>>> expectError type: #VALUE_ERROR message: "Could not find variable with name \"runVar\"." lineNumber: 11
+>>> expectError type: #VALUE_ERROR message: "Could not find variable with name \"funcVar\"." lineNumber: 17
+=========================
+>>> testCase "Variable in other module without import"
+>>> setupFile ~/targetPackage/otherModule.petrol
+PREP_VAR @otherVar = <1>
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./otherModule.petrol">
+PRINT(otherVar)
+>>> expectError type: #VALUE_ERROR message: "Could not find variable with name \"otherVar\"." lineNumber: 2
+=========================
+>>> testCase "Variable shadowing"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myVar = ("outer")
+RUN {
+    WORK_VAR @myVar = ("middle")
+    PRINT(myVar)
+    RUN {
+        PREP_VAR @myVar = <"inner">
+        PRINT(myVar)
+    }
+    PRINT(myVar)
+}
+PRINT(myVar)
+>>> expectPrint
+middle
+inner
+middle
+outer
+=========================
+>>> testCase "Assigning to shadowing variable"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myVar = ("outer")
+RUN {
+    WORK_VAR @myVar = ("inner")
+    SET myVar = ("changed inner")
+    PRINT(myVar)
+}
+PRINT(myVar)
+>>> expectPrint
+changed inner
+outer
+=========================
+>>> testCase "Shadowing variable before its declaration"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myVar = ("outer")
+RUN {
+    COMMENT "This refers to the inner variable, which has not been assigned yet."
+    PRINT(myVar)
+    WORK_VAR @myVar = ("inner")
+    PRINT(myVar)
+}
+>>> expectPrint
+NULL
+inner
+=========================
+>>> testCase "Function argument shadowing"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @value = ("outer")
+PREP_VAR @identity = <FUNC {
+    [ARGS [@value]]
+    RET (value)
+}>
+PRINT(identity("argument"))
+PRINT(value)
+>>> expectPrint
+argument
+outer
+=========================
+>>> testCase "Shadowing global constant"
+>>> setupFile ~/targetPackage/otherModule.petrol
+PREP_VAR @otherTrue = <TRUE>
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./otherModule.petrol"> [VARS [@otherTrue]]
+PREP_VAR @TRUE = <"shadowed">
+PRINT(TRUE)
+PRINT(otherTrue)
+>>> expectPrint
+shadowed
+1
+=========================
+>>> testCase "Duplicate variable declaration"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+WORK_VAR @myVar = (1)
+WORK_VAR @myVar = (2)
+>>> expectError type: #SYNTAX_ERROR message: "Cannot declare two variables with the same identifier in the same scope." lineNumber: 3
+=========================
+>>> testCase "Duplicate variable declaration in function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PREP_VAR @myFunc = <FUNC {
+    [ARGS [@value]]
+    PREP_VAR @value = <1>
+}>
+>>> expectError type: #SYNTAX_ERROR message: "Cannot declare two variables with the same identifier in the same scope." lineNumber: 4

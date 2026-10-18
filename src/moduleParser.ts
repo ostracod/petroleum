@@ -259,6 +259,7 @@ export class ModuleParser {
         if (firstChar === null || !isIdentFirstChar(firstChar)) {
             throw this.createError("Expected identifier in declaration component.");
         }
+        const identifierPos = this.getPos();
         const identifier = new PetString(this.readIdentifier());
         const variable = new PetMap([
             [symbols.VAR_TYPE, null],
@@ -266,6 +267,9 @@ export class ModuleParser {
             [symbols.SCOPE, this.scope],
         ]);
         const varMap = this.scope.getMember(symbols.VARS).getMap();
+        if (varMap.hasKey(identifier)) {
+            throw this.createError("Cannot declare two variables with the same identifier in the same scope.", identifierPos);
+        }
         varMap.setMember(identifier, variable);
         return new PetMap([
             [symbols.COMP_TYPE, symbols.DECL_COMP],
