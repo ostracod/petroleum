@@ -1,0 +1,164 @@
+>>> commonFile ~/targetPackage/testUtils.petrol
+COMMENT "Usage: currentFrame ()"
+COMMENT "Returns the frame passed to the #EVAL method."
+PREP_VAR @currentFrame = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @frame]]
+            RET (frame)
+        })
+    ]])
+]]>
+=========================
+>>> testCase "Closure accesses variables assigned after function creation"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myVar1
+RUN {
+    WORK_VAR @myVar2
+    WORK_VAR @myFunc1 = (FUNC {
+        PRINT(ADD(myVar1, myVar2))
+    })
+    PREP_VAR @myFunc2 = <FUNC {
+        PRINT(ADD(myVar1, 1))
+    }>
+    SET myVar1 = (10)
+    SET myVar2 = (20)
+    CALL(myFunc1)
+    myFunc2()
+}
+>>> expectPrint
+30
+11
+=========================
+>>> testCase "Closure assigns variables in enclosing scope"
+>>> setupFile ~/targetPackage/main.petrol
+RUN {
+    WORK_VAR @count = (0)
+    WORK_VAR @increment = (FUNC {
+        SET count = (ADD(count, 1))
+    })
+    CALL(increment)
+    CALL(increment)
+    PRINT(count)
+}
+>>> expectPrint
+2
+=========================
+>>> testCase "Closures outlive enclosing scope"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @createCounter = <FUNC {
+    WORK_VAR @count = (0)
+    WORK_VAR @increment = (FUNC {
+        SET count = (ADD(count, 1))
+    })
+    WORK_VAR @getCount = (FUNC {
+        RET (count)
+    })
+    RET (LIST (increment, getCount))
+}>
+WORK_VAR @counter1 = (createCounter())
+WORK_VAR @counter2 = (createCounter())
+CALL(MEMBER(counter1, 0))
+CALL(MEMBER(counter1, 0))
+CALL(MEMBER(counter2, 0))
+PRINT(CALL(MEMBER(counter1, 1)))
+PRINT(CALL(MEMBER(counter2, 1)))
+>>> expectPrint
+2
+1
+=========================
+>>> testCase "Nested closures"
+>>> setupFile ~/targetPackage/main.petrol
+RUN {
+    WORK_VAR @base = (100)
+    WORK_VAR @createAdder = (FUNC {
+        [ARGS [@amount]]
+        COMMENT "Only the inner function accesses `base`."
+        RET (FUNC {
+            [ARGS [@value]]
+            RET (ADD(ADD(base, amount), value))
+        })
+    })
+    WORK_VAR @add5 = (CALL(createAdder, LIST (5)))
+    WORK_VAR @add10 = (CALL(createAdder, LIST (10)))
+    PRINT(CALL(add5, LIST (1)))
+    PRINT(CALL(add10, LIST (2)))
+    SET base = (200)
+    PRINT(CALL(add5, LIST (3)))
+}
+>>> expectPrint
+106
+112
+208
+=========================
+>>> testCase "Recursive function has separate frame per invocation"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @factorial = <FUNC {
+    [ARGS [@n]]
+    IF (LESS_EQUAL(n, 1)) {
+        RET (1)
+    }
+    WORK_VAR @result = (MUL(n, CALL(factorial, LIST (SUB(n, 1)))))
+    RET (result)
+}>
+PRINT(factorial(5))
+>>> expectPrint
+120
+=========================
+>>> testCase "Prep-var function cannot access inner work-var"
+>>> setupFile ~/targetPackage/main.petrol
+RUN {
+    WORK_VAR @innerVar = (1)
+    PREP_VAR @myFunc = <FUNC {
+        PRINT(innerVar)
+    }>
+    myFunc()
+}
+>>> expectError lineNumber: 4
+=========================
+>>> testCase "Closure frames exclude unnecessary work-vars"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@currentFrame]]
+WORK_VAR @moduleFrame = (currentFrame ())
+WORK_VAR @topVar = (1)
+RUN {
+    WORK_VAR @usedVar = (2)
+    WORK_VAR @unusedVar = (LIST ("large", "value"))
+    WORK_VAR @runFrame = (currentFrame ())
+    WORK_VAR @createInner = (FUNC {
+        [ARGS [@usedArg, @unusedArg]]
+        WORK_VAR @unusedLocal = (3)
+        RET (FUNC {
+            WORK_VAR @innerFrame = (currentFrame ())
+            PRINT(ADD(ADD(topVar, usedVar), usedArg))
+            RET (innerFrame)
+        })
+    })
+    WORK_VAR @inner = (CALL(createInner, LIST (4, 5)))
+    WORK_VAR @innerFrame = (CALL(inner))
+    PRINT(KEYS(MEMBER(innerFrame, #FRAME_ENTRIES)))
+    COMMENT "Pruned frame of the createInner body."
+    WORK_VAR @closureFrame1 = (MEMBER(innerFrame, #PARENT))
+    PRINT(KEYS(MEMBER(closureFrame1, #FRAME_ENTRIES)))
+    COMMENT "Pruned frame of the RUN body."
+    WORK_VAR @closureFrame2 = (MEMBER(closureFrame1, #PARENT))
+    PRINT(KEYS(MEMBER(closureFrame2, #FRAME_ENTRIES)))
+    PRINT(EQUAL(MEMBER(closureFrame2, #SCOPE), MEMBER(runFrame, #SCOPE)))
+    PRINT(EQUAL(closureFrame2, runFrame))
+    COMMENT "The closure shares frame entries with the original frame."
+    WORK_VAR @runEntries = (MEMBER(runFrame, #FRAME_ENTRIES))
+    WORK_VAR @closureEntries = (MEMBER(closureFrame2, #FRAME_ENTRIES))
+    PRINT(EQUAL(MEMBER(closureEntries, "usedVar"), MEMBER(runEntries, "usedVar")))
+    COMMENT "Module frames are not pruned."
+    PRINT(EQUAL(MEMBER(closureFrame2, #PARENT), moduleFrame))
+}
+>>> expectPrint
+7
+LIST ("innerFrame")
+LIST ("usedArg")
+LIST ("usedVar")
+1
+0
+1
+1
