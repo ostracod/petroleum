@@ -4,7 +4,7 @@
 The example below declares a function which determines whether the argument number is prime:
 
 ```
-PREP_VAR @isPrime = <FUNC {
+PREP_FUNC @isPrime {
     [ARGS [@inputNum]]
     WORK_VAR @factor = (2)
     WHILE (LESS(factor, inputNum)) {
@@ -14,7 +14,7 @@ PREP_VAR @isPrime = <FUNC {
         SET factor = (ADD(factor, 1))
     }
     RET (TRUE)
-}>
+}
 
 COMMENT "Prints whether the numbers 2 to 100 are prime."
 WORK_VAR @num = (2)
@@ -88,18 +88,18 @@ TRY {
 The example below demonstrates usage of return exceptions:
 
 ```
-PREP_VAR @myReturn = <FUNC {
+PREP_FUNC @myReturn {
     THROW (MAP [FIELDS [
         (#EXCEP_TYPE) = (#RET_EXCEP)
         (#VALUE) = (123)
         (#RET_LEVEL) = (1)
     ]])
-}>
-PREP_VAR @myFunc = <FUNC {
+}
+PREP_FUNC @myFunc {
     PRINT("About to return a value!")
     myReturn()
     PRINT("This statement is not reached.")
-}>
+}
 COMMENT "Prints 123."
 PRINT(myFunc())
 ```
@@ -313,7 +313,7 @@ PREP <RUN {
 
 COMMENT "The `evenIntVar` and `oddIntVar` procedures work in mostly the same way,"
 COMMENT "so we will define a function to create their methods."
-PREP_VAR @varMethods = <FUNC {
+PREP_FUNC @varMethods {
     [ARGS [@isEven]]
     RET (MAP [FIELDS [
         (#PREP) = (FUNC {
@@ -354,7 +354,7 @@ PREP_VAR @varMethods = <FUNC {
             SET_MEMBER(frameEntry, #VALUE, value)
         })
     ]])
-}>
+}
 
 COMMENT "Define custom procedures to declare even and odd integer variables."
 PREP_VAR @evenIntVar = <MAP [FIELDS [

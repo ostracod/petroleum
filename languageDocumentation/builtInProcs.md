@@ -63,6 +63,12 @@ PREP_SYMBOL @$name
 Initializes prep-var `$name` with a new symbol whose display name is `$name`.
 
 ```
+PREP_FUNC @$name {[ARGS $args], $body}
+```
+
+Initializes prep-var `$name` with a function having the given body. `[ARGS $args]` works the same way as in the `FUNC` procedure. The function will be stored in the prep-var before the body finishes prep-phase, which allows the function to be recursive. If the function is invoked while the body is in prep-phase, the caller will pause until the body finishes prep-phase.
+
+```
 GET <$module> $name
 ```
 

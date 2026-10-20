@@ -3,6 +3,8 @@
 
 Every Petroleum code file is a "module". A module can import any variable defined in the top-level statement sequence of another module. Petroleum exposes "built-in modules" which are not Petroleum code files. Built-in modules enable special operations such as file manipulation. See the section on built-in modules for details.
 
+When a module is imported, Petroleum invokes the `#PREP` method on all top-level statements in the module. After every top-level statement in every module finishes prep-phase, Petroleum invokes the `#EVAL` method on top-level statements, and no additional modules can be imported.
+
 A "package" is a directory containing a `petroleumPackage.json` file at the top level. Every Petroleum code file must be inside a package. Every package is identified by a "package specifier", which is a string with the format `"$developerName.$packageName"`. `$developerName` must be universally unique. Both `$developerName` and `$packageName` may only contain the following characters:
 
 * Uppercase and lowercase letters
