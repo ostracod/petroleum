@@ -1,0 +1,92 @@
+>>> testCase "Exceptions during prep-phase are reported after all coroutines end"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @flags = <MAP [FIELDS []]>
+PREP_VAR @var1 = <RUN {
+    ABORT (#STATE_ERROR, "First error")
+}>
+PREP_VAR @var2 = <RUN {
+    SPIN (FUNC {
+        RET (HAS_KEY(flags, "ready"))
+    }, "Waiting for ready flag")
+    PRINT("Spinning coroutine finished")
+    ABORT (#VALUE_ERROR, "Second error")
+}>
+PREP_VAR @var3 = <RUN {
+    PRINT("Setting ready flag")
+    SET_MEMBER(flags, "ready", TRUE)
+}>
+PRINT("This line is not reached")
+>>> expectPrint
+Setting ready flag
+Spinning coroutine finished
+>>> expectError type: #STATE_ERROR message: "First error" lineNumber: 3
+>>> expectError type: #VALUE_ERROR message: "Second error" lineNumber: 10
+=========================
+>>> testCase "Exception during prep-phase of imported module"
+>>> setupFile ~/targetPackage/otherModule.petrol
+PREP_VAR @otherVar = <RUN {
+    ABORT (#STATE_ERROR, "Error in other module")
+}>
+PRINT("This line is not reached")
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./otherModule.petrol">
+PREP <RUN {
+    PRINT("Prepping main module")
+}>
+PRINT("This line is not reached")
+>>> expectPrint
+Prepping main module
+>>> expectError type: #STATE_ERROR message: "Error in other module" path: ~/targetPackage/otherModule.petrol lineNumber: 2
+=========================
+>>> testCase "Non-error exception during prep-phase"
+>>> setupFile ~/targetPackage/main.petrol
+PREP <RUN {
+    BREAK
+}>
+PREP <RUN {
+    PRINT("Still prepping")
+}>
+PRINT("This line is not reached")
+>>> expectPrint
+Still prepping
+>>> expectExcep type: #BREAK_EXCEP lineNumber: 2
+=========================
+>>> testCase "Stuck coroutine is not reported with exception during prep-phase"
+>>> setupFile ~/targetPackage/main.petrol
+COMMENT "This behavior is intentional. The exception is probably the root cause,"
+COMMENT "so Petroleum does not report stuck conditions alongside the exception."
+PREP_VAR @var1 = <RUN {
+    ABORT (#STATE_ERROR, "An error")
+}>
+PREP_VAR @var2 = <RUN {
+    SPIN (FUNC {RET (FALSE)}, "Stuck forever")
+}>
+PRINT("This line is not reached")
+>>> expectError type: #STATE_ERROR message: "An error" lineNumber: 4
+=========================
+>>> testCase "Exception during work-phase terminates immediately"
+>>> setupFile ~/targetPackage/main.petrol
+SCHED {
+    PRINT("This line is not reached")
+}
+PRINT("Before error")
+ABORT (#STATE_ERROR, "Error in main coroutine")
+PRINT("This line is not reached")
+>>> expectPrint
+Before error
+>>> expectError type: #STATE_ERROR message: "Error in main coroutine" lineNumber: 5
+=========================
+>>> testCase "Exception in scheduled coroutine during work-phase terminates immediately"
+>>> setupFile ~/targetPackage/main.petrol
+SCHED {
+    ABORT (#STATE_ERROR, "First error")
+}
+SCHED {
+    ABORT (#STATE_ERROR, "This error is not reported")
+}
+PRINT("Main coroutine spinning")
+COMMENT "The spinning coroutine is not reported as stuck."
+SPIN (FUNC {RET (FALSE)}, "Waiting forever")
+>>> expectPrint
+Main coroutine spinning
+>>> expectError type: #STATE_ERROR message: "First error" lineNumber: 2
