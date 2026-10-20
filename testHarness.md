@@ -162,10 +162,10 @@ The example below validates that the `AWAIT` procedure becomes stuck:
 >>> setupFile ~/targetPackage/main.petrol
 WORK_VAR @myList = (LIST (10, 20, 30))
 PRINT("About to become stuck!")
-PREP_VAR @condition = <FUNC {
+PREP_FUNC @condition {
     [ARGS [@value]]
     RET (EQUAL(value, 11))
-}>
+}
 AWAIT (myList, 0, condition, "Waiting for first member to become 11")
 PRINT("This line is not reached")
 >>> expectPrint

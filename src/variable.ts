@@ -271,6 +271,17 @@ export const getSignatureVars = (stmtsComp: PetMap): SignatureVars => {
     }
 };
 
+export const setArgVarTypes = (stmtsComp: PetMap): void => {
+    const { argVars, argsVar } = getSignatureVars(stmtsComp);
+    if (typeof argVars === "undefined") {
+        argsVar!.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
+    } else {
+        for (const argVar of argVars) {
+            argVar.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
+        }
+    }
+};
+
 const pruneFrameEntries = (frame: PetMap, scope: PetMap, remainingVars: PetMap): PetMap => {
     const frameEntries = frame.getMember(symbols.FRAME_ENTRIES).getMap();
     const variables = scope.getMember(symbols.VARS).getMap();

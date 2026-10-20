@@ -8,7 +8,7 @@ import { FileExistsFunc } from "./builtInFunc.js";
 import { SetProcParts, setUpImportVars } from "./procedure.js";
 import { PetTypeError, createBreakExcep } from "./exception.js";
 import { getPackage, assertCompAmount, assertMinCompAmount, getPrepGradeExprs, getStmtsComp } from "./node.js";
-import { getVariable, getResolvedVarType, findVarValue, getScope, VarSpaceType, getVarSpaceType, createFrame, getSignatureVars } from "./variable.js";
+import { getVariable, getResolvedVarType, findVarValue, getScope, VarSpaceType, getVarSpaceType, createFrame, setArgVarTypes } from "./variable.js";
 import { TaskDef } from "./task.js";
 
 export interface MapFieldComps {
@@ -250,14 +250,7 @@ export const funcProcPrepTask: TaskDef<{ expr: PetMap }, null> = {
             const comps = expr.getMember(symbols.COMPS).getList();
             assertCompAmount(comps, 2);
             const stmtsComp = getStmtsComp(comps, 1, true);
-            const { argVars, argsVar } = getSignatureVars(stmtsComp);
-            if (typeof argVars === "undefined") {
-                argsVar!.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
-            } else {
-                for (const argVar of argVars) {
-                    argVar.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
-                }
-            }
+            setArgVarTypes(stmtsComp);
             return task.callMethod(
                 stmtsComp, symbols.PREP, [],
                 (value) => task.advanceStage(null),

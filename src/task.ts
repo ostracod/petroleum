@@ -584,7 +584,11 @@ export const spinCondTask: TaskDef<{ spinner: Spinner }, null> = {
 };
 
 const checkGradeForEval = (worker: PetMap): void => {
-    const grade = worker.getOptionalMember(symbols.GRADE)?.getSymbol() ?? symbols.WORK_GRADE;
+    const gradeValue = worker.getOptionalMember(symbols.GRADE);
+    if (typeof gradeValue === "undefined") {
+        return;
+    }
+    const grade = gradeValue.getSymbol();
     let entity = worker;
     while (true) {
         const nextEntity = entity.getOptionalMember(symbols.PARENT);
