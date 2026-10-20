@@ -269,3 +269,20 @@ PRINT(varNames(getComp("myStmt", 2), scope))
 >>> expectPrint
 Getting accessed vars of customVars
 LIST ("customVar")
+=========================
+>>> testCase "ACCESSED_VARS method of PREP_FUNC procedure"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode, @varNames, @getComp, @getStmt]]
+WORK_VAR @var1 = (1)
+capture "myStmt" {
+    PREP_FUNC @myFunc {
+        PRINT(var1)
+    }
+}
+WORK_VAR @scope = (SCOPE(MEMBER(capturedCode, "myStmt")))
+COMMENT "PREP_FUNC does not create a closure, so no variables are accessed."
+PRINT(varNames(getStmt("myStmt", 0), scope))
+PRINT(varNames(getComp("myStmt", 2), scope))
+>>> expectPrint
+LIST ()
+LIST ()

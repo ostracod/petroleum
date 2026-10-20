@@ -244,6 +244,169 @@ otherSymbol
 0
 123
 =========================
+>>> testCase "PREP_FUNC procedure"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @noArgs {
+    PRINT("Called noArgs")
+}
+PREP_FUNC @twoArgs {
+    [ARGS [@value1, @value2]]
+    RET (SUB(value1, value2))
+}
+PREP_FUNC @argList {
+    [ARGS @args]
+    RET (args)
+}
+PRINT(noArgs())
+PRINT(twoArgs(10, 3))
+PRINT(argList(1, "a"))
+PRINT(TYPE(twoArgs))
+PRINT(PREP <twoArgs(20, 5)>)
+>>> expectPrint
+Called noArgs
+NULL
+7
+LIST (1, "a")
+#FUNC
+15
+=========================
+>>> testCase "PREP_FUNC procedure with recursion"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @recursiveFunc {
+    [ARGS [@depth]]
+    IF (LESS(depth, 1)) {
+        RET
+    }
+    PRINT(CONCAT(LIST ("Current depth: ", STR(depth))))
+    recursiveFunc(SUB(depth, 1))
+}
+PREP_FUNC @factorial {
+    [ARGS [@num]]
+    IF (LESS_EQUAL(num, 1)) {
+        RET (1)
+    }
+    WORK_VAR @result = (MUL(num, factorial(SUB(num, 1))))
+    RET (result)
+}
+PREP <recursiveFunc(3)>
+PRINT("Work-phase started")
+PRINT(factorial(5))
+>>> expectPrint
+Current depth: 3
+Current depth: 2
+Current depth: 1
+Work-phase started
+120
+=========================
+>>> testCase "PREP_FUNC procedure with mutual recursion"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @isEven {
+    [ARGS [@num]]
+    IF (EQUAL(num, 0)) {
+        RET (TRUE)
+    }
+    RET (isOdd(SUB(num, 1)))
+}
+PREP_FUNC @isOdd {
+    [ARGS [@num]]
+    IF (EQUAL(num, 0)) {
+        RET (FALSE)
+    }
+    RET (isEven(SUB(num, 1)))
+}
+PRINT(isEven(10))
+PRINT(isOdd(7))
+PRINT(isEven(3))
+>>> expectPrint
+1
+1
+0
+=========================
+>>> testCase "PREP_FUNC procedure invoked while body is in prep-phase"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @flags = <MAP [FIELDS []]>
+COMMENT "The #PREP method spins until the \"release\" flag is set."
+PREP_VAR @slow = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            SPIN (FUNC {
+                RET (HAS_KEY(flags, "release"))
+            }, "Waiting for release")
+        })
+    ]])
+]]>
+PREP_FUNC @myFunc {
+    slow
+    PRINT("Evaluating myFunc body")
+}
+PREP <RUN {
+    PRINT("Calling myFunc")
+    SET_MEMBER(flags, "calling", TRUE)
+    myFunc()
+    PRINT("myFunc returned")
+}>
+PREP <RUN {
+    SPIN (FUNC {
+        RET (HAS_KEY(flags, "calling"))
+    }, "Waiting for call")
+    PRINT("Releasing myFunc body")
+    SET_MEMBER(flags, "release", TRUE)
+}>
+>>> expectPrint
+Calling myFunc
+Releasing myFunc body
+Evaluating myFunc body
+myFunc returned
+=========================
+>>> testCase "PREP_FUNC procedure accesses module work-vars"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @count = (0)
+PREP_FUNC @increment {
+    SET count = (ADD(count, 1))
+    RET (count)
+}
+PRINT(increment())
+PRINT(increment())
+PRINT(count)
+>>> expectPrint
+1
+2
+2
+=========================
+>>> testCase "PREP_FUNC procedure cannot access enclosing work-vars"
+>>> setupFile ~/targetPackage/main.petrol
+RUN {
+    WORK_VAR @count = (0)
+    PREP_FUNC @increment {
+        SET count = (ADD(count, 1))
+    }
+    increment()
+}
+>>> expectError lineNumber: 4
+=========================
+>>> testCase "PREP_FUNC procedure with wrong number of arguments"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @myFunc {
+    [ARGS [@value]]
+    myFunc(1, 2)
+}
+PRINT("This line is not reached")
+>>> expectError type: #VALUE_ERROR message: "Incorrect number of function arguments." lineNumber: 3
+=========================
+>>> testCase "PREP_FUNC procedure without declaration"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC myFunc {
+    PRINT("This line is not reached")
+}
+>>> expectError type: #SYNTAX_ERROR message: "Expected declaration component." lineNumber: 1
+=========================
+>>> testCase "PREP_FUNC procedure without body"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @myFunc (1)
+>>> expectError type: #SYNTAX_ERROR message: "Expected statement sequence component." lineNumber: 1
+=========================
 >>> testCase "GET procedure"
 >>> setupFile ~/targetPackage/otherModule.petrol
 PREP_VAR @otherVar = <LIST (10, 20)>

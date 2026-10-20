@@ -397,12 +397,21 @@ evalInPrep (ADD(1, 2))
 =========================
 >>> testCase "Statement sequence evaluated during prep-phase of parent"
 >>> setupFile ~/targetPackage/main.petrol
-IMPORT <"./testUtils.petrol"> [VARS [@evalInPrep]]
-PRINT("This line is not reached")
+IMPORT <"./testUtils.petrol"> [VARS [@evalInPrep, @evalInWork]]
+COMMENT "Statement sequences do not have a grade, so they may be evaluated in either phase."
+PRINT("Work-phase started")
 evalInPrep {
-    PRINT("This line is not reached")
+    PRINT("Evaluated during prep-phase")
 }
->>> expectError type: #STATE_ERROR message: "Cannot evaluate work-grade worker when parent is in prep-phase." lineNumber: 3
+evalInWork {
+    PRINT("Evaluated during work-phase")
+}
+>>> expectPrint
+Evaluated during prep-phase
+NULL
+Work-phase started
+Evaluated during work-phase
+NULL
 =========================
 >>> testCase "Work-grade expression evaluated during prep-phase of parent"
 >>> setupFile ~/targetPackage/main.petrol

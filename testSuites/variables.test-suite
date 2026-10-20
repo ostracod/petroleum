@@ -291,3 +291,44 @@ PREP_VAR @myVar = <RUN {
 PRINT(myVar)
 >>> expectPrint
 6
+=========================
+>>> testCase "CMD_LINE_ARGS without arguments"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(CMD_LINE_ARGS)
+>>> expectPrint
+LIST ()
+=========================
+>>> testCase "CMD_LINE_ARGS with arguments"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(CMD_LINE_ARGS)
+PRINT(LEN(CMD_LINE_ARGS))
+PRINT(TYPE(MEMBER(CMD_LINE_ARGS, 1)))
+PRINT(ADD(PARSE_INT(MEMBER(CMD_LINE_ARGS, 1)), 1))
+>>> appArgs first 42 --flag
+>>> expectPrint
+LIST ("first", "42", "--flag")
+3
+#STR
+43
+=========================
+>>> testCase "CMD_LINE_ARGS with quoted arguments"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(CMD_LINE_ARGS)
+PRINT(LEN(MEMBER(CMD_LINE_ARGS, 2)))
+>>> appArgs "hello world" "say \"hi\"" ""
+>>> expectPrint
+LIST ("hello world", "say \"hi\"", "")
+0
+=========================
+>>> testCase "CMD_LINE_ARGS in prep-phase and other module"
+>>> setupFile ~/targetPackage/otherModule.petrol
+PREP_VAR @firstArg = <MEMBER(CMD_LINE_ARGS, 0)>
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./otherModule.petrol"> [VARS [@firstArg]]
+PREP_VAR @argCount = <LEN(CMD_LINE_ARGS)>
+PRINT(argCount)
+PRINT(firstArg)
+>>> appArgs alpha beta
+>>> expectPrint
+2
+alpha
