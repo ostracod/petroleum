@@ -1,0 +1,677 @@
+>>> commonFile ~/targetPackage/testUtils.petrol
+PREP_FUNC @printPackage {
+    [ARGS [@pack, @indent]]
+    PRINT(CONCAT(LIST (indent, MEMBER(pack, #SPECIFIER), " ", MEMBER(pack, #VER))))
+    WORK_VAR @deps = (MEMBER(pack, #DEPS))
+    WORK_VAR @specifiers = (KEYS(deps))
+    WORK_VAR @index = (0)
+    WHILE (LESS(index, LEN(specifiers))) {
+        printPackage(MEMBER(deps, MEMBER(specifiers, index)), CONCAT(LIST (indent, "    ")))
+        SET index = (ADD(index, 1))
+    }
+}
+COMMENT "Usage: printPackages"
+COMMENT "Prints the package of the current module, followed by the tree of resolved dependencies."
+PREP_VAR @printPackages = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @frame]]
+            WORK_VAR @module = (MEMBER(SCOPE(worker), #MODULE))
+            printPackage(MEMBER(module, #PACK), "")
+        })
+    ]])
+]]>
+=========================
+>>> testCase "Newest compatible package version"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.caretLib",
+            "version": "^1.2.0"
+        },
+        {
+            "specifier": "testDev.tildeLib",
+            "version": "~1.2.0"
+        },
+        {
+            "specifier": "testDev.exactLib",
+            "version": "=1.2.0"
+        }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/caretLib/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.caretLib",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/caretLib/v1.0.0/main.petrol
+PREP_VAR @version = <"1.0.0">
+>>> setupFile ~/petroleumPackages/testDev/caretLib/v1.2.0/petroleumPackage.json
+{
+    "specifier": "testDev.caretLib",
+    "version": "1.2.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/caretLib/v1.2.0/main.petrol
+PREP_VAR @version = <"1.2.0">
+>>> setupFile ~/petroleumPackages/testDev/caretLib/v1.2.5/petroleumPackage.json
+{
+    "specifier": "testDev.caretLib",
+    "version": "1.2.5",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/caretLib/v1.2.5/main.petrol
+PREP_VAR @version = <"1.2.5">
+>>> setupFile ~/petroleumPackages/testDev/caretLib/v1.9.0/petroleumPackage.json
+{
+    "specifier": "testDev.caretLib",
+    "version": "1.9.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/caretLib/v1.9.0/main.petrol
+PREP_VAR @version = <"1.9.0">
+>>> setupFile ~/petroleumPackages/testDev/caretLib/v2.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.caretLib",
+    "version": "2.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/caretLib/v2.0.0/main.petrol
+PREP_VAR @version = <"2.0.0">
+>>> setupFile ~/petroleumPackages/testDev/tildeLib/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.tildeLib",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/tildeLib/v1.0.0/main.petrol
+PREP_VAR @version = <"1.0.0">
+>>> setupFile ~/petroleumPackages/testDev/tildeLib/v1.2.0/petroleumPackage.json
+{
+    "specifier": "testDev.tildeLib",
+    "version": "1.2.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/tildeLib/v1.2.0/main.petrol
+PREP_VAR @version = <"1.2.0">
+>>> setupFile ~/petroleumPackages/testDev/tildeLib/v1.2.5/petroleumPackage.json
+{
+    "specifier": "testDev.tildeLib",
+    "version": "1.2.5",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/tildeLib/v1.2.5/main.petrol
+PREP_VAR @version = <"1.2.5">
+>>> setupFile ~/petroleumPackages/testDev/tildeLib/v1.9.0/petroleumPackage.json
+{
+    "specifier": "testDev.tildeLib",
+    "version": "1.9.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/tildeLib/v1.9.0/main.petrol
+PREP_VAR @version = <"1.9.0">
+>>> setupFile ~/petroleumPackages/testDev/tildeLib/v2.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.tildeLib",
+    "version": "2.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/tildeLib/v2.0.0/main.petrol
+PREP_VAR @version = <"2.0.0">
+>>> setupFile ~/petroleumPackages/testDev/exactLib/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.exactLib",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/exactLib/v1.0.0/main.petrol
+PREP_VAR @version = <"1.0.0">
+>>> setupFile ~/petroleumPackages/testDev/exactLib/v1.2.0/petroleumPackage.json
+{
+    "specifier": "testDev.exactLib",
+    "version": "1.2.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/exactLib/v1.2.0/main.petrol
+PREP_VAR @version = <"1.2.0">
+>>> setupFile ~/petroleumPackages/testDev/exactLib/v1.2.5/petroleumPackage.json
+{
+    "specifier": "testDev.exactLib",
+    "version": "1.2.5",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/exactLib/v1.2.5/main.petrol
+PREP_VAR @version = <"1.2.5">
+>>> setupFile ~/petroleumPackages/testDev/exactLib/v1.9.0/petroleumPackage.json
+{
+    "specifier": "testDev.exactLib",
+    "version": "1.9.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/exactLib/v1.9.0/main.petrol
+PREP_VAR @version = <"1.9.0">
+>>> setupFile ~/petroleumPackages/testDev/exactLib/v2.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.exactLib",
+    "version": "2.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/exactLib/v2.0.0/main.petrol
+PREP_VAR @version = <"2.0.0">
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@printPackages]]
+printPackages
+>>> expectPrint
+testUser.targetPackage 1.0.0
+    testDev.caretLib 1.9.0
+    testDev.tildeLib 1.2.5
+    testDev.exactLib 1.2.0
+=========================
+>>> testCase "Shared dependency resolved to single version"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.libA",
+            "version": "^1.0.0"
+        },
+        {
+            "specifier": "testDev.libB",
+            "version": "^1.0.0"
+        }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/libA/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.libA",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.libC",
+            "version": "^1.0.0"
+        }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/libA/v1.0.0/main.petrol
+IMPORT_PACK <"testDev.libC"> [VARS [version AS @libCVersion]]
+>>> setupFile ~/petroleumPackages/testDev/libB/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.libB",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.libC",
+            "version": "~1.1.0"
+        }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/libB/v1.0.0/main.petrol
+IMPORT_PACK <"testDev.libC"> [VARS [version AS @libCVersion]]
+>>> setupFile ~/petroleumPackages/testDev/libC/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.libC",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/libC/v1.0.0/main.petrol
+PREP_VAR @version = <"1.0.0">
+>>> setupFile ~/petroleumPackages/testDev/libC/v1.1.2/petroleumPackage.json
+{
+    "specifier": "testDev.libC",
+    "version": "1.1.2",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/libC/v1.1.2/main.petrol
+PREP_VAR @version = <"1.1.2">
+>>> setupFile ~/petroleumPackages/testDev/libC/v1.3.0/petroleumPackage.json
+{
+    "specifier": "testDev.libC",
+    "version": "1.3.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.libD",
+            "version": "^1.0.0"
+        }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/libC/v1.3.0/main.petrol
+COMMENT "This package should not be selected, so this syntax error is never reported."
+)
+>>> setupFile ~/petroleumPackages/testDev/libD/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.libD",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/libD/v1.0.0/main.petrol
+COMMENT "This package should not be selected, so this syntax error is never reported."
+)
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@printPackages]]
+IMPORT_PACK <"testDev.libA"> AS @libA
+IMPORT_PACK <"testDev.libB"> AS @libB
+printPackages
+PRINT(GET <libA> libCVersion)
+PRINT(GET <libB> libCVersion)
+>>> expectPrint
+testUser.targetPackage 1.0.0
+    testDev.libA 1.0.0
+        testDev.libC 1.1.2
+    testDev.libB 1.0.0
+        testDev.libC 1.1.2
+1.1.2
+1.1.2
+=========================
+>>> testCase "Incompatible dependencies resolved to multiple versions"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.libA",
+            "version": "^1.0.0"
+        },
+        {
+            "specifier": "testDev.libB",
+            "version": "^1.0.0"
+        }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/libA/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.libA",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.libC",
+            "version": "^1.0.0"
+        }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/libA/v1.0.0/main.petrol
+IMPORT_PACK <"testDev.libC"> [VARS [version AS @libCVersion]]
+>>> setupFile ~/petroleumPackages/testDev/libB/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.libB",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.libC",
+            "version": "^2.0.0"
+        }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/libB/v1.0.0/main.petrol
+IMPORT_PACK <"testDev.libC"> [VARS [version AS @libCVersion]]
+>>> setupFile ~/petroleumPackages/testDev/libC/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.libC",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/libC/v1.0.0/main.petrol
+PREP_VAR @version = <"1.0.0">
+>>> setupFile ~/petroleumPackages/testDev/libC/v1.4.0/petroleumPackage.json
+{
+    "specifier": "testDev.libC",
+    "version": "1.4.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/libC/v1.4.0/main.petrol
+PREP_VAR @version = <"1.4.0">
+>>> setupFile ~/petroleumPackages/testDev/libC/v2.1.0/petroleumPackage.json
+{
+    "specifier": "testDev.libC",
+    "version": "2.1.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/libC/v2.1.0/main.petrol
+PREP_VAR @version = <"2.1.0">
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@printPackages]]
+IMPORT_PACK <"testDev.libA"> AS @libA
+IMPORT_PACK <"testDev.libB"> AS @libB
+printPackages
+PRINT(GET <libA> libCVersion)
+PRINT(GET <libB> libCVersion)
+>>> expectPrint
+testUser.targetPackage 1.0.0
+    testDev.libA 1.0.0
+        testDev.libC 1.4.0
+    testDev.libB 1.0.0
+        testDev.libC 2.1.0
+1.4.0
+2.1.0
+=========================
+>>> testCase "Dependency requires older version of package"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.libA",
+            "version": "^1.0.0"
+        }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/libA/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.libA",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/libA/v1.0.0/main.petrol
+PREP_VAR @version = <"1.0.0">
+>>> setupFile ~/petroleumPackages/testDev/libA/v1.1.0/petroleumPackage.json
+{
+    "specifier": "testDev.libA",
+    "version": "1.1.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.libB",
+            "version": "^1.0.0"
+        }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/libA/v1.1.0/main.petrol
+COMMENT "This package should not be selected, so this syntax error is never reported."
+)
+>>> setupFile ~/petroleumPackages/testDev/libB/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.libB",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.libA",
+            "version": "=1.0.0"
+        }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/libB/v1.0.0/main.petrol
+COMMENT "This package should not be selected, so this syntax error is never reported."
+)
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@printPackages]]
+printPackages
+>>> expectPrint
+testUser.targetPackage 1.0.0
+    testDev.libA 1.0.0
+=========================
+>>> testCase "Package version incompatible with Petroleum is skipped"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.myLib",
+            "version": "^1.0.0"
+        }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/myLib/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.myLib",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/myLib/v1.0.0/main.petrol
+PREP_VAR @version = <"1.0.0">
+>>> setupFile ~/petroleumPackages/testDev/myLib/v1.5.0/petroleumPackage.json
+{
+    "specifier": "testDev.myLib",
+    "version": "1.5.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^2.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/myLib/v1.5.0/main.petrol
+COMMENT "This package should not be selected, so this syntax error is never reported."
+)
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@printPackages]]
+printPackages
+>>> expectPrint
+testUser.targetPackage 1.0.0
+    testDev.myLib 1.0.0
+=========================
+>>> testCase "Entry package incompatible with Petroleum"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^2.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+>>> expectError type: #STATE_ERROR message: "Entry package is not compatible with this version of Petroleum."
+=========================
+>>> testCase "Dependency incompatible with Petroleum"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.myLib",
+            "version": "^1.0.0"
+        }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/myLib/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.myLib",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "~0.9.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/myLib/v1.0.0/main.petrol
+PREP_VAR @version = <"1.0.0">
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+>>> expectError type: #STATE_ERROR message: "Could not find testDev.myLib package in store which satisfies dependency of testUser.targetPackage!"
+=========================
+>>> testCase "Missing package version"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.libA",
+            "version": "^1.0.0"
+        }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/libA/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.libA",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.libB",
+            "version": "^3.0.0"
+        }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/libA/v1.0.0/main.petrol
+PREP_VAR @version = <"1.0.0">
+>>> setupFile ~/petroleumPackages/testDev/libB/v2.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.libB",
+    "version": "2.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/libB/v2.0.0/main.petrol
+PREP_VAR @version = <"2.0.0">
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+>>> expectError type: #STATE_ERROR message: "Could not find testDev.libB package in store which satisfies dependency of testDev.libA!"
+=========================
+>>> testCase "Package resolution instability"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.libY",
+            "version": "^1.0.0"
+        }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/libY/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.libY",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.libV",
+            "version": "^1.0.0"
+        }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/libY/v1.0.0/main.petrol
+PREP_VAR @version = <"1.0.0">
+>>> setupFile ~/petroleumPackages/testDev/libY/v1.1.0/petroleumPackage.json
+{
+    "specifier": "testDev.libY",
+    "version": "1.1.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.libW",
+            "version": "^1.0.0"
+        }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/libY/v1.1.0/main.petrol
+PREP_VAR @version = <"1.1.0">
+>>> setupFile ~/petroleumPackages/testDev/libW/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.libW",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.libY",
+            "version": "=1.0.0"
+        }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/libW/v1.0.0/main.petrol
+PREP_VAR @version = <"1.0.0">
+>>> setupFile ~/petroleumPackages/testDev/libV/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.libV",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.libY",
+            "version": "=1.1.0"
+        }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/libV/v1.0.0/main.petrol
+PREP_VAR @version = <"1.0.0">
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+>>> expectError type: #STATE_ERROR message: "Package resolution encountered instability!"

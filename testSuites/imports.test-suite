@@ -110,6 +110,62 @@ PREP_VAR @otherVar = <10>
 IMPORT <"./otherModule.petrol"> [VARS [otherVar TO @myVar]]
 >>> expectError type: #SYNTAX_ERROR message: "Expected \"AS\" identifier component." lineNumber: 1
 =========================
+>>> testCase "IMPORT procedure after modules finish prep-phase"
+>>> setupFile ~/targetPackage/otherModule.petrol
+PREP_VAR @otherVar = <1>
+>>> setupFile ~/targetPackage/main.petrol
+COMMENT "The #EVAL method invokes the #PREP method of the child statement sequence."
+PREP_VAR @prepLater = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+        })
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @frame]]
+            WORK_VAR @stmtsComp = (MEMBER(MEMBER(worker, #COMPS), 1))
+            CALL_METHOD(stmtsComp, #PREP)
+            CALL_METHOD(stmtsComp, #EVAL, LIST (frame))
+        })
+    ]])
+]]>
+PRINT("Before import")
+prepLater {
+    IMPORT <"./otherModule.petrol"> [VARS [@otherVar]]
+}
+PRINT("This line is not reached")
+>>> expectPrint
+Before import
+>>> expectError type: #STATE_ERROR message: "Cannot import module after all modules have finished prep-phase." lineNumber: 18
+=========================
+>>> testCase "IMPORT procedure for loaded module after modules finish prep-phase"
+>>> setupFile ~/targetPackage/otherModule.petrol
+PREP_VAR @otherVar = <1>
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./otherModule.petrol">
+COMMENT "The #EVAL method invokes the #PREP method of the child statement sequence."
+PREP_VAR @prepLater = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+        })
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @frame]]
+            WORK_VAR @stmtsComp = (MEMBER(MEMBER(worker, #COMPS), 1))
+            CALL_METHOD(stmtsComp, #PREP)
+            CALL_METHOD(stmtsComp, #EVAL, LIST (frame))
+        })
+    ]])
+]]>
+COMMENT "The module was already loaded during prep-phase, so it may be imported again."
+prepLater {
+    IMPORT <"./otherModule.petrol"> [VARS [@otherVar]]
+    PRINT(otherVar)
+}
+>>> expectPrint
+1
+=========================
 >>> testCase "IMPORT_PACK procedure"
 >>> setupFile ~/targetPackage/petroleumPackage.json
 {
