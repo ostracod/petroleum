@@ -1,0 +1,124 @@
+>>> testCase "INIT module attribute runs before top-level statements are prepped"
+>>> setupFile ~/targetPackage/main.petrol
+[INIT {
+    PRINT("INIT started")
+    WORK_VAR @flag = (FALSE)
+    SCHED {
+        PRINT("Setting flag")
+        SET flag = (TRUE)
+    }
+    SPIN (FUNC {
+        RET (flag)
+    }, "Waiting for flag")
+    PRINT("INIT finished")
+}]
+PREP_VAR @myVar = <RUN {
+    PRINT("Prepping myVar")
+    RET (5)
+}>
+PRINT(myVar)
+>>> expectPrint
+INIT started
+Setting flag
+INIT finished
+Prepping myVar
+5
+=========================
+>>> testCase "INIT module attribute cannot access top-level variables"
+>>> setupFile ~/targetPackage/main.petrol
+[INIT {
+    PRINT(myVar)
+}]
+PREP_VAR @myVar = <5>
+PRINT("This line is not reached")
+>>> expectError type: #VALUE_ERROR message: "Could not find variable with name \"myVar\"." lineNumber: 2
+=========================
+>>> testCase "Top-level statements cannot access INIT variables"
+>>> setupFile ~/targetPackage/main.petrol
+[INIT {
+    WORK_VAR @initVar = (1)
+    PRINT(initVar)
+}]
+PRINT(initVar)
+>>> expectPrint
+1
+>>> expectError type: #VALUE_ERROR message: "Could not find variable with name \"initVar\"." lineNumber: 5
+=========================
+>>> testCase "INIT module attribute replaces global scope"
+>>> setupFile ~/targetPackage/main.petrol
+[INIT {
+    COMMENT "Returns the scope of the module which contains the invocation."
+    PREP_VAR @getModuleScope = <MAP [FIELDS [
+        (#IS_PROC) = (TRUE)
+        (#METHODS) = (MAP [FIELDS [
+            (#EVAL) = (FUNC {
+                [ARGS [@worker, @frame]]
+                WORK_VAR @node = (worker)
+                WHILE (NOT(HAS_KEY(node, #MODULE_TYPE))) {
+                    SET node = (MEMBER(node, #PARENT))
+                }
+                RET (MEMBER(node, #SCOPE))
+            })
+        ]])
+    ]]>
+    WORK_VAR @printSumVar = (MAP [FIELDS [
+        (#VAR_TYPE) = (#PREP_VAR)
+        (#IDENT) = ("PRINT_SUM")
+        (#VALUE) = (FUNC {
+            [ARGS [@num1, @num2]]
+            PRINT(ADD(num1, num2))
+        })
+    ]])
+    WORK_VAR @newScope = (MAP [FIELDS [
+        (#IS_SCOPE) = (TRUE)
+        (#VARS) = (MAP [FIELDS [("PRINT_SUM") = (printSumVar)]])
+    ]])
+    SET_MEMBER(printSumVar, #SCOPE, newScope)
+    SET_MEMBER(getModuleScope (), #PARENT, newScope)
+}]
+PRINT_SUM(1, 2)
+PRINT_SUM(10, 20)
+>>> expectPrint
+3
+30
+=========================
+>>> testCase "INIT module attribute conceals built-in constants"
+>>> setupFile ~/targetPackage/main.petrol
+[INIT {
+    PREP_VAR @getModuleScope = <MAP [FIELDS [
+        (#IS_PROC) = (TRUE)
+        (#METHODS) = (MAP [FIELDS [
+            (#EVAL) = (FUNC {
+                [ARGS [@worker, @frame]]
+                WORK_VAR @node = (worker)
+                WHILE (NOT(HAS_KEY(node, #MODULE_TYPE))) {
+                    SET node = (MEMBER(node, #PARENT))
+                }
+                RET (MEMBER(node, #SCOPE))
+            })
+        ]])
+    ]]>
+    WORK_VAR @emptyScope = (MAP [FIELDS [
+        (#IS_SCOPE) = (TRUE)
+        (#VARS) = (MAP [FIELDS []])
+    ]])
+    SET_MEMBER(getModuleScope (), #PARENT, emptyScope)
+}]
+PRINT("This line is not reached")
+>>> expectError type: #VALUE_ERROR message: "Could not find variable with name \"PRINT\"." lineNumber: 21
+=========================
+>>> testCase "Module with too many attributes"
+>>> setupFile ~/targetPackage/main.petrol
+[INIT {
+    PRINT("This line is not reached")
+}, INIT {
+    PRINT("This line is not reached")
+}]
+>>> expectError type: #SYNTAX_ERROR message: "Module cannot have more than one attribute." lineNumber: 3
+=========================
+>>> testCase "Module with unknown attribute"
+>>> setupFile ~/targetPackage/main.petrol
+[SETUP {
+    PRINT("This line is not reached")
+}]
+>>> expectError type: #SYNTAX_ERROR message: "Expected \"INIT\" identifier component." lineNumber: 1
