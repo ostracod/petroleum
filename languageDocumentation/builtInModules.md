@@ -72,7 +72,7 @@ Deletes the directory at `$path` and its contents. Throws an error if the direct
 PATH_NAME($path)
 ```
 
-Returns the name of the file system entity at `$path`. This corresponds to the final part of `$path`.
+Returns the name of the file system entity at `$path`. Note that if `$path` is `.`, a parent directory of `.`, or the root directory, this function returns `$path` normalized. 
 
 ```
 PATH_PARENT($path)

@@ -7,7 +7,7 @@ import { KnownValue, PetString, PetList, PetMap } from "./value.js";
 import { FuncDef, DefFunc } from "./builtInFunc.js";
 import { PetException, ErrorException } from "./exception.js";
 import { createFrame } from "./variable.js";
-import { getPathParent } from "./fileSystem.js";
+import { getPathName, getPathParent } from "./fileSystem.js";
 
 interface BuiltInModuleDef {
     symbol: PetSymbol;
@@ -161,7 +161,7 @@ const fileSystemFuncDefs: FuncDef[] = [
         name: "PATH_NAME",
         argAmount: 1,
         call: (task, args) => {
-            const result = pathUtils.basename(args[0].toStringStrict());
+            const result = getPathName(args[0].toStringStrict());
             return task.returnValue(new PetString(result));
         },
     },

@@ -14,22 +14,24 @@ const splitRelPath = (path: string): string[] => {
     return normPath.split(pathUtils.sep).filter((part) => (part.length > 0));
 };
 
-export const getPathParent = (inputPath: string): string | null => {
-    const path = pathUtils.normalize(inputPath);
-    const dirname = pathUtils.dirname(path);
-    if (pathUtils.isAbsolute(path)) {
-        return (path === dirname) ? null : dirname;
-    } else {
-        const pathParts = splitRelPath(path);
-        if (pathParts.length === 1 && pathParts[0] === ".") {
-            return "..";
-        } else if (pathParts.every((part) => (part === ".."))) {
-            return pathUtils.join("..", path);
-        } else {
-            return dirname;
-        }
-    }
+const getParentPathHelper = (normPath: string): string | null => {
+    const parentPath = pathUtils.normalize(pathUtils.join(normPath, ".."));
+    return (normPath === parentPath) ? null : parentPath;
 };
+
+export const getPathName = (inputPath: string): string => {
+    const path = pathUtils.normalize(inputPath);
+    // We can't check against rootDirPath here, because Windows has multiple root directories.
+    if (getParentPathHelper(path) === null) {
+        return path;
+    }
+    const basename = pathUtils.basename(path);
+    return (basename === "." || basename === "..") ? path : basename;
+};
+
+export const getPathParent = (inputPath: string): string | null => (
+    getParentPathHelper(pathUtils.normalize(inputPath))
+);
 
 export abstract class FileSystem {
     
@@ -247,7 +249,7 @@ export class VirtualFileSystem extends FileSystem {
     }
     
     getNameAndDir(path: string): { name: string, parentDir: VirtualDirectory } {
-        const name = pathUtils.basename(path);
+        const name = getPathName(path);
         const parentDir = this.getParentDir(path);
         return { name, parentDir };
     }

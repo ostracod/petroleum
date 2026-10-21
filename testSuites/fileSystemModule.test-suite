@@ -1,0 +1,384 @@
+>>> commonFile ~/targetPackage/testUtils.petrol
+IMPORT <#FILE_SYSTEM> [VARS [@#FILE_SYSTEM_ERROR]]
+COMMENT "Usage: tryCall($func, $args)"
+COMMENT "Calls $func with $args. Prints the result, or the type of error if one is thrown."
+PREP_FUNC @tryCall {
+    [ARGS [@func, @args]]
+    TRY {
+        PRINT(CALL(func, args))
+    } CATCH {
+        [EXCEP @excep]
+        WORK_VAR @errorType = (MEMBER(excep, #ERROR_TYPE))
+        IF (EQUAL(errorType, #FILE_SYSTEM_ERROR)) {
+            PRINT("File system error")
+        } ELSE {
+            PRINT(errorType)
+        }
+    }
+}
+=========================
+>>> testCase "EXISTS function"
+>>> setupFile ~/targetPackage/data/hello.txt
+Hello, world!
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#FILE_SYSTEM> [VARS [@EXISTS]]
+PRINT(EXISTS("./data/hello.txt"))
+PRINT(EXISTS("data/hello.txt"))
+PRINT(EXISTS("./data"))
+PRINT(EXISTS("/home/testUser/targetPackage/data/hello.txt"))
+PRINT(EXISTS("./missing.txt"))
+PRINT(EXISTS("./missing/hello.txt"))
+PRINT(EXISTS("./data/hello.txt/child.txt"))
+>>> expectPrint
+1
+1
+1
+1
+0
+0
+0
+=========================
+>>> testCase "TYPE function of file system module"
+>>> setupFile ~/targetPackage/data/hello.txt
+Hello, world!
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@tryCall]]
+IMPORT <#FILE_SYSTEM> [VARS [TYPE AS @FILE_TYPE, @#FILE, @#DIR]]
+PRINT(FILE_TYPE("./data/hello.txt"))
+PRINT(FILE_TYPE("./data"))
+PRINT(FILE_TYPE("/home/testUser"))
+PRINT(EQUAL(FILE_TYPE("./data/hello.txt"), #FILE))
+PRINT(EQUAL(FILE_TYPE("./data"), #DIR))
+tryCall(FILE_TYPE, LIST ("./missing.txt"))
+>>> expectPrint
+#FILE
+#DIR
+#DIR
+1
+1
+File system error
+=========================
+>>> testCase "READ_FILE function"
+>>> setupFile ~/targetPackage/data/hello.txt
+Hello, world!
+Second line
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@tryCall]]
+IMPORT <#FILE_SYSTEM> [VARS [@READ_FILE]]
+WORK_VAR @content = (READ_FILE("./data/hello.txt"))
+PRINT(content)
+PRINT(TYPE(content))
+PRINT(LEN(content))
+tryCall(READ_FILE, LIST ("./missing.txt"))
+tryCall(READ_FILE, LIST ("./data"))
+>>> expectPrint
+Hello, world!
+Second line
+#STR
+25
+File system error
+File system error
+=========================
+>>> testCase "READ_DIR function"
+>>> setupFile ~/targetPackage/data/first.txt
+First
+>>> setupFile ~/targetPackage/data/subDir/second.txt
+Second
+>>> setupDir ~/targetPackage/emptyDir
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@tryCall]]
+IMPORT <#FILE_SYSTEM> [VARS [@READ_DIR]]
+PRINT(READ_DIR("./data"))
+PRINT(READ_DIR("./data/subDir"))
+PRINT(READ_DIR("./emptyDir"))
+tryCall(READ_DIR, LIST ("./data/first.txt"))
+tryCall(READ_DIR, LIST ("./missing"))
+>>> expectPrint
+LIST ("first.txt", "subDir")
+LIST ("second.txt")
+LIST ()
+File system error
+File system error
+=========================
+>>> testCase "WRITE_FILE function"
+>>> setupFile ~/targetPackage/data/old.txt
+Old content
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@tryCall]]
+IMPORT <#FILE_SYSTEM> [VARS [@EXISTS, @READ_FILE, @WRITE_FILE]]
+PRINT(EXISTS("./data/new.txt"))
+PRINT(WRITE_FILE("./data/new.txt", "New content"))
+PRINT(EXISTS("./data/new.txt"))
+PRINT(READ_FILE("./data/new.txt"))
+WRITE_FILE("./data/old.txt", "Replaced content")
+PRINT(READ_FILE("./data/old.txt"))
+WRITE_FILE("./data/old.txt", "")
+PRINT(LEN(READ_FILE("./data/old.txt")))
+WRITE_FILE("/home/testUser/absolute.txt", CONCAT(LIST ("A", CHAR(200), CHAR(10), "B")))
+WORK_VAR @content = (READ_FILE("/home/testUser/absolute.txt"))
+PRINT(LIST (LEN(content), MEMBER(content, 1), MEMBER(content, 2)))
+tryCall(WRITE_FILE, LIST ("./data", "Not a file"))
+tryCall(WRITE_FILE, LIST ("./missing/new.txt", "No parent"))
+>>> expectPrint
+0
+NULL
+1
+New content
+Replaced content
+0
+LIST (4, 200, 10)
+File system error
+File system error
+=========================
+>>> testCase "NEW_DIR function"
+>>> setupFile ~/targetPackage/data/hello.txt
+Hello, world!
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@tryCall]]
+IMPORT <#FILE_SYSTEM> [VARS [@EXISTS, TYPE AS @FILE_TYPE, @READ_DIR, @NEW_DIR]]
+PRINT(NEW_DIR("./newDir"))
+PRINT(FILE_TYPE("./newDir"))
+PRINT(READ_DIR("./newDir"))
+NEW_DIR("./newDir/nestedDir")
+PRINT(READ_DIR("./newDir"))
+tryCall(NEW_DIR, LIST ("./newDir"))
+tryCall(NEW_DIR, LIST ("./data/hello.txt"))
+tryCall(NEW_DIR, LIST ("./missing/nestedDir"))
+PRINT(EXISTS("./missing"))
+>>> expectPrint
+NULL
+#DIR
+LIST ()
+LIST ("nestedDir")
+File system error
+File system error
+File system error
+0
+=========================
+>>> testCase "DEL_FILE function"
+>>> setupFile ~/targetPackage/data/first.txt
+First
+>>> setupFile ~/targetPackage/data/second.txt
+Second
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@tryCall]]
+IMPORT <#FILE_SYSTEM> [VARS [@EXISTS, @READ_DIR, @DEL_FILE]]
+PRINT(DEL_FILE("./data/first.txt"))
+PRINT(EXISTS("./data/first.txt"))
+PRINT(READ_DIR("./data"))
+tryCall(DEL_FILE, LIST ("./data/first.txt"))
+tryCall(DEL_FILE, LIST ("./data"))
+PRINT(EXISTS("./data"))
+>>> expectPrint
+NULL
+0
+LIST ("second.txt")
+File system error
+File system error
+1
+=========================
+>>> testCase "DEL_DIR function"
+>>> setupFile ~/targetPackage/data/first.txt
+First
+>>> setupFile ~/targetPackage/data/subDir/second.txt
+Second
+>>> setupFile ~/targetPackage/other.txt
+Other
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@tryCall]]
+IMPORT <#FILE_SYSTEM> [VARS [@EXISTS, @DEL_DIR]]
+PRINT(DEL_DIR("./data"))
+PRINT(EXISTS("./data"))
+PRINT(EXISTS("./data/subDir/second.txt"))
+PRINT(EXISTS("./other.txt"))
+tryCall(DEL_DIR, LIST ("./data"))
+tryCall(DEL_DIR, LIST ("./other.txt"))
+PRINT(EXISTS("./other.txt"))
+>>> expectPrint
+NULL
+0
+0
+1
+File system error
+File system error
+1
+=========================
+>>> testCase "Uncaught file system error"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#FILE_SYSTEM> [VARS [@READ_FILE]]
+PRINT("Before reading")
+PRINT(READ_FILE("./missing.txt"))
+PRINT("This line is not reached")
+>>> expectPrint
+Before reading
+>>> expectError type: #FILE_SYSTEM_ERROR lineNumber: 3
+=========================
+>>> testCase "PATH_NAME function"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#FILE_SYSTEM> [VARS [@PATH_NAME]]
+PRINT(PATH_NAME("/home/testUser/notes.txt"))
+PRINT(PATH_NAME("data/subDir"))
+PRINT(PATH_NAME("data/subDir/"))
+PRINT(PATH_NAME("notes.txt"))
+COMMENT "Trailing . and .. segments are resolved."
+PRINT(PATH_NAME("data/subDir/.."))
+PRINT(PATH_NAME("data/."))
+PRINT(PATH_NAME("/home/testUser/.."))
+COMMENT "Paths which resolve to . or a parent of . are returned normalized."
+PRINT(PATH_NAME("."))
+PRINT(PATH_NAME("data/.."))
+PRINT(PATH_NAME(".."))
+PRINT(PATH_NAME("../data/.."))
+PRINT(PATH_NAME("../.."))
+COMMENT "The root directory is also returned normalized."
+PRINT(PATH_NAME("/"))
+PRINT(PATH_NAME("/home/.."))
+PRINT(PATH_NAME("//"))
+>>> expectPrint
+notes.txt
+subDir
+subDir
+notes.txt
+data
+data
+home
+.
+.
+..
+..
+../..
+/
+/
+/
+=========================
+>>> testCase "PATH_PARENT function with absolute paths"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#FILE_SYSTEM> [VARS [@PATH_PARENT]]
+PRINT(PATH_PARENT("/home/testUser/notes.txt"))
+PRINT(PATH_PARENT("/home/testUser/"))
+PRINT(PATH_PARENT("/home"))
+PRINT(PATH_PARENT("/home/./testUser/../other"))
+COMMENT "The root directory has no parent."
+PRINT(PATH_PARENT("/"))
+PRINT(PATH_PARENT("/.."))
+PRINT(PATH_PARENT("/home/.."))
+PRINT(PATH_PARENT("//"))
+>>> expectPrint
+/home/testUser
+/home
+/
+/home
+NULL
+NULL
+NULL
+NULL
+=========================
+>>> testCase "PATH_PARENT function with relative paths"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#FILE_SYSTEM> [VARS [@PATH_PARENT]]
+PRINT(PATH_PARENT("data/notes.txt"))
+PRINT(PATH_PARENT("./data/notes.txt"))
+PRINT(PATH_PARENT("data"))
+PRINT(PATH_PARENT("data/"))
+PRINT(PATH_PARENT("."))
+PRINT(PATH_PARENT(".."))
+PRINT(PATH_PARENT("../.."))
+PRINT(PATH_PARENT("../"))
+PRINT(PATH_PARENT("../data"))
+PRINT(PATH_PARENT("data/.."))
+PRINT(PATH_PARENT("data/../.."))
+>>> expectPrint
+data
+data
+.
+.
+..
+../..
+../../..
+../..
+..
+..
+../..
+=========================
+>>> testCase "JOIN_PATHS function"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#FILE_SYSTEM> [VARS [@JOIN_PATHS]]
+PRINT(JOIN_PATHS(LIST ("data", "subDir", "notes.txt")))
+PRINT(JOIN_PATHS(LIST ("/home", "testUser")))
+PRINT(JOIN_PATHS(LIST ("data/", "/notes.txt")))
+PRINT(JOIN_PATHS(LIST ("data", "../other", "./notes.txt")))
+PRINT(JOIN_PATHS(LIST ("data")))
+>>> expectPrint
+data/subDir/notes.txt
+/home/testUser
+data/notes.txt
+other/notes.txt
+data
+=========================
+>>> testCase "NORM_PATH function"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#FILE_SYSTEM> [VARS [@NORM_PATH]]
+PRINT(NORM_PATH("data/./subDir/../notes.txt"))
+PRINT(NORM_PATH("/home//testUser/./notes.txt"))
+PRINT(NORM_PATH("/home/../.."))
+PRINT(NORM_PATH("../data/.."))
+PRINT(NORM_PATH("data/subDir/../.."))
+>>> expectPrint
+data/notes.txt
+/home/testUser/notes.txt
+/
+..
+.
+=========================
+>>> testCase "IS_ABS_PATH function"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#FILE_SYSTEM> [VARS [@IS_ABS_PATH]]
+PRINT(IS_ABS_PATH("/home/testUser"))
+PRINT(IS_ABS_PATH("/"))
+PRINT(IS_ABS_PATH("data/notes.txt"))
+PRINT(IS_ABS_PATH("./data"))
+PRINT(IS_ABS_PATH("../data"))
+PRINT(IS_ABS_PATH("~/data"))
+>>> expectPrint
+1
+1
+0
+0
+0
+0
+=========================
+>>> testCase "ABS_PATH function"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#FILE_SYSTEM> [VARS [@ABS_PATH]]
+COMMENT "The current working directory is /home/testUser/targetPackage."
+PRINT(ABS_PATH("data/notes.txt"))
+PRINT(ABS_PATH("./data/../notes.txt"))
+PRINT(ABS_PATH("."))
+PRINT(ABS_PATH("../otherPackage"))
+PRINT(ABS_PATH("/home/./testUser/../other"))
+>>> expectPrint
+/home/testUser/targetPackage/data/notes.txt
+/home/testUser/targetPackage/notes.txt
+/home/testUser/targetPackage
+/home/testUser/otherPackage
+/home/other
+=========================
+>>> testCase "REL_PATH function"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#FILE_SYSTEM> [VARS [@REL_PATH]]
+PRINT(REL_PATH("/home/testUser", "/home/testUser/data/notes.txt"))
+PRINT(REL_PATH("/home/testUser/data", "/home/other"))
+PRINT(LEN(REL_PATH("/home/testUser", "/home/testUser")))
+PRINT(REL_PATH("data", "data/subDir/notes.txt"))
+PRINT(REL_PATH("data/subDir", "other"))
+COMMENT "Relative paths are relative to the current working directory."
+PRINT(REL_PATH("/home/testUser", "data"))
+PRINT(REL_PATH("data", "/home/testUser"))
+>>> expectPrint
+data/notes.txt
+../../other
+0
+subDir/notes.txt
+../../other
+targetPackage/data
+../..
