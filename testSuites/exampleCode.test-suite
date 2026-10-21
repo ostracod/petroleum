@@ -1,0 +1,424 @@
+>>> commonFile ~/targetPackage/repeat.petrol
+PREP_SYMBOL @#exprsComp
+PREP_SYMBOL @#attrInt
+PREP_SYMBOL @#stmtsComp
+
+PREP_VAR @repeatMethods = <MAP [FIELDS [
+    (#PREP) = (FUNC {
+        [ARGS [@worker]]
+        
+        WORK_VAR @comps = (MEMBER(worker, #COMPS))
+        IF (NOT_EQUAL(LEN(comps), 4)) {
+            ABORT (#SYNTAX_ERROR, "`repeat` must be followed by exactly three components.")
+        }
+        
+        WORK_VAR @exprsComp = (MEMBER(comps, 1))
+        WORK_VAR @attrsComp = (MEMBER(comps, 2))
+        WORK_VAR @stmtsComp = (MEMBER(comps, 3))
+        IF (NOT_EQUAL(MEMBER(exprsComp, #COMP_TYPE), #EXPRS_COMP)) {
+            ABORT (#SYNTAX_ERROR, "First component after `repeat` must be expressions component.")
+        }
+        IF (NOT_EQUAL(MEMBER(attrsComp, #COMP_TYPE), #ATTRS_COMP)) {
+            ABORT (#SYNTAX_ERROR, "Second component after `repeat` must be attributes component.")
+        }
+        IF (NOT_EQUAL(MEMBER(stmtsComp, #COMP_TYPE), #STMTS_COMP)) {
+            ABORT (#SYNTAX_ERROR, "Third component after `repeat` must be statements component.")
+        }
+        
+        COMMENT "Procedures are responsible for calling the #PREP method"
+        COMMENT "on direct child worker components."
+        CALL_METHOD(exprsComp, #PREP)
+        CALL_METHOD(stmtsComp, #PREP)
+        
+        WORK_VAR @exprs = (MEMBER(exprsComp, #EXPRS))
+        WORK_VAR @attrs = (MEMBER(attrsComp, #ATTRS))
+        IF (NOT_EQUAL(LEN(exprs), 1)) {
+            ABORT (#SYNTAX_ERROR, "`repeat` expects exactly one expression.")
+        }
+        IF (NOT_EQUAL(LEN(attrs), 1)) {
+            ABORT (#SYNTAX_ERROR, "`repeat` expects exactly one attribute.")
+        }
+        
+        WORK_VAR @attr = (MEMBER(attrs, 0))
+        WORK_VAR @attrComps = (MEMBER(attr, #COMPS))
+        IF (NOT_EQUAL(LEN(attrComps), 1)) {
+            ABORT (#SYNTAX_ERROR, "`repeat` attribute must contain exactly one component.")
+        }
+        
+        WORK_VAR @attrComp = (MEMBER(attrComps, 0))
+        IF (NOT_EQUAL(MEMBER(attrComp, #COMP_TYPE), #INT_COMP)) {
+            ABORT (#SYNTAX_ERROR, "`repeat` attribute must contain an integer component.")
+        }
+        WORK_VAR @attrInt = (MEMBER(attrComp, #INT))
+        
+        COMMENT "Stash values to use in the #EVAL method."
+        SET_MEMBER(worker, #exprsComp, exprsComp)
+        SET_MEMBER(worker, #attrInt, attrInt)
+        SET_MEMBER(worker, #stmtsComp, stmtsComp)
+    })
+    (#EVAL) = (FUNC {
+        [ARGS [@worker, @frame]]
+        WORK_VAR @exprsComp = (MEMBER(worker, #exprsComp))
+        WORK_VAR @attrInt = (MEMBER(worker, #attrInt))
+        WORK_VAR @stmtsComp = (MEMBER(worker, #stmtsComp))
+        
+        WORK_VAR @exprValues = (CALL_METHOD(exprsComp, #EVAL, LIST (frame)))
+        WORK_VAR @exprInt = (MEMBER(exprValues, 0))
+        WORK_VAR @count = (ADD(attrInt, exprInt))
+        WHILE (GREATER(count, 0)) {
+            CALL_METHOD(stmtsComp, #EVAL, LIST (frame))
+            SET count = (SUB(count, 1))
+        }
+    })
+]]>
+
+PREP_VAR @repeat = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (repeatMethods)
+]]>
+>>> commonFile ~/targetPackage/intVars.petrol
+PREP_SYMBOL @#isEven
+PREP_SYMBOL @#var
+PREP_SYMBOL @#exprsComp
+
+COMMENT "Define #isEven method for integer expressions."
+PREP <RUN {
+    SET_MEMBER(INT_EXPR_METHODS, #isEven, FUNC {
+        [ARGS [@worker]]
+        WORK_VAR @value = (MEMBER(worker, #INT))
+        RET (EQUAL(MOD(value, 2), 0))
+    })
+}>
+
+COMMENT "Define #isEven method for identifier expressions."
+PREP <RUN {
+    SET_MEMBER(IDENT_EXPR_METHODS, #isEven, FUNC {
+        [ARGS [@worker]]
+        COMMENT "The #VAR field only stores a variable after the worker finishes prep-phase."
+        CALL_METHOD(worker, #PREP)
+        WORK_VAR @var = (MEMBER(worker, #VAR))
+        COMMENT "We may need to wait until the variable procedure"
+        COMMENT "sets the #isEven field on the variable."
+        RET (AWAIT (
+            var, #isEven,
+            FUNC {[ARGS [@member]], RET (TRUE)},
+            CONCAT(LIST (
+                "Waiting for #isEven to be set on ", MEMBER(var, #IDENT)
+            ))
+        ))
+    })
+}>
+
+COMMENT "The `evenIntVar` and `oddIntVar` procedures work in mostly the same way,"
+COMMENT "so we will define a function to create their methods."
+PREP_FUNC @varMethods {
+    [ARGS [@isEven]]
+    RET (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @comps = (MEMBER(worker, #COMPS))
+            
+            COMMENT "Set up the variable as a work-var with a custom #isEven field."
+            WORK_VAR @declComp = (MEMBER(comps, 1))
+            WORK_VAR @var = (MEMBER(declComp, #VAR))
+            SET_MEMBER(var, #VAR_TYPE, #WORK_VAR)
+            SET_MEMBER(var, #isEven, isEven)
+            
+            COMMENT "Call the #PREP method on the expressions component."
+            WORK_VAR @exprsComp = (MEMBER(comps, 2))
+            CALL_METHOD(exprsComp, #PREP)
+            
+            COMMENT "Validate whether the expression returns an even or odd integer."
+            WORK_VAR @expr = (MEMBER(MEMBER(exprsComp, #EXPRS), 0))
+            WORK_VAR @exprIsEven = (CALL_METHOD(expr, #isEven))
+            IF (NOT_EQUAL(isEven, exprIsEven)) {
+                ABORT (#TYPE_ERROR, "Invalid integer type!")
+            }
+            
+            COMMENT "Stash values to use in the #EVAL method."
+            SET_MEMBER(worker, #var, var)
+            SET_MEMBER(worker, #exprsComp, exprsComp)
+        })
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @frame]]
+            WORK_VAR @var = (MEMBER(worker, #var))
+            WORK_VAR @exprsComp = (MEMBER(worker, #exprsComp))
+            
+            COMMENT "Set the value of the frame entry."
+            WORK_VAR @values = (CALL_METHOD(exprsComp, #EVAL, LIST (frame)))
+            WORK_VAR @value = (MEMBER(values, 0))
+            WORK_VAR @ident = (MEMBER(var, #IDENT))
+            WORK_VAR @frameEntry = (MEMBER(MEMBER(frame, #FRAME_ENTRIES), ident))
+            SET_MEMBER(frameEntry, #VALUE, value)
+        })
+    ]])
+}
+
+COMMENT "Define custom procedures to declare even and odd integer variables."
+PREP_VAR @evenIntVar = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (varMethods(TRUE))
+]]>
+PREP_VAR @oddIntVar = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (varMethods(FALSE))
+]]>
+
+COMMENT "Define a custom procedure to add integers."
+PREP_VAR @addInts = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            
+            COMMENT "Call the #PREP method on the expressions component."
+            WORK_VAR @comps = (MEMBER(worker, #COMPS))
+            WORK_VAR @exprsComp = (MEMBER(comps, 1))
+            CALL_METHOD(exprsComp, #PREP)
+            
+            COMMENT "Stash expressions to use in #EVAL and #isEven methods."
+            SET_MEMBER(worker, #exprsComp, exprsComp)
+        })
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @frame]]
+            WORK_VAR @exprsComp = (MEMBER(worker, #exprsComp))
+            
+            COMMENT "Calculate the sum of the two expressions."
+            WORK_VAR @values = (CALL_METHOD(exprsComp, #EVAL, LIST (frame)))
+            WORK_VAR @value1 = (MEMBER(values, 0))
+            WORK_VAR @value2 = (MEMBER(values, 1))
+            RET (ADD(value1, value2))
+        })
+        (#isEven) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @exprsComp = (MEMBER(worker, #exprsComp))
+            WORK_VAR @exprs = (MEMBER(exprsComp, #EXPRS))
+            WORK_VAR @expr1 = (MEMBER(exprs, 0))
+            WORK_VAR @expr2 = (MEMBER(exprs, 1))
+            
+            COMMENT "Determine whether the sum of the two expressions is even."
+            WORK_VAR @isEven1 = (CALL_METHOD(expr1, #isEven))
+            WORK_VAR @isEven2 = (CALL_METHOD(expr2, #isEven))
+            RET (EQUAL(isEven1, isEven2))
+        })
+    ]])
+]]>
+=========================
+>>> testCase "Prime number example"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @isPrime {
+    [ARGS [@inputNum]]
+    WORK_VAR @factor = (2)
+    WHILE (LESS(factor, inputNum)) {
+        IF (EQUAL(0, MOD(inputNum, factor))) {
+            RET (FALSE)
+        }
+        SET factor = (ADD(factor, 1))
+    }
+    RET (TRUE)
+}
+
+COMMENT "Prints the prime numbers from 2 to 30."
+WORK_VAR @num = (2)
+WHILE (LESS_EQUAL(num, 30)) {
+    IF (isPrime(num)) {
+        WORK_VAR @textList = (LIST (STR(num), " is prime!"))
+        PRINT(CONCAT(textList))
+    }
+    SET num = (ADD(num, 1))
+}
+>>> expectPrint
+2 is prime!
+3 is prime!
+5 is prime!
+7 is prime!
+11 is prime!
+13 is prime!
+17 is prime!
+19 is prime!
+23 is prime!
+29 is prime!
+=========================
+>>> testCase "Coroutine example"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myMap = (MAP [FIELDS []])
+WORK_VAR @shouldResume = (FALSE)
+WORK_VAR @myList = (LIST ())
+
+SCHED {
+    COMMENT "This statement sequence runs in a new coroutine."
+    ADD_ELEM(myList, 10)
+    SET_MEMBER(myMap, "flag", 999)
+    ADD_ELEM(myList, 11)
+    SPIN (
+        FUNC {
+            RET (shouldResume)
+        },
+        "Waiting for shouldResume to be set"
+    )
+    COMMENT "Evaluation only reaches this statement when `shouldResume` is TRUE."
+    ADD_ELEM(myList, 12)
+    COMMENT "Prints LIST (20, 10, 11, 21, 22, 12)."
+    PRINT(myList)
+}
+
+ADD_ELEM(myList, 20)
+AWAIT (
+    myMap, "flag",
+    FUNC {
+        [ARGS [@member]]
+        RET (EQUAL(member, 999))
+    },
+    "Waiting for flag to be set"
+)
+COMMENT "Evaluation only reaches this statement when the"
+COMMENT "\"flag\" field in `myMap` is set to 999."
+ADD_ELEM(myList, 21)
+SET shouldResume = (TRUE)
+ADD_ELEM(myList, 22)
+>>> expectPrint
+LIST (20, 10, 11, 21, 22, 12)
+=========================
+>>> testCase "Custom procedure example"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./repeat.petrol"> [VARS [@repeat]]
+WORK_VAR @sum = (0)
+repeat (ADD(1, 2)) [5] {
+    SET sum = (ADD(sum, 1))
+}
+COMMENT "Prints 8."
+PRINT(sum)
+>>> expectPrint
+8
+=========================
+>>> testCase "Custom procedure example with nested invocations"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./repeat.petrol"> [VARS [@repeat]]
+WORK_VAR @outerCount = (1)
+WORK_VAR @log = (LIST ())
+repeat (outerCount) [1] {
+    WORK_VAR @letter = ("a")
+    repeat (0) [3] {
+        ADD_ELEM(log, letter)
+        SET letter = (CONCAT(LIST (letter, "a")))
+    }
+}
+PRINT(log)
+COMMENT "The body is not evaluated when the count is zero or less."
+repeat (NEG(5)) [5] {
+    PRINT("This line is not reached")
+}
+>>> expectPrint
+LIST ("a", "aa", "aaa", "a", "aa", "aaa")
+=========================
+>>> testCase "Custom procedure example with missing components"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./repeat.petrol"> [VARS [@repeat]]
+PRINT("This line is not reached")
+repeat [7]
+>>> expectError type: #SYNTAX_ERROR message: "`repeat` must be followed by exactly three components."
+=========================
+>>> testCase "Custom procedure example with invalid first component"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./repeat.petrol"> [VARS [@repeat]]
+PRINT("This line is not reached")
+repeat [5] (1) {}
+>>> expectError type: #SYNTAX_ERROR message: "First component after `repeat` must be expressions component."
+=========================
+>>> testCase "Custom procedure example with invalid second component"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./repeat.petrol"> [VARS [@repeat]]
+PRINT("This line is not reached")
+repeat (1) (2) {}
+>>> expectError type: #SYNTAX_ERROR message: "Second component after `repeat` must be attributes component."
+=========================
+>>> testCase "Custom procedure example with invalid third component"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./repeat.petrol"> [VARS [@repeat]]
+PRINT("This line is not reached")
+repeat (1) [2] (3)
+>>> expectError type: #SYNTAX_ERROR message: "Third component after `repeat` must be statements component."
+=========================
+>>> testCase "Custom procedure example with too many expressions"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./repeat.petrol"> [VARS [@repeat]]
+PRINT("This line is not reached")
+repeat (1, 2) [3] {}
+>>> expectError type: #SYNTAX_ERROR message: "`repeat` expects exactly one expression."
+=========================
+>>> testCase "Custom procedure example with too many attributes"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./repeat.petrol"> [VARS [@repeat]]
+PRINT("This line is not reached")
+repeat (1) [2, 3] {}
+>>> expectError type: #SYNTAX_ERROR message: "`repeat` expects exactly one attribute."
+=========================
+>>> testCase "Custom procedure example with too many attribute components"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./repeat.petrol"> [VARS [@repeat]]
+PRINT("This line is not reached")
+repeat (1) [2 3] {}
+>>> expectError type: #SYNTAX_ERROR message: "`repeat` attribute must contain exactly one component."
+=========================
+>>> testCase "Custom procedure example with non-integer attribute"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./repeat.petrol"> [VARS [@repeat]]
+PRINT("This line is not reached")
+repeat (1) [two] {}
+>>> expectError type: #SYNTAX_ERROR message: "`repeat` attribute must contain an integer component."
+=========================
+>>> testCase "Custom method example"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./intVars.petrol"> [VARS [@evenIntVar, @oddIntVar, @addInts]]
+evenIntVar @myEvenInt (10)
+oddIntVar @myOddInt (13)
+oddIntVar @myResult (addInts(myEvenInt, myOddInt))
+COMMENT "Prints 23."
+PRINT(myResult)
+>>> expectPrint
+23
+=========================
+>>> testCase "Custom method example with nested additions"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./intVars.petrol"> [VARS [@evenIntVar, @oddIntVar, @addInts]]
+oddIntVar @myOddInt (7)
+evenIntVar @sum1 (addInts(myOddInt, myOddInt))
+evenIntVar @sum2 (addInts(addInts(myOddInt, 1), addInts(2, 4)))
+oddIntVar @sum3 (addInts(sum2, addInts(myOddInt, sum1)))
+PRINT(LIST (sum1, sum2, sum3))
+>>> expectPrint
+LIST (14, 14, 35)
+=========================
+>>> testCase "Custom method example with odd integer in even variable"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./intVars.petrol"> [VARS [@evenIntVar, @oddIntVar, @addInts]]
+PRINT("This line is not reached")
+evenIntVar @myEvenInt (3)
+>>> expectError type: #TYPE_ERROR message: "Invalid integer type!"
+=========================
+>>> testCase "Custom method example with even sum in odd variable"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./intVars.petrol"> [VARS [@evenIntVar, @oddIntVar, @addInts]]
+PRINT("This line is not reached")
+oddIntVar @myOddInt (5)
+oddIntVar @myResult (addInts(myOddInt, 2))
+oddIntVar @badResult (addInts(myOddInt, myOddInt))
+>>> expectError type: #TYPE_ERROR message: "Invalid integer type!"
+=========================
+>>> testCase "Custom method example with variable declared later"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./intVars.petrol"> [VARS [@evenIntVar, @oddIntVar, @addInts]]
+PRINT("This line is not reached")
+COMMENT "The #isEven method waits until the later statement sets #isEven on the variable."
+evenIntVar @myEvenInt (addInts(laterOddInt, 2))
+oddIntVar @laterOddInt (3)
+>>> expectError type: #TYPE_ERROR message: "Invalid integer type!"
+=========================
+>>> testCase "Custom method example with plain work-var"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./intVars.petrol"> [VARS [@evenIntVar, @oddIntVar, @addInts]]
+WORK_VAR @plainVar = (2)
+COMMENT "WORK_VAR does not set #isEven on the variable."
+evenIntVar @myEvenInt (plainVar)
+PRINT("This line is not reached")
+>>> expectStuck message: "Waiting for #isEven to be set on plainVar"
