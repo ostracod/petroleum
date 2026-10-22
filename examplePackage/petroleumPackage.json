@@ -1,0 +1,7 @@
+{
+    "specifier": "ostracod.printPrimes",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}

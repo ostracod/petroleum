@@ -1,0 +1,28 @@
+
+PREP_FUNC @isPrime {
+    [ARGS [@inputNum]]
+    WORK_VAR @factor = (2)
+    WHILE (LESS(factor, inputNum)) {
+        IF (EQUAL(0, MOD(inputNum, factor))) {
+            RET (FALSE)
+        }
+        SET factor = (ADD(factor, 1))
+    }
+    RET (TRUE)
+}
+
+COMMENT "Prints whether the numbers 2 to 100 are prime."
+WORK_VAR @num = (2)
+WHILE (LESS_EQUAL(num, 100)) {
+    WORK_VAR @predicate
+    IF (isPrime(num)) {
+        SET predicate = (" is prime!")
+    } ELSE {
+        SET predicate = (" is not prime.")
+    }
+    WORK_VAR @textList = (LIST (STR(num), predicate))
+    PRINT(CONCAT(textList))
+    SET num = (ADD(num, 1))
+}
+
+
