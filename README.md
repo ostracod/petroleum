@@ -3,6 +3,8 @@
 
 A metaprogramming language by Jack Eisenmann
 
+<img src="logo.png" alt="Petroleum logo" width="128" />
+
 ## Installation and Usage
 
 Petroleum has the following system-wide dependencies:
