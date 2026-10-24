@@ -15,6 +15,17 @@ export type MapKey = string | PetValueAndKey;
 export const minIntValue = -(1n << 63n);
 export const maxIntValue = (1n << 63n) - 1n;
 
+const intMask = (1n << 63n) - 1n;
+const signMask = 1n << 63n;
+
+export const toSignedInt64 = (value: bigint): bigint => {
+    if ((value & signMask) > 0n) {
+        return -((~value & intMask) + 1n);
+    } else {
+        return value & intMask;
+    }
+};
+
 export class PetValue {
     // Either `knownValue` is defined, or
     // `bunch` + `location` + `deferralMessage` are defined.
@@ -185,6 +196,7 @@ export const nullValue = wrapKnownValue(null);
 
 export const escapeChars: { [escape: string]: string } = {
     "\"": "\"",
+    "'": "'",
     "n": "\n",
     "t": "\t",
     "\\": "\\",
@@ -193,7 +205,10 @@ export const escapeChars: { [escape: string]: string } = {
 const charEscapes: { [character: string]: string } = {};
 for (const escape in escapeChars) {
     const character = escapeChars[escape];
-    charEscapes[character] = escape;
+    // Don't escape apostrophes in PetString.toLiteral.
+    if (character !== "'") {
+        charEscapes[character] = escape;
+    }
 }
 
 const checkSliceIndexes = (

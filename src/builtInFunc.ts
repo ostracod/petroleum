@@ -2,7 +2,7 @@
 import "./value.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { KnownValue, PetValue, wrapKnownValue, knownValueToLiteral, minIntValue, maxIntValue, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
+import { toSignedInt64, KnownValue, PetValue, wrapKnownValue, knownValueToLiteral, minIntValue, maxIntValue, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
 import { PetTypeError, ValueError, StateError } from "./exception.js";
 import { getChildWorkers } from "./node.js";
 import { findVariable, findVarValue, getScope, createFrame } from "./variable.js";
@@ -105,17 +105,6 @@ export class DefFunc extends BuiltInFunc {
         return this.def.name ?? super.toString();
     }
 }
-
-const intMask = (1n << 63n) - 1n;
-const signMask = 1n << 63n;
-
-const toSignedInt64 = (value: bigint): bigint => {
-    if ((value & signMask) > 0n) {
-        return -((~value & intMask) + 1n);
-    } else {
-        return value & intMask;
-    }
-};
 
 const getTypeSymbol = (value: KnownValue): PetSymbol => {
     if (value === null) {

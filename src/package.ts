@@ -82,7 +82,7 @@ class Version {
     }
 }
 
-const petroleumVersion = new Version([1, 0, 0]);
+const petroleumVersion = new Version([1, 1, 0]);
 
 class VersionRange {
     minVersion: Version; // Inclusive.

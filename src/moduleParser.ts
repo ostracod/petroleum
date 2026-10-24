@@ -2,7 +2,7 @@
 import "./builtInModule.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { maxIntValue, PetValue, KnownValue, toPetValue, escapeChars, PetString, PetList, PetMap } from "./value.js";
+import { maxIntValue, toSignedInt64, PetValue, KnownValue, toPetValue, escapeChars, PetString, PetList, PetMap } from "./value.js";
 import { PetSyntaxError, ValueError } from "./exception.js";
 import { FileSystem } from "./fileSystem.js";
 
@@ -19,9 +19,17 @@ interface StmtSeqResult {
 
 const identifierSymbols = new Set("_.?!:;+-*/%=~&|^#$".split(""));
 
-const isDigit = (character: string): boolean => {
+const isDecDigit = (character: string): boolean => {
     const charCode = character.charCodeAt(0);
     return (charCode >= 48 && charCode <= 57);
+};
+
+const isHexDigit = (character: string): boolean => {
+    if (isDecDigit(character)) {
+        return true;
+    }
+    const charCode = character.charCodeAt(0);
+    return ((charCode >= 65 && charCode <= 70) || (charCode >= 97 && charCode <= 102));
 };
 
 const isIdentFirstChar = (character: string): boolean => {
@@ -31,7 +39,7 @@ const isIdentFirstChar = (character: string): boolean => {
 };
 
 const isIdentChar = (character: string): boolean => (
-    isIdentFirstChar(character) || isDigit(character)
+    isIdentFirstChar(character) || isDecDigit(character)
 );
 
 const getCompPos = (component: PetMap): ContentPos => ({
@@ -192,14 +200,73 @@ export class ModuleParser {
     
     parseIntComp(): PetMap {
         const pos = this.getPos();
-        const intText = this.matchChars(isDigit);
-        const intValue = BigInt(intText);
-        if (intValue > maxIntValue) {
-            throw new ValueError(
-                "Signed integer literal exceeds 64 bits.",
-                { ...pos, modulePath: this.modulePath },
-            );
+        const prefix = this.peekText(2);
+        let intValue: bigint;
+        if (prefix === "0x") {
+            this.advance(2);
+            const intText = this.matchChars(isHexDigit);
+            if (intText.length < 0) {
+                throw this.createError("Expected hexadecimal digits.");
+            }
+            if (intText.length > 16) {
+                throw new ValueError(
+                    "Hexadecimal integer cannot contain more than 64 bits.",
+                    { ...pos, modulePath: this.modulePath },
+                );
+            }
+            intValue = toSignedInt64(BigInt("0x" + intText));
+        } else {
+            const intText = this.matchChars(isDecDigit);
+            intValue = BigInt(intText);
+            if (intValue > maxIntValue) {
+                throw new ValueError(
+                    "Signed integer literal exceeds 64 bits.",
+                    { ...pos, modulePath: this.modulePath },
+                );
+            }
         }
+        return new PetMap([
+            [symbols.COMP_TYPE, symbols.INT_COMP],
+            [symbols.INT, intValue],
+            ...posToFields(pos),
+        ]);
+    }
+    
+    readUntilDelimiterChar(delimiterChar: string, missingDelimMessage: string): string {
+        const chars: string[] = [];
+        while (true) {
+            let character = this.readText(1);
+            if (character === null) {
+                throw this.createError(missingDelimMessage);
+            } else if (character === delimiterChar) {
+                break;
+            } else if (character === "\\") {
+                const pos = this.getPos();
+                const escape = this.readText(1);
+                if (escape === null) {
+                    throw this.createError("Missing escaped character.", pos);
+                }
+                character = escapeChars[escape];
+                if (typeof character === "undefined") {
+                    throw this.createError(
+                        `Unknown escaped character "${escape}".`, pos,
+                    );
+                }
+            }
+            chars.push(character);
+        }
+        return chars.join("");
+    }
+    
+    parseCharLiteral(): PetMap {
+        const pos = this.getPos();
+        // Pass over apostrophe.
+        this.advance(1);
+        const text = this.readUntilDelimiterChar("'", "Missing apostrophe.");
+        if (text.length !== 1) {
+            throw this.createError("Character literal must contain exactly one character enclosed by apostrophes.", pos);
+        }
+        const intValue = BigInt(text.charCodeAt(0));
         return new PetMap([
             [symbols.COMP_TYPE, symbols.INT_COMP],
             [symbols.INT, intValue],
@@ -211,29 +278,7 @@ export class ModuleParser {
         const posFields = this.getPosFields();
         // Pass over quotation mark.
         this.advance(1);
-        const chars: string[] = [];
-        while (true) {
-            let character = this.readText(1);
-            if (character === null) {
-                throw this.createError("Missing end quotation mark.");
-            } else if (character === "\"") {
-                break;
-            } else if (character === "\\") {
-                const pos = this.getPos();
-                const escape = this.readText(1);
-                if (escape === null) {
-                    throw this.createError("Missing escaped string character.", pos);
-                }
-                character = escapeChars[escape];
-                if (typeof character === "undefined") {
-                    throw this.createError(
-                        `Unknown escaped string character "${escape}".`, pos,
-                    );
-                }
-            }
-            chars.push(character);
-        }
-        const text = chars.join("");
+        const text = this.readUntilDelimiterChar("\"", "Missing end quotation mark.");
         return new PetMap([
             [symbols.COMP_TYPE, symbols.STR_COMP],
             [symbols.STR, new PetString(text)],
@@ -351,8 +396,10 @@ export class ModuleParser {
         const firstChar = this.peekText(1);
         if (firstChar === null) {
             return null;
-        } else if (isDigit(firstChar)) {
+        } else if (isDecDigit(firstChar)) {
             return this.parseIntComp();
+        } else if (firstChar === "'") {
+            return this.parseCharLiteral();
         } else if (firstChar === "\"") {
             return this.parseStrComp();
         } else if (isIdentFirstChar(firstChar)) {

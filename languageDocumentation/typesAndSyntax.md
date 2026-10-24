@@ -35,14 +35,13 @@ Note that lists and maps are passed by reference, so a copy is not created when 
 Petroleum code consists of "nodes". Each node is either a "statement", "expression", or "attribute". A node "sequence" consists of nodes separated by commas or newlines. The top level of each code file is a statement sequence. Every node is comprised of "components" which may be separated from each other by spaces. The following types of components are available:
 
 * **Integer component**
-    * An integer component consists of a single integer literal.
+    * An integer component may have one of the following forms:
+        * Sequence of decimal digits
+        * `0x` followed by sequence of hexadecimal digits
+        * Character literal consisting of a character enclosed by apostrophes (`'`)
+    * The integer value of a character literal is the ASCII code point of the character.
 * **String component**
     * A string component consists of text enclosed by quotation marks.
-    * The text may contain the following escape sequences:
-        * `\"` = Quotation mark
-        * `\n` = Newline
-        * `\t` = Tab
-        * `\\` = Backslash
 * **Identifier component**
     * An identifier component consists of identifier characters, which may be the following:
         * Uppercase and lowercase letters
@@ -63,6 +62,14 @@ Petroleum code consists of "nodes". Each node is either a "statement", "expressi
 * **Attribute sequence component**
     * An attribute sequence component consists of an attribute sequence enclosed by square brackets (`[` and `]`).
     * For example: `[EXCEP @myExcep]` is an attribute sequence component.
+
+String components and character literals may contain the following escape sequences:
+
+* `\"` = Quotation mark
+* `\'` = Apostrophe
+* `\n` = Newline
+* `\t` = Tab
+* `\\` = Backslash
 
 Each expression may have one of the following forms:
 
