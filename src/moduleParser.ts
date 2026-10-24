@@ -204,9 +204,14 @@ export class ModuleParser {
         let intValue: bigint;
         if (prefix === "0x") {
             this.advance(2);
-            const intText = this.matchChars(isHexDigit);
-            if (intText.length < 0) {
+            const intText = this.matchChars(isIdentChar);
+            if (intText.length <= 0) {
                 throw this.createError("Expected hexadecimal digits.");
+            }
+            for (let index = 0; index < intText.length; index++) {
+                if (!isHexDigit(intText.charAt(index))) {
+                    throw this.createError("Expected hexadecimal digits.", pos);
+                }
             }
             if (intText.length > 16) {
                 throw new ValueError(
@@ -216,7 +221,12 @@ export class ModuleParser {
             }
             intValue = toSignedInt64(BigInt("0x" + intText));
         } else {
-            const intText = this.matchChars(isDecDigit);
+            const intText = this.matchChars(isIdentChar);
+            for (let index = 0; index < intText.length; index++) {
+                if (!isDecDigit(intText.charAt(index))) {
+                    throw this.createError("Expected decimal digits.", pos);
+                }
+            }
             intValue = BigInt(intText);
             if (intValue > maxIntValue) {
                 throw new ValueError(

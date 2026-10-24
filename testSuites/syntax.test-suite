@@ -43,19 +43,220 @@ PRINT("This line is not reached")
 }
 >>> expectError type: #SYNTAX_ERROR message: "Unexpected character \"}\"." lineNumber: 2
 =========================
->>> testCase "Malformed integer literals"
+>>> testCase "Integer literal with letters"
 >>> setupFile ~/targetPackage/main.petrol
 PRINT("This line is not reached")
 PRINT(123abc)
+>>> expectError type: #SYNTAX_ERROR message: "Expected decimal digits." lineNumber: 2
+=========================
+>>> testCase "Integer literal with decimal point"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
 PRINT(12.5)
->>> expectError type: #SYNTAX_ERROR message: "First component in invocation is invalid." lineNumber: 2
->>> expectError type: #SYNTAX_ERROR message: "First component in invocation is invalid." lineNumber: 3
+>>> expectError type: #SYNTAX_ERROR message: "Expected decimal digits." lineNumber: 2
 =========================
 >>> testCase "Integer literal exceeds 64 bits"
 >>> setupFile ~/targetPackage/main.petrol
 PRINT("This line is not reached")
 PRINT(9223372036854775808)
 >>> expectError type: #VALUE_ERROR message: "Signed integer literal exceeds 64 bits." lineNumber: 2
+=========================
+>>> testCase "Hexadecimal integer literals"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(0x0)
+PRINT(0x00)
+PRINT(0x9)
+PRINT(0xa)
+PRINT(0xF)
+PRINT(0x10)
+PRINT(0xff)
+PRINT(0xFF)
+PRINT(0xAbCd)
+PRINT(0x0123456789abcdef)
+PRINT(0x7FFFFFFFFFFFFFFF)
+PRINT(0x8000000000000000)
+PRINT(0xFFFFFFFFFFFFFFFE)
+PRINT(0xFFFFFFFFFFFFFFFF)
+PRINT(ADD(0x10, 1))
+PRINT(EQUAL(0x2A, 42))
+PRINT(TYPE(0x2A))
+>>> expectPrint
+0
+0
+9
+10
+15
+16
+255
+255
+43981
+81985529216486895
+9223372036854775807
+-9223372036854775808
+-2
+-1
+17
+1
+#INT
+=========================
+>>> testCase "Hexadecimal integer literal with trailing non-hexadecimal digit"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(0x1G)
+>>> expectError type: #SYNTAX_ERROR message: "Expected hexadecimal digits." lineNumber: 2
+=========================
+>>> testCase "Hexadecimal integer literal with decimal point"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(0x1.5)
+>>> expectError type: #SYNTAX_ERROR message: "Expected hexadecimal digits." lineNumber: 2
+=========================
+>>> testCase "Hexadecimal integer literal with uppercase prefix"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(0X1F)
+>>> expectError type: #SYNTAX_ERROR message: "Expected decimal digits." lineNumber: 2
+=========================
+>>> testCase "Hexadecimal prefix after leading zero"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(00x1)
+>>> expectError type: #SYNTAX_ERROR message: "Expected decimal digits." lineNumber: 2
+=========================
+>>> testCase "Hexadecimal integer literal without digits"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(0x)
+>>> expectError type: #SYNTAX_ERROR message: "Expected hexadecimal digits." lineNumber: 2
+=========================
+>>> testCase "Hexadecimal integer literal with non-hexadecimal digit"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(0xG)
+>>> expectError type: #SYNTAX_ERROR message: "Expected hexadecimal digits." lineNumber: 2
+=========================
+>>> testCase "Hexadecimal integer literal exceeds 64 bits"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(0x10000000000000000)
+>>> expectError type: #VALUE_ERROR message: "Hexadecimal integer cannot contain more than 64 bits." lineNumber: 2
+=========================
+>>> testCase "Character literals"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT('a')
+PRINT('A')
+PRINT('z')
+PRINT('0')
+PRINT(' ')
+PRINT('~')
+PRINT('"')
+PRINT('(')
+PRINT(')')
+PRINT(',')
+PRINT('}')
+PRINT('#')
+PRINT('@')
+PRINT(ADD('a', 1))
+PRINT(EQUAL(MEMBER("abc", 0), 'a'))
+PRINT(TYPE('a'))
+>>> expectPrint
+97
+65
+122
+48
+32
+126
+34
+40
+41
+44
+125
+35
+64
+98
+1
+#INT
+=========================
+>>> testCase "Escape sequences in character literals"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT('\'')
+PRINT('\"')
+PRINT('\n')
+PRINT('\t')
+PRINT('\\')
+>>> expectPrint
+39
+34
+10
+9
+92
+=========================
+>>> testCase "Apostrophes in strings"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("it's")
+PRINT("it\'s")
+PRINT(LEN("\'"))
+PRINT(MEMBER("a'b", 1))
+PRINT(STR(LIST("it's", "it\'s")))
+>>> expectPrint
+it's
+it's
+1
+39
+LIST ("it's", "it's")
+=========================
+>>> testCase "Malformed character literals"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT('a'b)
+PRINT('a''b')
+'a'(1)
+>>> expectError type: #SYNTAX_ERROR message: "First component in invocation is invalid." lineNumber: 2
+>>> expectError type: #SYNTAX_ERROR message: "First component in invocation is invalid." lineNumber: 3
+>>> expectError type: #SYNTAX_ERROR message: "First component in invocation is invalid." lineNumber: 4
+=========================
+>>> testCase "Empty character literal"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT('')
+>>> expectError type: #SYNTAX_ERROR message: "Character literal must contain exactly one character enclosed by apostrophes." lineNumber: 2
+=========================
+>>> testCase "Character literal with multiple characters"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT('ab')
+>>> expectError type: #SYNTAX_ERROR message: "Character literal must contain exactly one character enclosed by apostrophes." lineNumber: 2
+=========================
+>>> testCase "Character literal with multiple escaped characters"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT('\n\t')
+>>> expectError type: #SYNTAX_ERROR message: "Character literal must contain exactly one character enclosed by apostrophes." lineNumber: 2
+=========================
+>>> testCase "Missing end apostrophe"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT('a)
+PRINT(1)
+>>> expectError type: #SYNTAX_ERROR message: "Missing apostrophe." lineNumber: 3
+=========================
+>>> testCase "Character literal with only escaped apostrophe"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT('\')
+>>> expectError type: #SYNTAX_ERROR message: "Missing apostrophe." lineNumber: 2
+=========================
+>>> testCase "Unknown escape sequence in character literal"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT('\q')
+>>> expectError type: #SYNTAX_ERROR message: "Unknown escaped character \"q\"." lineNumber: 2
+=========================
+>>> testCase "Missing escaped character in character literal"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT('\
+>>> expectError type: #SYNTAX_ERROR message: "Missing escaped character." lineNumber: 2
 =========================
 >>> testCase "Missing end quotation mark"
 >>> setupFile ~/targetPackage/main.petrol
