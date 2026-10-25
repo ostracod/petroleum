@@ -12,7 +12,10 @@ import { FileSystem } from "./fileSystem.js";
 
 export interface FuncDef {
     name: string | null;
-    argAmount: number | null;
+    argAmount?: number | null;
+    // If argAmount is missing, minArgAmount and maxArgAmount must be defined.
+    minArgAmount?: number;
+    maxArgAmount?: number;
     call: (task: Task, args: PetValue[]) => Action;
 }
 
@@ -37,7 +40,11 @@ export class ConstantFunc extends BuiltInFunc {
         this.constantValue = constantValue;
     }
     
-    getArgAmount(): number | null {
+    getMinArgAmount(): number {
+        return 0;
+    }
+    
+    getMaxArgAmount(): number | null {
         return null;
     }
     
@@ -54,7 +61,11 @@ export class NotEqualFunc extends BuiltInFunc {
         this.comparisonValue = comparisonValue;
     }
     
-    getArgAmount(): number | null {
+    getMinArgAmount(): number {
+        return 1;
+    }
+    
+    getMaxArgAmount(): number | null {
         return 1;
     }
     
@@ -75,7 +86,11 @@ export class FileExistsFunc extends BuiltInFunc {
         this.path = path;
     }
     
-    getArgAmount(): number | null {
+    getMinArgAmount(): number {
+        return 0;
+    }
+    
+    getMaxArgAmount(): number | null {
         return 0;
     }
     
@@ -87,14 +102,28 @@ export class FileExistsFunc extends BuiltInFunc {
 
 export class DefFunc extends BuiltInFunc {
     def: FuncDef;
+    minArgAmount: number;
+    maxArgAmount: number | null;
     
     constructor(def: FuncDef) {
         super();
         this.def = def;
+        const { argAmount } = this.def;
+        if (typeof argAmount === "undefined") {
+            this.minArgAmount = this.def.minArgAmount!;
+            this.maxArgAmount = this.def.maxArgAmount!;
+        } else {
+            this.minArgAmount = (argAmount === null) ? 0 : argAmount;
+            this.maxArgAmount = argAmount;
+        }
     }
     
-    getArgAmount(): number | null {
-        return this.def.argAmount;
+    getMinArgAmount(): number {
+        return this.minArgAmount;
+    }
+    
+    getMaxArgAmount(): number | null {
+        return this.maxArgAmount;
     }
     
     callBuiltIn(task: Task, args: PetValue[]): Action {

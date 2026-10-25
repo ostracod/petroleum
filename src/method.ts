@@ -128,18 +128,20 @@ const funcInvocationMethods = createMethodMap({
         assertMaxCompAmount(comps, 2);
         const argsComp = (comps.getLength() < 2) ? null : getWorkGradeExprs(comps, 1, null);
         const func = invocNode.getMember(symbols.INVOC).getFunc();
-        const expectedArgAmount = func.getArgAmount();
-        if (expectedArgAmount !== null) {
-            let actualArgAmount: number;
-            if (argsComp === null) {
-                actualArgAmount = 0;
-            } else {
-                const argExprs = argsComp.getMember(symbols.EXPRS).getList();
-                actualArgAmount = argExprs.getLength();
-            }
-            if (actualArgAmount !== expectedArgAmount) {
-                throw new ValueError("Incorrect number of function arguments.");
-            }
+        const minArgAmount = func.getMinArgAmount();
+        const maxArgAmount = func.getMaxArgAmount();
+        let argAmount: number;
+        if (argsComp === null) {
+            argAmount = 0;
+        } else {
+            const argExprs = argsComp.getMember(symbols.EXPRS).getList();
+            argAmount = argExprs.getLength();
+        }
+        if (argAmount < minArgAmount) {
+            throw new ValueError("Too few arguments passed to function.");
+        }
+        if (maxArgAmount !== null && argAmount > maxArgAmount) {
+            throw new ValueError("Too many arguments passed to function.");
         }
         if (argsComp === null) {
             return task.returnValue(null);

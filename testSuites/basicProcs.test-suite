@@ -161,7 +161,7 @@ PREP_VAR @myFunc = <FUNC {
 }>
 PRINT("This line is not reached")
 myFunc(1, 2)
->>> expectError type: #VALUE_ERROR message: "Incorrect number of function arguments." lineNumber: 5
+>>> expectError type: #VALUE_ERROR message: "Too many arguments passed to function." lineNumber: 5
 =========================
 >>> testCase "FUNC procedure with wrong number of arguments using CALL"
 >>> setupFile ~/targetPackage/main.petrol
@@ -172,7 +172,7 @@ PRINT("Before call")
 CALL(myFunc)
 >>> expectPrint
 Before call
->>> expectError type: #VALUE_ERROR message: "Incorrect number of function arguments." lineNumber: 5
+>>> expectError type: #VALUE_ERROR message: "Too few arguments passed to function." lineNumber: 5
 =========================
 >>> testCase "FUNC procedure with invalid argument attribute"
 >>> setupFile ~/targetPackage/main.petrol
@@ -393,7 +393,7 @@ PREP_FUNC @myFunc {
     myFunc(1, 2)
 }
 PRINT("This line is not reached")
->>> expectError type: #VALUE_ERROR message: "Incorrect number of function arguments." lineNumber: 3
+>>> expectError type: #VALUE_ERROR message: "Too many arguments passed to function." lineNumber: 3
 =========================
 >>> testCase "PREP_FUNC procedure without declaration"
 >>> setupFile ~/targetPackage/main.petrol

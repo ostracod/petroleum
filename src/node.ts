@@ -141,7 +141,6 @@ export const assertMaxCompAmount = (
     }
 };
 
-
 export const assertCompAmount = (
     comps: PetList,
     expectedAmount: number,

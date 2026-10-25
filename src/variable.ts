@@ -5,7 +5,7 @@ import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, PetString, PetMap } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
 import { AwaitException, PetSyntaxError, PetTypeError, ValueError, StateError } from "./exception.js";
-import { assertCompAmount, getDeclComp, getAttrComps } from "./node.js";
+import { assertMinCompAmount, assertCompAmount, assertIdentComp, getDeclComp, getAttrComps, getWorkGradeExprs } from "./node.js";
 
 export const createFrame = (scope: PetMap, parentFrame: PetMap | null): PetMap => {
     const permaFrameValue = scope.getOptionalMember(symbols.PERMA_FRAME);
@@ -235,16 +235,44 @@ export const varIsInScope = (variable: PetMap, scope: PetMap): boolean => {
     return false;
 };
 
-export interface SignatureVars {
-    argVars?: PetMap[];
-    argsVar?: PetMap;
+export interface FuncArg {
+    variable: PetMap;
+    defaultValueExpr: PetMap | null;
 }
 
-export const getSignatureVars = (stmtsComp: PetMap): SignatureVars => {
+export interface FuncSignature {
+    // Either `args` or `argsVar` is defined.
+    args?: FuncArg[];
+    argsVar?: PetMap;
+    minArgAmount: number;
+    maxArgAmount: number | null;
+}
+
+const getFuncArgs = (attrsComp: PetMap): FuncArg[] => {
+    const argAttrs = attrsComp.getMember(symbols.ATTRS).getList();
+    return argAttrs.elements.map((attrValue) => {
+        const argAttr = attrValue.getMap();
+        const argComps = argAttr.getMember(symbols.COMPS).getList();
+        assertMinCompAmount(argComps, 1, argAttr);
+        const declComp = getDeclComp(argComps, 0);
+        const variable = declComp.getMember(symbols.VAR).getMap();
+        let defaultValueExpr: PetMap | null;
+        if (argComps.getLength() > 1) {
+            assertCompAmount(argComps, 3, argAttr);
+            assertIdentComp(argComps, 1, "=");
+            defaultValueExpr = getWorkGradeExprs(argComps, 2, 1);
+        } else {
+            defaultValueExpr = null;
+        }
+        return { variable, defaultValueExpr };
+    });
+};
+
+export const getFuncSignature = (stmtsComp: PetMap): FuncSignature => {
     const attrs = stmtsComp.getMember(symbols.ATTRS).getList();
     const attrAmount = attrs.getLength();
     if (attrAmount <= 0) {
-        return { argVars: [] };
+        return { args: [], minArgAmount: 0, maxArgAmount: 0 };
     }
     if (attrAmount > 1) {
         throw new PetSyntaxError("FUNC procedure cannot have more than one block attribute.");
@@ -254,30 +282,36 @@ export const getSignatureVars = (stmtsComp: PetMap): SignatureVars => {
     const comp = comps.getMember(1).getMap();
     const compType = comp.getMember(symbols.COMP_TYPE).getSymbol();
     if (compType === symbols.ATTRS_COMP) {
-        const argAttrs = comp.getMember(symbols.ATTRS).getList();
-        const argVars = argAttrs.elements.map((attrValue) => {
-            const argAttr = attrValue.getMap();
-            const argComps = argAttr.getMember(symbols.COMPS).getList();
-            assertCompAmount(argComps, 1, argAttr);
-            const declComp = getDeclComp(argComps, 0);
-            return declComp.getMember(symbols.VAR).getMap();
-        });
-        return { argVars };
+        const args = getFuncArgs(comp);
+        let minArgAmount = 0;
+        while (minArgAmount < args.length) {
+            const arg = args[minArgAmount];
+            if (arg.defaultValueExpr !== null) {
+                break;
+            }
+            minArgAmount += 1;
+        }
+        for (let index = minArgAmount; index < args.length; index++) {
+            if (args[index].defaultValueExpr === null) {
+                throw new PetSyntaxError("Optional arguments must be after required arguments.");
+            }
+        }
+        return { args, minArgAmount, maxArgAmount: args.length };
     } else if (compType === symbols.DECL_COMP) {
         const argsVar = comp.getMember(symbols.VAR).getMap();
-        return { argsVar };
+        return { argsVar, minArgAmount: 0, maxArgAmount: null };
     } else {
         throw new PetSyntaxError("Invalid function arguments.");
     }
 };
 
 export const setArgVarTypes = (stmtsComp: PetMap): void => {
-    const { argVars, argsVar } = getSignatureVars(stmtsComp);
-    if (typeof argVars === "undefined") {
+    const { args, argsVar } = getFuncSignature(stmtsComp);
+    if (typeof args === "undefined") {
         argsVar!.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
     } else {
-        for (const argVar of argVars) {
-            argVar.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
+        for (const arg of args) {
+            arg.variable.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
         }
     }
 };

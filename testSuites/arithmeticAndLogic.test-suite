@@ -21,7 +21,7 @@ PRINT(ADD(8, NEG(5)))
 >>> testCase "ADD function wrong arg amount"
 >>> setupFile ~/targetPackage/main.petrol
 PRINT(ADD(1, 2, 3))
->>> expectError type: #VALUE_ERROR message: "Incorrect number of function arguments." lineNumber: 1
+>>> expectError type: #VALUE_ERROR message: "Too many arguments passed to function." lineNumber: 1
 =========================
 >>> testCase "SUB function"
 >>> setupFile ~/targetPackage/main.petrol

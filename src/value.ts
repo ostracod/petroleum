@@ -3,8 +3,8 @@ import "./symbol.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
 import { DeferralException, ModulePos, modulePosToString, entityToModulePos, entityPosToString, PetTypeError, ValueError, createAwaitExcep } from "./exception.js";
-import { createFrame, findVarValue, getSignatureVars, pruneFrames } from "./variable.js";
-import { Action, Task, awaitCondTask } from "./task.js";
+import { createFrame, FuncSignature, getFuncSignature, pruneFrames } from "./variable.js";
+import { Action, Task, awaitCondTask, callUserFuncTask } from "./task.js";
 import { Scheduler } from "./scheduler.js";
 
 // PetValueAndKey contains types which can be used as both values and Map keys.
@@ -677,8 +677,10 @@ export abstract class PetFunc {
         // Do nothing.
     }
     
-    // Should return null if the function can accept any number of arguments.
-    abstract getArgAmount(): number | null;
+    abstract getMinArgAmount(): number;
+    
+    // Should return null if the function has no maximum amount of arguments.
+    abstract getMaxArgAmount(): number | null;
     
     abstract call(task: Task, args: PetList): Action;
     
@@ -694,9 +696,7 @@ export class UserFunc extends PetFunc {
     bottomFrame: PetMap | null;
     // `bottomFrame` may be modified so its parent is the frame of `permaFrameScope`.
     permaFrameScope: PetMap | null;
-    // `argVars` and `argsVar` are mutually exclusive.
-    argVars?: PetMap[];
-    argsVar?: PetMap;
+    signature: FuncSignature;
     
     constructor(stmtsComp: PetMap, varSpace: PetMap, accessedVars: PetMap) {
         super();
@@ -707,45 +707,23 @@ export class UserFunc extends PetFunc {
         this.topFrame = topFrame;
         this.bottomFrame = bottomFrame;
         this.permaFrameScope = permaFrameScope;
-        const { argVars, argsVar } = getSignatureVars(this.stmtsComp);
-        if (typeof argVars === "undefined") {
-            this.argsVar = argsVar;
-        } else {
-            this.argVars = argVars;
-        }
+        this.signature = getFuncSignature(this.stmtsComp);
     }
     
-    getArgAmount(): number | null {
-        return (typeof this.argVars === "undefined") ? null : this.argVars.length;
+    getMinArgAmount(): number {
+        return this.signature.minArgAmount;
     }
     
-    call(task: Task, args: PetList): Action {
+    getMaxArgAmount(): number | null {
+        return this.signature.maxArgAmount;
+    }
+    
+    call(task: Task, argValues: PetList): Action {
         const scope = this.stmtsComp.getMember(symbols.SCOPE).getMap();
         const bodyFrame = createFrame(scope, this.topFrame);
-        if (typeof this.argVars === "undefined") {
-            const frameEntry = findVarValue(bodyFrame, this.argsVar!);
-            frameEntry.setMember(symbols.VALUE, args);
-        } else {
-            for (let index = 0; index < this.argVars.length; index++) {
-                const argVar = this.argVars[index];
-                const arg = args.getMember(index);
-                const frameEntry = findVarValue(bodyFrame, argVar);
-                frameEntry.setMember(symbols.VALUE, arg);
-            }
-        }
-        if (this.permaFrameScope !== null) {
-            const permaFrame = this.permaFrameScope.getMember(symbols.PERMA_FRAME).getKnownValue();
-            if (permaFrame instanceof PetMap) {
-                const bottomFrame = this.bottomFrame ?? bodyFrame;
-                bottomFrame.setMember(symbols.PARENT, permaFrame);
-            } else if (permaFrame !== null) {
-                throw new PetTypeError("#PERMA_FRAME field must store a map or null.");
-            }
-        }
-        return task.callMethod(
-            this.stmtsComp, symbols.EVAL, [bodyFrame],
-            (value) => task.returnValue(null),
-            (exception) => task.handleRetExcep(exception),
+        return task.runTask(
+            callUserFuncTask, { userFunc: this, argValues, bodyFrame },
+            (value) => task.returnValue(value),
         );
     }
     

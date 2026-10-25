@@ -34,8 +34,11 @@ FUNC {[ARGS $args], $body}
 Creates a function with `$body`. `$args` may have one of the following forms:
 
 * `[$argAttrs]`
-    * `$argAttrs` is a sequence of attributes each having the form `@$arg`. `$arg` is a work-var.
-    * The number of arguments passed to the function must be the number of attributes in `$argAttrs`.
+    * Each attribute in `$argAttrs` may have one of the following forms:
+        * `@$arg` is a required argument.
+        * `@$arg = ($defaultValue)` is an optional argument.
+    * In both cases, `$arg` is a work-var.
+    * All optional arguments must be after required arguments.
 * `@$argList`
     * `$argList` is a work-var containing a list of values.
     * The function may be passed any number of arguments.

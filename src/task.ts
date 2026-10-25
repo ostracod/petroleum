@@ -5,9 +5,9 @@ import { PetSymbol, symbols, spinCountSymbol } from "./symbol.js";
 import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, nullValue, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, UserFunc, EvalState, valueMayHaveChanged } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
 import { getMethodWithDefault } from "./method.js";
-import { PetSyntaxError, ValueError, StateError, createSyntaxError } from "./exception.js";
+import { PetSyntaxError, PetTypeError, ValueError, StateError, createSyntaxError } from "./exception.js";
 import { workerIsInvocation, getWorkerMethodMap, getFuncArgsComp, getStmtsComp, getAttrComps } from "./node.js";
-import { createFrame, VarSpaceType, getVarSpaceType, getVariable, getVarValue, getScope } from "./variable.js";
+import { createFrame, VarSpaceType, getVarSpaceType, getVariable, findVarValue, getVarValue, getScope } from "./variable.js";
 import { Spinner } from "./scheduler.js";
 import { PetContext } from "./context.js";
 
@@ -526,9 +526,13 @@ const callFuncTask: TaskDef<CallFuncParams, null> = {
     stages: [
         (task) => {
             const { func, args } = task.params;
-            const expectedArgAmount = func.getArgAmount();
-            if (expectedArgAmount !== null && expectedArgAmount !== args.getLength()) {
-                throw new ValueError("Incorrect number of function arguments.");
+            const minArgAmount = func.getMinArgAmount();
+            const maxArgAmount = func.getMaxArgAmount();
+            if (args.getLength() < minArgAmount) {
+                throw new ValueError("Too few arguments passed to function.");
+            }
+            if (maxArgAmount !== null && args.getLength() > maxArgAmount) {
+                throw new ValueError("Too many arguments passed to function.");
             }
             return func.call(task, args);
         },
@@ -740,6 +744,65 @@ export const evalFuncTask: TaskDef<EvalFuncParams, { args: PetValue[] | null }> 
                 func, task.state.args!,
                 (value) => task.returnValue(value),
                 task.params.invocNode,
+            );
+        },
+    ],
+};
+
+interface CallUserFuncParams {
+    userFunc: UserFunc;
+    argValues: PetList;
+    bodyFrame: PetMap;
+}
+
+export const callUserFuncTask: TaskDef<CallUserFuncParams, { argIndex: number }> = {
+    getInitState: (params) => ({ argIndex: 0 }),
+    stages: [
+        (task) => {
+            const { userFunc, argValues, bodyFrame } = task.params;
+            const { args, argsVar } = userFunc.signature;
+            if (typeof args === "undefined") {
+                const frameEntry = findVarValue(bodyFrame, argsVar!);
+                frameEntry.setMember(symbols.VALUE, argValues);
+                return task.advanceStage({ argIndex: argValues.getLength() });
+            }
+            let { argIndex } = task.state;
+            while (argIndex < argValues.getLength()) {
+                const arg = args[argIndex];
+                const argValue = argValues.getMember(argIndex);
+                const frameEntry = findVarValue(bodyFrame, arg.variable);
+                frameEntry.setMember(symbols.VALUE, argValue);
+                argIndex += 1;
+            }
+            if (argIndex >= args.length) {
+                return task.advanceStage({ argIndex });
+            }
+            const optionalArg = args[argIndex];
+            return task.callMethod(
+                optionalArg.defaultValueExpr!, symbols.EVAL, [bodyFrame],
+                (values) => {
+                    const argValue = values.getList().getMember(0);
+                    const frameEntry = findVarValue(bodyFrame, optionalArg.variable);
+                    frameEntry.setMember(symbols.VALUE, argValue);
+                    return task.repeatStage({ argIndex: argIndex + 1 });
+                },
+            );
+        },
+        (task) => {
+            const { userFunc, bodyFrame } = task.params;
+            if (userFunc.permaFrameScope !== null) {
+                const permaFrame = userFunc.permaFrameScope.getMember(symbols.PERMA_FRAME).getKnownValue();
+                if (permaFrame instanceof PetMap) {
+                    const bottomFrame = userFunc.bottomFrame ?? bodyFrame;
+                    bottomFrame.setMember(symbols.PARENT, permaFrame);
+                } else if (permaFrame !== null) {
+                    throw new PetTypeError("#PERMA_FRAME field must store a map or null.");
+                }
+            }
+            return task.callMethod(
+                userFunc.stmtsComp, symbols.EVAL, [bodyFrame],
+                (value) => task.returnValue(null),
+                (exception) => task.handleRetExcep(exception),
             );
         },
     ],
