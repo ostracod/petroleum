@@ -162,3 +162,23 @@ LIST ("usedVar")
 0
 1
 1
+=========================
+>>> testCase "Closure frames exclude variables shadowed in nested function"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@currentFrame]]
+RUN {
+    WORK_VAR @myVar = (LIST ("large", "value"))
+    WORK_VAR @createFunc = (FUNC {
+        WORK_VAR @closureFrame = (MEMBER(currentFrame (), #PARENT))
+        COMMENT "The pruned RUN frame should not hold the outer `myVar`."
+        PRINT(KEYS(MEMBER(closureFrame, #FRAME_ENTRIES)))
+        WORK_VAR @myVar = (1)
+        RET (FUNC {
+            RET (myVar)
+        })
+    })
+    PRINT(CALL(CALL(createFunc)))
+}
+>>> expectPrint
+LIST ()
+1

@@ -6,9 +6,9 @@ import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc } from "./val
 import { MethodDict, createMethodMap, callDefaultPrep } from "./method.js";
 import { PetException, createBreakExcep, createContExcep, createSyntaxError } from "./exception.js";
 import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getStmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp, getCompIdent, getAttrComps } from "./node.js";
-import { findVarValue, findModuleVarValue, getModuleVarValue, getScope, varIsInScope, setArgVarTypes } from "./variable.js";
-import { createMethodInvocation, callMethodTask } from "./task.js";
-import { setProcPrepTask, awaitProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask, funcProcPrepTask, tryProcEvalTask, importProcPrepTask } from "./procTask.js";
+import { findVarValue, findModuleVarValue, getModuleVarValue, getScope, varIsInScope, getFuncSignature, setArgVarTypes } from "./variable.js";
+import { createMethodInvocation, callMethodTask, prepWorkersTask, workersVarsTask } from "./task.js";
+import { setProcPrepTask, awaitProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask, getFuncWorkers, funcProcPrepTask, tryProcEvalTask, importProcPrepTask } from "./procTask.js";
 
 interface ProcDef extends MethodDict {
     name: string;
@@ -257,16 +257,33 @@ export const globalProcDefs: ProcDef[] = [
     },
     {
         name: "FUNC",
-        prep: (task, worker) => task.runTask(
-            funcProcPrepTask, { expr: worker },
-            (value) => task.returnValue(null),
-        ),
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 2);
+            const stmtsComp = getStmtsComp(comps, 1, true);
+            const signature = getFuncSignature(stmtsComp);
+            return task.runTask(
+                funcProcPrepTask, { expr: worker, stmtsComp, signature },
+                (value) => task.returnValue(null),
+            );
+        },
         eval: (task, worker, varSpace) => {
             const comps = worker.getMember(symbols.COMPS).getList();
             const stmtsComp = comps.getMember(1).getMap();
             const accessedVars = worker.getMember(symbols.ACCESSED_VARS).getMap();
             const userFunc = new UserFunc(stmtsComp, varSpace, accessedVars);
             return task.returnValue(userFunc);
+        },
+        accessedVars: (task, worker, scope) => {
+            // We can't use `worker.getMember(symbols.ACCESSED_VARS)` here,
+            // because those variables may be associated with the wrong scope.
+            const comps = worker.getMember(symbols.COMPS).getList();
+            const stmtsComp = comps.getMember(1).getMap();
+            const workers = getFuncWorkers(stmtsComp);
+            return task.runTask(
+                workersVarsTask, { workers, scope },
+                (resultValue) => task.returnValue(resultValue),
+            );
         },
     },
     {
@@ -370,16 +387,19 @@ export const globalProcDefs: ProcDef[] = [
             assertCompAmount(comps, 3);
             const declComp = getDeclComp(comps, 1);
             const stmtsComp = getStmtsComp(comps, 2, true);
-            setArgVarTypes(stmtsComp);
+            const signature = getFuncSignature(stmtsComp);
+            setArgVarTypes(signature);
             const scope = getScope(worker);
             const userFunc = new UserFunc(stmtsComp, scope, new PetMap());
             const variable = declComp.getMember(symbols.VAR).getMap();
             variable.setMember(symbols.VAR_TYPE, symbols.PREP_VAR);
             variable.setMember(symbols.VALUE, userFunc);
-            return task.callMethod(
-                stmtsComp, symbols.PREP, [],
+            const workers = getFuncWorkers(stmtsComp, signature);
+            return task.runTask(
+                prepWorkersTask, { workers },
                 (value) => task.returnValue(null),
             );
+            
         },
         // #EVAL method of PREP_FUNC does not access any variables.
         accessedVars: (task, worker, scope) => task.returnValue(new PetMap()),

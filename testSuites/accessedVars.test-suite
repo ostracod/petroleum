@@ -286,3 +286,41 @@ PRINT(varNames(getComp("myStmt", 2), scope))
 >>> expectPrint
 LIST ()
 LIST ()
+=========================
+>>> testCase "ACCESSED_VARS method of FUNC procedure with default values"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode, @varNames, @getStmt]]
+WORK_VAR @var1 = (1)
+WORK_VAR @var2 = (2)
+WORK_VAR @var3 = (3)
+capture "myStmt" {
+    WORK_VAR @myFunc = (FUNC {
+        [ARGS [@arg1, @arg2 = (var1), @arg3 = (ADD(arg1, var2))]]
+        RET (ADD(arg2, var3))
+    })
+}
+WORK_VAR @funcExpr = (MEMBER(MEMBER(MEMBER(MEMBER(getStmt("myStmt", 0), #COMPS), 3), #EXPRS), 0))
+WORK_VAR @scope = (SCOPE(MEMBER(capturedCode, "myStmt")))
+COMMENT "Default values may access variables, but argument variables are excluded."
+PRINT(varNames(funcExpr, scope))
+>>> expectPrint
+LIST ("var3", "var1", "var2")
+=========================
+>>> testCase "ACCESSED_VARS method of FUNC procedure excludes variables not visible in scope"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode, @varNames, @getComp, @getStmt]]
+WORK_VAR @topVar = (1)
+capture "myStmt" {
+    WORK_VAR @localVar = (2)
+    WORK_VAR @myFunc = (FUNC {
+        RET (ADD(localVar, topVar))
+    })
+}
+CALL_METHOD(getComp("myStmt", 2), #PREP)
+WORK_VAR @funcExpr = (MEMBER(MEMBER(MEMBER(MEMBER(getStmt("myStmt", 1), #COMPS), 3), #EXPRS), 0))
+PRINT(varNames(funcExpr, SCOPE(funcExpr)))
+COMMENT "`localVar` is not visible in the outer scope."
+PRINT(varNames(funcExpr, SCOPE(MEMBER(capturedCode, "myStmt"))))
+>>> expectPrint
+LIST ("localVar", "topVar")
+LIST ("topVar")

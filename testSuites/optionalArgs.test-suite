@@ -1,0 +1,256 @@
+>>> testCase "Optional arguments"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @greet {
+    [ARGS [@name, @greeting = ("Hello"), @punctuation = ("!")]]
+    RET (CONCAT(LIST (greeting, ", ", name, punctuation)))
+}
+PRINT(greet("Alice"))
+PRINT(greet("Bob", "Hi"))
+PRINT(greet("Carol", "Hey", "?"))
+>>> expectPrint
+Hello, Alice!
+Hi, Bob!
+Hey, Carol?
+=========================
+>>> testCase "Optional arguments with CALL"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myFunc = (FUNC {
+    [ARGS [@value1, @value2 = (10)]]
+    RET (ADD(value1, value2))
+})
+PRINT(CALL(myFunc, LIST (1)))
+PRINT(CALL(myFunc, LIST (1, 2)))
+>>> expectPrint
+11
+3
+=========================
+>>> testCase "Only optional arguments"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @myFunc {
+    [ARGS [@value1 = ("a"), @value2 = ("b")]]
+    RET (LIST (value1, value2))
+}
+PRINT(myFunc())
+PRINT(myFunc("x"))
+PRINT(myFunc("x", "y"))
+>>> expectPrint
+LIST ("a", "b")
+LIST ("x", "b")
+LIST ("x", "y")
+=========================
+>>> testCase "Default value refers to earlier arguments"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @makeRange {
+    [ARGS [@start, @end = (ADD(start, 3)), @step = (1)]]
+    WORK_VAR @output = (LIST ())
+    WORK_VAR @num = (start)
+    WHILE (LESS(num, end)) {
+        ADD_ELEM(output, num)
+        SET num = (ADD(num, step))
+    }
+    RET (output)
+}
+PRINT(makeRange(5))
+PRINT(makeRange(5, 7))
+PRINT(makeRange(0, 10, 4))
+>>> expectPrint
+LIST (5, 6, 7)
+LIST (5, 6)
+LIST (0, 4, 8)
+=========================
+>>> testCase "Default value evaluated only when argument is omitted"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @getDefault {
+    PRINT("Evaluating default value")
+    RET (LIST ())
+}
+PREP_FUNC @myFunc {
+    [ARGS [@myList = (getDefault())]]
+    ADD_ELEM(myList, 1)
+    RET (myList)
+}
+PRINT(myFunc(LIST (0)))
+PRINT(myFunc())
+COMMENT "Each invocation evaluates the default value again."
+PRINT(myFunc())
+>>> expectPrint
+LIST (0, 1)
+Evaluating default value
+LIST (1)
+Evaluating default value
+LIST (1)
+=========================
+>>> testCase "Default value accesses module work-var"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @defaultValue = (5)
+PREP_FUNC @myFunc {
+    [ARGS [@value = (defaultValue)]]
+    RET (value)
+}
+PRINT(myFunc())
+SET defaultValue = (6)
+PRINT(myFunc())
+PRINT(myFunc(7))
+>>> expectPrint
+5
+6
+7
+=========================
+>>> testCase "Default value accesses enclosing work-var"
+>>> setupFile ~/targetPackage/main.petrol
+RUN {
+    WORK_VAR @defaultValue = (5)
+    WORK_VAR @myFunc = (FUNC {
+        [ARGS [@value = (defaultValue)]]
+        RET (value)
+    })
+    PRINT(CALL(myFunc))
+    SET defaultValue = (6)
+    PRINT(CALL(myFunc))
+    PRINT(CALL(myFunc, LIST (7)))
+}
+>>> expectPrint
+5
+6
+7
+=========================
+>>> testCase "Default value in closure outlives enclosing scope"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @createGreeter {
+    [ARGS [@defaultGreeting]]
+    COMMENT "Only the default value accesses `defaultGreeting`."
+    RET (FUNC {
+        [ARGS [@name, @greeting = (defaultGreeting)]]
+        RET (CONCAT(LIST (greeting, ", ", name)))
+    })
+}
+WORK_VAR @greeter1 = (createGreeter("Hello"))
+WORK_VAR @greeter2 = (createGreeter("Howdy"))
+PRINT(CALL(greeter1, LIST ("Alice")))
+PRINT(CALL(greeter2, LIST ("Bob")))
+PRINT(CALL(greeter2, LIST ("Carol", "Hi")))
+>>> expectPrint
+Hello, Alice
+Howdy, Bob
+Hi, Carol
+=========================
+>>> testCase "Default value in nested function accesses outer variable"
+>>> setupFile ~/targetPackage/main.petrol
+RUN {
+    WORK_VAR @defaultValue = (5)
+    WORK_VAR @createFunc = (FUNC {
+        COMMENT "Only the default value of the inner function accesses `defaultValue`."
+        RET (FUNC {
+            [ARGS [@value = (defaultValue)]]
+            RET (value)
+        })
+    })
+    WORK_VAR @myFunc = (CALL(createFunc))
+    PRINT(CALL(myFunc))
+}
+>>> expectPrint
+5
+=========================
+>>> testCase "Recursive function with optional argument"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @sumList {
+    [ARGS [@myList, @index = (0)]]
+    IF (GREATER_EQUAL(index, LEN(myList))) {
+        RET (0)
+    }
+    RET (ADD(MEMBER(myList, index), sumList(myList, ADD(index, 1))))
+}
+PRINT(sumList(LIST (1, 2, 3, 4)))
+>>> expectPrint
+10
+=========================
+>>> testCase "Too few arguments with optional arguments"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @myFunc {
+    [ARGS [@value1, @value2, @value3 = (3)]]
+}
+PRINT("This line is not reached")
+myFunc(1)
+>>> expectError type: #VALUE_ERROR message: "Too few arguments passed to function." lineNumber: 5
+=========================
+>>> testCase "Too many arguments with optional arguments"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @myFunc {
+    [ARGS [@value1, @value2 = (2)]]
+}
+PRINT("This line is not reached")
+myFunc(1, 2, 3)
+>>> expectError type: #VALUE_ERROR message: "Too many arguments passed to function." lineNumber: 5
+=========================
+>>> testCase "Wrong number of arguments with optional arguments using CALL"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myFunc = (FUNC {
+    [ARGS [@value1, @value2 = (2)]]
+})
+TRY {
+    CALL(myFunc)
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #MESSAGE))
+}
+TRY {
+    CALL(myFunc, LIST (1, 2, 3))
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #MESSAGE))
+}
+>>> expectPrint
+Too few arguments passed to function.
+Too many arguments passed to function.
+=========================
+>>> testCase "Optional argument before required argument"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PREP_FUNC @myFunc {
+    [ARGS [@value1 = (1), @value2]]
+}
+>>> expectError type: #SYNTAX_ERROR message: "Optional arguments must be after required arguments." lineNumber: 3
+=========================
+>>> testCase "Optional argument without expression sequence"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PREP_FUNC @myFunc {
+    [ARGS [@value = 5]]
+}
+>>> expectError type: #SYNTAX_ERROR message: "Expected expression sequence component." lineNumber: 3
+=========================
+>>> testCase "Optional argument with prep-grade default value"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PREP_FUNC @myFunc {
+    [ARGS [@value = <5>]]
+}
+>>> expectError type: #SYNTAX_ERROR message: "Expected work-grade expression sequence component." lineNumber: 3
+=========================
+>>> testCase "Optional argument with too many default expressions"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PREP_FUNC @myFunc {
+    [ARGS [@value = (1, 2)]]
+}
+>>> expectError type: #SYNTAX_ERROR message: "Expected 1 expression in sequence." lineNumber: 3
+=========================
+>>> testCase "Optional argument without equal sign"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PREP_FUNC @myFunc {
+    [ARGS [@value (5)]]
+}
+>>> expectError type: #SYNTAX_ERROR message: "Node has too few components." lineNumber: 3
+=========================
+>>> testCase "Default value with missing variable"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PREP_FUNC @myFunc1 {
+    [ARGS [@value = (missingVar1)]]
+}
+WORK_VAR @myFunc2 = (FUNC {
+    [ARGS [@value = (missingVar2)]]
+})
+>>> expectError type: #VALUE_ERROR message: "Could not find variable with name \"missingVar1\"." lineNumber: 3
+>>> expectError type: #VALUE_ERROR message: "Could not find variable with name \"missingVar2\"." lineNumber: 6

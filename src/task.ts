@@ -5,7 +5,7 @@ import { PetSymbol, symbols, spinCountSymbol } from "./symbol.js";
 import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, nullValue, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, UserFunc, EvalState, valueMayHaveChanged } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
 import { getMethodWithDefault } from "./method.js";
-import { PetSyntaxError, PetTypeError, ValueError, StateError, createSyntaxError } from "./exception.js";
+import { PetSyntaxError, ValueError, StateError, createSyntaxError } from "./exception.js";
 import { workerIsInvocation, getWorkerMethodMap, getFuncArgsComp, getStmtsComp, getAttrComps } from "./node.js";
 import { createFrame, VarSpaceType, getVarSpaceType, getVariable, findVarValue, getVarValue, getScope } from "./variable.js";
 import { Spinner } from "./scheduler.js";
@@ -790,15 +790,6 @@ export const callUserFuncTask: TaskDef<CallUserFuncParams, { argIndex: number }>
         },
         (task) => {
             const { userFunc, bodyFrame } = task.params;
-            if (userFunc.permaFrameScope !== null) {
-                const permaFrame = userFunc.permaFrameScope.getMember(symbols.PERMA_FRAME).getKnownValue();
-                if (permaFrame instanceof PetMap) {
-                    const bottomFrame = userFunc.bottomFrame ?? bodyFrame;
-                    bottomFrame.setMember(symbols.PARENT, permaFrame);
-                } else if (permaFrame !== null) {
-                    throw new PetTypeError("#PERMA_FRAME field must store a map or null.");
-                }
-            }
             return task.callMethod(
                 userFunc.stmtsComp, symbols.EVAL, [bodyFrame],
                 (value) => task.returnValue(null),

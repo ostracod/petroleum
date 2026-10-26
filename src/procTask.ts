@@ -7,9 +7,9 @@ import { KnownValue, PetValue, PetString, PetList, PetMap, ObservableBunch } fro
 import { FileExistsFunc } from "./builtInFunc.js";
 import { SetProcParts, setUpImportVars } from "./procedure.js";
 import { PetTypeError, createBreakExcep } from "./exception.js";
-import { getPackage, assertCompAmount, assertMinCompAmount, getPrepGradeExprs, getStmtsComp } from "./node.js";
-import { getVariable, getResolvedVarType, findVarValue, getScope, VarSpaceType, getVarSpaceType, createFrame, setArgVarTypes } from "./variable.js";
-import { TaskDef } from "./task.js";
+import { getPackage, assertMinCompAmount, getPrepGradeExprs } from "./node.js";
+import { getVariable, getResolvedVarType, findVarValue, getScope, VarSpaceType, getVarSpaceType, createFrame, FuncSignature, getFuncSignature, setArgVarTypes } from "./variable.js";
+import { TaskDef, prepWorkersTask, workersVarsTask } from "./task.js";
 
 export interface MapFieldComps {
     keyComp: PetMap;
@@ -242,27 +242,47 @@ export const whileProcEvalTask: TaskDef<WhileProcEvalParams, null> = {
     ],
 };
 
-export const funcProcPrepTask: TaskDef<{ expr: PetMap }, null> = {
+export const getFuncWorkers = (stmtsComp: PetMap, signature?: FuncSignature): PetMap[] => {
+    // If the caller already has the signature, pass it in to avoid redundant work.
+    if (typeof signature === "undefined") {
+        signature = getFuncSignature(stmtsComp);
+    }
+    const output: PetMap[] = [stmtsComp];
+    const { args } = signature;
+    if (typeof args !== "undefined") {
+        for (const { defaultValueExpr } of args) {
+            if (defaultValueExpr !== null) {
+                output.push(defaultValueExpr);
+            }
+        }
+    }
+    return output;
+};
+
+interface FuncProcPrepParams {
+    expr: PetMap;
+    stmtsComp: PetMap;
+    signature: FuncSignature;
+}
+
+export const funcProcPrepTask: TaskDef<FuncProcPrepParams, null> = {
     getInitState: (params) => null,
     stages: [
         (task) => {
-            const { expr } = task.params;
-            const comps = expr.getMember(symbols.COMPS).getList();
-            assertCompAmount(comps, 2);
-            const stmtsComp = getStmtsComp(comps, 1, true);
-            setArgVarTypes(stmtsComp);
-            return task.callMethod(
-                stmtsComp, symbols.PREP, [],
+            const { stmtsComp, signature } = task.params;
+            setArgVarTypes(signature);
+            const workers = getFuncWorkers(stmtsComp, signature);
+            return task.runTask(
+                prepWorkersTask, { workers },
                 (value) => task.advanceStage(null),
             );
         },
         (task) => {
-            const { expr } = task.params;
-            const comps = expr.getMember(symbols.COMPS).getList();
-            const stmtsComp = comps.getMember(1).getMap();
+            const { expr, stmtsComp, signature } = task.params;
+            const workers = getFuncWorkers(stmtsComp, signature);
             const scope = getScope(expr);
-            return task.callMethod(
-                stmtsComp, symbols.ACCESSED_VARS, [scope],
+            return task.runTask(
+                workersVarsTask, { workers, scope },
                 (resultValue) => {
                     expr.setMember(symbols.ACCESSED_VARS, resultValue);
                     return task.returnValue(null);

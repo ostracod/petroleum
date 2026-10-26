@@ -4,7 +4,7 @@ import "./node.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, PetString, PetMap } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
-import { AwaitException, PetSyntaxError, PetTypeError, ValueError, StateError } from "./exception.js";
+import { AwaitException, createSyntaxError, PetTypeError, ValueError, StateError } from "./exception.js";
 import { assertMinCompAmount, assertCompAmount, assertIdentComp, getDeclComp, getAttrComps, getWorkGradeExprs } from "./node.js";
 
 export const createFrame = (scope: PetMap, parentFrame: PetMap | null): PetMap => {
@@ -275,7 +275,10 @@ export const getFuncSignature = (stmtsComp: PetMap): FuncSignature => {
         return { args: [], minArgAmount: 0, maxArgAmount: 0 };
     }
     if (attrAmount > 1) {
-        throw new PetSyntaxError("FUNC procedure cannot have more than one block attribute.");
+        throw createSyntaxError(
+            "Function procedure cannot have more than one block attribute.",
+            attrs.getMember(1).getMap(),
+        );
     }
     const attr = attrs.getMember(0).getMap();
     const comps = getAttrComps(attr, "ARGS", 2);
@@ -293,7 +296,10 @@ export const getFuncSignature = (stmtsComp: PetMap): FuncSignature => {
         }
         for (let index = minArgAmount; index < args.length; index++) {
             if (args[index].defaultValueExpr === null) {
-                throw new PetSyntaxError("Optional arguments must be after required arguments.");
+                throw createSyntaxError(
+                    "Optional arguments must be after required arguments.",
+                    comp,
+                );
             }
         }
         return { args, minArgAmount, maxArgAmount: args.length };
@@ -301,12 +307,12 @@ export const getFuncSignature = (stmtsComp: PetMap): FuncSignature => {
         const argsVar = comp.getMember(symbols.VAR).getMap();
         return { argsVar, minArgAmount: 0, maxArgAmount: null };
     } else {
-        throw new PetSyntaxError("Invalid function arguments.");
+        throw createSyntaxError("Invalid function arguments.", comp);
     }
 };
 
-export const setArgVarTypes = (stmtsComp: PetMap): void => {
-    const { args, argsVar } = getFuncSignature(stmtsComp);
+export const setArgVarTypes = (signature: FuncSignature): void => {
+    const { args, argsVar } = signature;
     if (typeof args === "undefined") {
         argsVar!.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
     } else {

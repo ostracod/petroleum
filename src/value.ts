@@ -721,6 +721,15 @@ export class UserFunc extends PetFunc {
     call(task: Task, argValues: PetList): Action {
         const scope = this.stmtsComp.getMember(symbols.SCOPE).getMap();
         const bodyFrame = createFrame(scope, this.topFrame);
+        if (this.permaFrameScope !== null) {
+            const permaFrame = this.permaFrameScope.getMember(symbols.PERMA_FRAME).getKnownValue();
+            if (permaFrame instanceof PetMap) {
+                const bottomFrame = this.bottomFrame ?? bodyFrame;
+                bottomFrame.setMember(symbols.PARENT, permaFrame);
+            } else if (permaFrame !== null) {
+                throw new PetTypeError("#PERMA_FRAME field must store a map or null.");
+            }
+        }
         return task.runTask(
             callUserFuncTask, { userFunc: this, argValues, bodyFrame },
             (value) => task.returnValue(value),
