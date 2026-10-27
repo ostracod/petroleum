@@ -2,7 +2,7 @@
 import "./value.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { toSignedInt64, KnownValue, PetValue, wrapKnownValue, knownValueToLiteral, minIntValue, maxIntValue, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
+import { toSignedInt64, KnownValue, PetValue, wrapKnownValue, knownValueToLiteral, minIntValue, maxIntValue, stringToLiteral, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
 import { PetTypeError, ValueError, StateError } from "./exception.js";
 import { getChildWorkers } from "./node.js";
 import { findVariable, findVarValue, getScope, createFrame } from "./variable.js";
@@ -157,7 +157,72 @@ const getTypeSymbol = (value: KnownValue): PetSymbol => {
     }
 };
 
-const intRegex = /^-?[0-9]+$/;
+const intDigitSet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+const checkBase = (base: bigint): void => {
+    if (base < 2 || base > intDigitSet.length) {
+        throw new ValueError(`Base must be between 2 and ${intDigitSet.length} inclusive.`);
+    }
+};
+
+const intToString = (intValue: bigint, base: bigint): string => {
+    checkBase(base);
+    let isNegative: boolean;
+    let leftOverValue: bigint;
+    if (intValue < 0) {
+        isNegative = true;
+        leftOverValue = -intValue;
+    } else {
+        isNegative = false;
+        leftOverValue = intValue;
+    }
+    const digits: string[] = [];
+    while (leftOverValue > 0) {
+        const digitValue = leftOverValue % base;
+        const digit = intDigitSet.charAt(Number(digitValue));
+        digits.push(digit);
+        leftOverValue /= base;
+    }
+    if (digits.length <= 0) {
+        digits.push(intDigitSet.charAt(0));
+    }
+    digits.reverse();
+    const text = digits.join("");
+    return isNegative ? "-" + text : text;
+};
+
+const parseBigInt = (text: string, base: bigint): bigint => {
+    checkBase(base);
+    if (text.length < 1) {
+        throw new ValueError("Cannot parse empty string as integer.");
+    }
+    const firstChar = text.charAt(0);
+    let isNegative: boolean;
+    let startIndex: number;
+    if (firstChar === "-") {
+        isNegative = true;
+        startIndex = 1;
+    } else {
+        isNegative = false;
+        startIndex = 0;
+    }
+    if (startIndex >= text.length) {
+        throw new ValueError("Missing digit after minus sign.");
+    }
+    const uppercaseText = text.toUpperCase();
+    let accumulator = 0n;
+    let placeValue = 1n;
+    for (let index = uppercaseText.length - 1; index >= startIndex; index--) {
+        const digit = uppercaseText.charAt(index);
+        const digitValue = intDigitSet.indexOf(digit);
+        if (digitValue < 0 || digitValue >= base) {
+            throw new ValueError(`String ${stringToLiteral(text)} contains invalid digit in base ${base}.`);
+        }
+        accumulator += BigInt(digitValue) * placeValue;
+        placeValue *= base;
+    }
+    return isNegative ? -accumulator : accumulator;
+};
 
 const assertWorkerUnprepped = (context: PetContext, worker: PetMap): void => {
     const phase = worker.getMember(symbols.PHASE).getSymbol();
@@ -607,24 +672,33 @@ export const globalFuncDefs: FuncDef[] = [
     },
     {
         name: "STR",
-        argAmount: 1,
+        minArgAmount: 1,
+        maxArgAmount: 2,
         call: (task, args) => {
             const arg = args[0].getKnownValue();
-            const result = (arg instanceof PetString)
-                ? arg
-                : new PetString(knownValueToLiteral(arg));
+            let result: PetString;
+            if (args.length > 1) {
+                if (typeof arg !== "bigint") {
+                    throw new PetTypeError("Base can only be provided if first argument is an integer.");
+                }
+                const base = args[1].getInt();
+                result = new PetString(intToString(arg, base));
+            } else {
+                result = (arg instanceof PetString)
+                    ? arg
+                    : new PetString(knownValueToLiteral(arg));
+            }
             return task.returnValue(result);
         },
     },
     {
         name: "PARSE_INT",
-        argAmount: 1,
+        minArgAmount: 1,
+        maxArgAmount: 2,
         call: (task, args) => {
             const text = args[0].toStringStrict();
-            if (!intRegex.test(text)) {
-                throw new ValueError("Cannot parse integer.");
-            }
-            const result = BigInt(text);
+            const base = (args.length > 1) ? args[1].getInt() : 10n;
+            const result = parseBigInt(text, base);
             if (result < minIntValue) {
                 throw new ValueError("Integer magnitude is too big to parse.");
             }

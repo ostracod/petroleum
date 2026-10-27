@@ -227,6 +227,22 @@ const checkSliceIndexes = (
     }
 };
 
+export const stringToLiteral = (text: string): string => {
+    const literalParts: string[] = [];
+    for (let index = 0; index < text.length; index++) {
+        const character = text.charAt(index);
+        let literalPart: string;
+        const escape = charEscapes[character];
+        if (typeof escape !== "undefined") {
+            literalPart = "\\" + escape;
+        } else {
+            literalPart = character;
+        }
+        literalParts.push(literalPart);
+    }
+    return "\"" + literalParts.join("") + "\"";
+};
+
 export class PetString {
     // Either `text` or `buffer` are non-null.
     text: string | null;
@@ -286,20 +302,7 @@ export class PetString {
     }
     
     toLiteral(): string {
-        const text = this.toString();
-        const literalParts: string[] = [];
-        for (let index = 0; index < text.length; index++) {
-            const character = text.charAt(index);
-            let literalPart: string;
-            const escape = charEscapes[character];
-            if (typeof escape !== "undefined") {
-                literalPart = "\\" + escape;
-            } else {
-                literalPart = character;
-            }
-            literalParts.push(literalPart);
-        }
-        return "\"" + literalParts.join("") + "\"";
+        return stringToLiteral(this.toString());
     }
 }
 

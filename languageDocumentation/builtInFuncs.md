@@ -171,16 +171,22 @@ CONCAT($bunches)
 Returns the elements in `$bunches` concatenated together. `$bunches` may be a list of strings or lists.
 
 ```
-STR($value)
+STR($value, $base)
 ```
 
-Returns a string representation of `$value`.
+Returns a string representation of `$value`. If `$value` is an integer:
+
+* If `$base` is included, `$value` will be converted in `$base`.
+    * `$base` may be between 2 and 36 inclusive.
+* Otherwise, `$value` will be converted in base 10.
+
+`$base` can only be included if `$value` is an integer.
 
 ```
-PARSE_INT($str)
+PARSE_INT($str, $base)
 ```
 
-Returns the integer value of `$str` interpreted in base 10.
+Returns the integer value of `$str` interpreted in `$base`. `$base` may be between 2 and 36 inclusive. If `$base` is excluded, `$str` will be interpreted in base 10.
 
 ```
 CHAR($charCode)

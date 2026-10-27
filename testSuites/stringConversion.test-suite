@@ -1,3 +1,16 @@
+>>> commonFile ~/targetPackage/testUtils.petrol
+COMMENT "Usage: printError($func, $args)"
+COMMENT "Calls $func with $args. Prints the result, or the error type and message if an error is thrown."
+PREP_FUNC @printError {
+    [ARGS [@func, @args]]
+    TRY {
+        PRINT(CALL(func, args))
+    } CATCH {
+        [EXCEP @excep]
+        PRINT(LIST (MEMBER(excep, #ERROR_TYPE), MEMBER(excep, #MESSAGE)))
+    }
+}
+=========================
 >>> testCase "STR function"
 >>> setupFile ~/targetPackage/main.petrol
 PRINT(STR(123))
@@ -112,3 +125,114 @@ hi
 >>> setupFile ~/targetPackage/main.petrol
 CHAR(256)
 >>> expectError type: #VALUE_ERROR lineNumber: 1
+=========================
+>>> testCase "STR function with base"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(STR(255, 16))
+PRINT(STR(255, 2))
+PRINT(STR(NEG(255), 16))
+PRINT(STR(511, 8))
+PRINT(STR(35, 36))
+PRINT(STR(1234, 10))
+PRINT(STR(0, 2))
+PRINT(STR(9223372036854775807, 16))
+PRINT(STR(SUB(NEG(9223372036854775807), 1), 2))
+>>> expectPrint
+FF
+11111111
+-FF
+777
+Z
+1234
+0
+7FFFFFFFFFFFFFFF
+-1000000000000000000000000000000000000000000000000000000000000000
+=========================
+>>> testCase "STR function with invalid base"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@printError]]
+printError(STR, LIST (10, 1))
+printError(STR, LIST (10, 37))
+printError(STR, LIST ("10", 10))
+printError(STR, LIST (NULL, 10))
+>>> expectPrint
+LIST (#VALUE_ERROR, "Base must be between 2 and 36 inclusive.")
+LIST (#VALUE_ERROR, "Base must be between 2 and 36 inclusive.")
+LIST (#TYPE_ERROR, "Base can only be provided if first argument is an integer.")
+LIST (#TYPE_ERROR, "Base can only be provided if first argument is an integer.")
+=========================
+>>> testCase "PARSE_INT function with base"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(PARSE_INT("FF", 16))
+PRINT(PARSE_INT("ff", 16))
+PRINT(PARSE_INT("-11111111", 2))
+PRINT(PARSE_INT("777", 8))
+PRINT(PARSE_INT("z", 36))
+PRINT(PARSE_INT("0012", 3))
+PRINT(PARSE_INT("1234", 10))
+PRINT(PARSE_INT("7FFFFFFFFFFFFFFF", 16))
+PRINT(PARSE_INT("-8000000000000000", 16))
+>>> expectPrint
+255
+255
+-255
+511
+35
+5
+1234
+9223372036854775807
+-9223372036854775808
+=========================
+>>> testCase "PARSE_INT function reverses STR function with base"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @values = (LIST (0, 1, NEG(1), 12345, NEG(987654321), 9223372036854775807, SUB(NEG(9223372036854775807), 1)))
+WORK_VAR @bases = (LIST (2, 7, 10, 16, 36))
+WORK_VAR @mismatchCount = (0)
+WORK_VAR @valueIndex = (0)
+WHILE (LESS(valueIndex, LEN(values))) {
+    WORK_VAR @value = (MEMBER(values, valueIndex))
+    WORK_VAR @baseIndex = (0)
+    WHILE (LESS(baseIndex, LEN(bases))) {
+        WORK_VAR @base = (MEMBER(bases, baseIndex))
+        IF (NOT_EQUAL(PARSE_INT(STR(value, base), base), value)) {
+            SET mismatchCount = (ADD(mismatchCount, 1))
+        }
+        SET baseIndex = (ADD(baseIndex, 1))
+    }
+    SET valueIndex = (ADD(valueIndex, 1))
+}
+PRINT(mismatchCount)
+>>> expectPrint
+0
+=========================
+>>> testCase "PARSE_INT function with invalid digits"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@printError]]
+printError(PARSE_INT, LIST ("2", 2))
+printError(PARSE_INT, LIST ("G", 16))
+printError(PARSE_INT, LIST ("hello", 16))
+printError(PARSE_INT, LIST ("+5", 10))
+printError(PARSE_INT, LIST ("1 0", 2))
+>>> expectPrint
+LIST (#VALUE_ERROR, "String \"2\" contains invalid digit in base 2.")
+LIST (#VALUE_ERROR, "String \"G\" contains invalid digit in base 16.")
+LIST (#VALUE_ERROR, "String \"hello\" contains invalid digit in base 16.")
+LIST (#VALUE_ERROR, "String \"+5\" contains invalid digit in base 10.")
+LIST (#VALUE_ERROR, "String \"1 0\" contains invalid digit in base 2.")
+=========================
+>>> testCase "PARSE_INT function with invalid input"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@printError]]
+printError(PARSE_INT, LIST ("", 2))
+printError(PARSE_INT, LIST ("-", 16))
+printError(PARSE_INT, LIST ("10", 1))
+printError(PARSE_INT, LIST ("10", 37))
+printError(PARSE_INT, LIST ("8000000000000000", 16))
+printError(PARSE_INT, LIST ("-8000000000000001", 16))
+>>> expectPrint
+LIST (#VALUE_ERROR, "Cannot parse empty string as integer.")
+LIST (#VALUE_ERROR, "Missing digit after minus sign.")
+LIST (#VALUE_ERROR, "Base must be between 2 and 36 inclusive.")
+LIST (#VALUE_ERROR, "Base must be between 2 and 36 inclusive.")
+LIST (#VALUE_ERROR, "Integer is too big to parse.")
+LIST (#VALUE_ERROR, "Integer magnitude is too big to parse.")
