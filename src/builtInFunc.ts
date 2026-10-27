@@ -664,12 +664,27 @@ export const globalFuncDefs: FuncDef[] = [
         },
     },
     {
-        name: "CALL",
-        argAmount: null,
+        name: "MIN_ARG_AMOUNT",
+        argAmount: 1,
         call: (task, args) => {
-            if (args.length < 1 || args.length > 2) {
-                throw new ValueError("Expected 1 or 2 arguments.");
-            }
+            const minArgAmount = args[0].getFunc().getMinArgAmount();
+            return task.returnValue(BigInt(minArgAmount));
+        },
+    },
+    {
+        name: "MAX_ARG_AMOUNT",
+        argAmount: 1,
+        call: (task, args) => {
+            const maxArgAmount = args[0].getFunc().getMaxArgAmount();
+            const result = (maxArgAmount === null) ? null : BigInt(maxArgAmount);
+            return task.returnValue(result);
+        },
+    },
+    {
+        name: "CALL",
+        minArgAmount: 1,
+        maxArgAmount: 2,
+        call: (task, args) => {
             const func = args[0].getFunc();
             const funcArgs = (args.length > 1)
                 ? args[1].getList().shallowCopy()
@@ -682,11 +697,9 @@ export const globalFuncDefs: FuncDef[] = [
     },
     {
         name: "CALL_METHOD",
-        argAmount: null,
+        minArgAmount: 2,
+        maxArgAmount: 3,
         call: (task, args) => {
-            if (args.length < 2 || args.length > 3) {
-                throw new ValueError("Expected 2 or 3 arguments.");
-            }
             const worker = args[0].getMap();
             const methodKey = args[1];
             const methodArgs = (args.length > 2)

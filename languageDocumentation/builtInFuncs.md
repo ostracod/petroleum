@@ -201,6 +201,18 @@ HAS_KEY($map, $key)
 Returns whether a field with `$key` exists in `$map`.
 
 ```
+MIN_ARG_AMOUNT($func)
+```
+
+Returns the minimum number of arguments which `$func` can accept.
+
+```
+MAX_ARG_AMOUNT($func)
+```
+
+Returns the maximum number of arguments which `$func` can accept. If there is no maximum number, `MAX_ARG_AMOUNT` returns null.
+
+```
 CALL($func, $args)
 ```
 
