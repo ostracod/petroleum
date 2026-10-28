@@ -577,6 +577,25 @@ export class PetList implements ObservableBunchIface {
         this.addElements([value], index);
     }
     
+    deleteElements(amount: number, inputIndex?: number): void {
+        if (amount < 0) {
+            throw new ValueError("Cannot delete a negative number of elements.");
+        }
+        const deleteIndex = inputIndex ?? (this.elements.length - amount);
+        if (deleteIndex < 0 || deleteIndex + amount > this.elements.length) {
+            throw new ValueError("Cannot delete element which is out of bounds.");
+        }
+        for (let index = deleteIndex; index < this.elements.length - amount; index++) {
+            const value = this.elements[index + amount];
+            this.setMemberHelper(index, value);
+        }
+        this.elements.length -= amount;
+    }
+    
+    deleteElement(index?: number): void {
+        this.deleteElements(1, index);
+    }
+    
     toString(parents: KnownValue[] = []): string {
         const nextParents = [...parents, this];
         const textList: string[] = [];

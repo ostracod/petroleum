@@ -165,6 +165,18 @@ ADD_ELEMS($list, $elems, $index?)
 Works in the same way as `ADD_ELEM`, except `$elems` is a list of elements to insert.
 
 ```
+DEL_ELEM($list, $index?)
+```
+
+Removes the element in `$list` at `$index`, shifting all elements afterward to the left. If `$index` is excluded, this function removes the last element of `$list`.
+
+```
+DEL_ELEMS($list, $amount, $index?)
+```
+
+Removes `$amount` elements from `$list` starting at `$index`, shifting all elements afterward to the left. If `$index` is excluded, this function removes elements at the end of `$list`.
+
+```
 DEL_FIELD($map, $key)
 ```
 

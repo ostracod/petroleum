@@ -664,6 +664,26 @@ export const globalFuncDefs: FuncDef[] = [
         },
     },
     {
+        name: "DEL_ELEM",
+        minArgAmount: 1,
+        maxArgAmount: 2,
+        call: (task, args) => {
+            const index = (args.length > 1) ? args[1].toNumber() : undefined;
+            args[0].getList().deleteElement(index);
+            return task.returnValue(null);
+        },
+    },
+    {
+        name: "DEL_ELEMS",
+        minArgAmount: 2,
+        maxArgAmount: 3,
+        call: (task, args) => {
+            const index = (args.length > 2) ? args[2].toNumber() : undefined;
+            args[0].getList().deleteElements(args[1].toNumber(), index);
+            return task.returnValue(null);
+        },
+    },
+    {
         name: "DEL_FIELD",
         argAmount: 2,
         call: (task, args) => {

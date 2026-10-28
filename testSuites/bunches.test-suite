@@ -316,6 +316,131 @@ Inserting elements
 LIST (20, 30)
 LIST (10, 1, 2, 20, 30)
 =========================
+>>> testCase "DEL_ELEM function"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST (1, 2, 3, 4, 5))
+PRINT(DEL_ELEM(myList))
+PRINT(myList)
+DEL_ELEM(myList, 0)
+PRINT(myList)
+DEL_ELEM(myList, 1)
+PRINT(myList)
+DEL_ELEM(myList, 1)
+DEL_ELEM(myList)
+PRINT(myList)
+>>> expectPrint
+NULL
+LIST (1, 2, 3, 4)
+LIST (2, 3, 4)
+LIST (2, 4)
+LIST ()
+=========================
+>>> testCase "DEL_ELEMS function"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST (1, 2, 3, 4, 5, 6, 7, 8))
+PRINT(DEL_ELEMS(myList, 2, 1))
+PRINT(myList)
+DEL_ELEMS(myList, 2)
+PRINT(myList)
+DEL_ELEMS(myList, 0)
+DEL_ELEMS(myList, 0, 0)
+DEL_ELEMS(myList, 0, LEN(myList))
+PRINT(myList)
+DEL_ELEMS(myList, 2, 0)
+PRINT(myList)
+DEL_ELEMS(myList, LEN(myList))
+PRINT(myList)
+>>> expectPrint
+NULL
+LIST (1, 4, 5, 6, 7, 8)
+LIST (1, 4, 5, 6)
+LIST (1, 4, 5, 6)
+LIST (5, 6)
+LIST ()
+=========================
+>>> testCase "DEL_ELEM and DEL_ELEMS functions out of bounds"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @printError {
+    [ARGS [@func, @args]]
+    TRY {
+        CALL(func, args)
+    } CATCH {
+        [EXCEP @excep]
+        PRINT(LIST (MEMBER(excep, #ERROR_TYPE), MEMBER(excep, #MESSAGE)))
+    }
+}
+WORK_VAR @myList = (LIST (1, 2, 3))
+printError(DEL_ELEM, LIST (myList, 3))
+printError(DEL_ELEM, LIST (myList, NEG(1)))
+printError(DEL_ELEMS, LIST (myList, 4))
+printError(DEL_ELEMS, LIST (myList, 2, 2))
+printError(DEL_ELEMS, LIST (myList, 1, NEG(1)))
+printError(DEL_ELEM, LIST (LIST ()))
+PRINT(myList)
+>>> expectPrint
+LIST (#VALUE_ERROR, "Cannot delete element which is out of bounds.")
+LIST (#VALUE_ERROR, "Cannot delete element which is out of bounds.")
+LIST (#VALUE_ERROR, "Cannot delete element which is out of bounds.")
+LIST (#VALUE_ERROR, "Cannot delete element which is out of bounds.")
+LIST (#VALUE_ERROR, "Cannot delete element which is out of bounds.")
+LIST (#VALUE_ERROR, "Cannot delete element which is out of bounds.")
+LIST (1, 2, 3)
+=========================
+>>> testCase "DEL_ELEMS function with negative amount"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @printError {
+    [ARGS [@func, @args]]
+    TRY {
+        CALL(func, args)
+    } CATCH {
+        [EXCEP @excep]
+        PRINT(LIST (MEMBER(excep, #ERROR_TYPE), MEMBER(excep, #MESSAGE)))
+    }
+}
+WORK_VAR @myList = (LIST (1, 2, 3))
+printError(DEL_ELEMS, LIST (myList, NEG(1)))
+printError(DEL_ELEMS, LIST (myList, NEG(1), 0))
+PRINT(myList)
+>>> expectPrint
+LIST (#VALUE_ERROR, "Cannot delete a negative number of elements.")
+LIST (#VALUE_ERROR, "Cannot delete a negative number of elements.")
+LIST (1, 2, 3)
+=========================
+>>> testCase "AWAIT element shifted by DEL_ELEM"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST ("a", "b", "c"))
+SCHED {
+    PRINT("Deleting element")
+    DEL_ELEM(myList, 0)
+}
+COMMENT "The element at index 1 becomes \"c\" when \"c\" is shifted to the left."
+PRINT(AWAIT (myList, 1, FUNC {
+    [ARGS [@member]]
+    RET (EQUAL(member, "c"))
+}, "Waiting for c at index 1"))
+PRINT(myList)
+>>> expectPrint
+Deleting element
+c
+LIST ("b", "c")
+=========================
+>>> testCase "AWAIT element shifted by DEL_ELEMS"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST (10, 20, 30, 40, 50))
+SCHED {
+    PRINT("Deleting elements")
+    DEL_ELEMS(myList, 3, 1)
+}
+PRINT(AWAIT (myList, 1, FUNC {
+    [ARGS [@member]]
+    RET (EQUAL(member, 50))
+}, "Waiting for 50 at index 1"))
+PRINT(myList)
+>>> expectPrint
+Deleting elements
+50
+LIST (10, 50)
+=========================
 >>> testCase "DEL_FIELD function"
 >>> setupFile ~/targetPackage/main.petrol
 WORK_VAR @myMap = (MAP [FIELDS [("a") = (1), ("b") = (2), (3) = (4)]])
