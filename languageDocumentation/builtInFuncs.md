@@ -76,6 +76,12 @@ LESS_EQUAL($int1, $int2)
 Returns whether `$int1` is greater than, less than, greater than or equal to, or less than or equal to `$int2`.
 
 ```
+RAND_INT($min, $max)
+```
+
+Returns a random integer between `$min` and `$max` inclusive.
+
+```
 SYMBOL($name)
 ```
 

@@ -224,6 +224,29 @@ const parseBigInt = (text: string, base: bigint): bigint => {
     return isNegative ? -accumulator : accumulator;
 };
 
+const randBinAmount = 1024;
+const randBinsBigInt = BigInt(randBinAmount);
+
+// Generates a random integer between 0 and maxValue inclusive in an "almost uniform" way.
+const randomIntHelper = (maxValue: bigint): bigint => {
+    const endValue = maxValue + 1n;
+    if (endValue < 1000000n) {
+        return BigInt(Math.floor(Math.random() * Number(endValue)));
+    }
+    const binIndex = BigInt(Math.floor(Math.random() * randBinAmount));
+    const rangeMin = endValue * binIndex / randBinsBigInt;
+    const rangeEnd = endValue * (binIndex + 1n) / randBinsBigInt;
+    const rangeMax = rangeEnd - 1n;
+    return randomIntHelper(rangeMax - rangeMin) + rangeMin;
+};
+
+const generateRandomInt = (minValue: bigint, maxValue: bigint): bigint => {
+    if (minValue > maxValue) {
+        throw new ValueError("Minimum value must not be bigger than maximum value.");
+    }
+    return randomIntHelper(maxValue - minValue) + minValue;
+};
+
 const assertWorkerUnprepped = (context: PetContext, worker: PetMap): void => {
     const phase = worker.getMember(symbols.PHASE).getSymbol();
     if (phase !== symbols.PREP_PHASE || context.preppingWorkers.has(worker)) {
@@ -533,6 +556,14 @@ export const globalFuncDefs: FuncDef[] = [
         call: (task, args) => {
             const result = (args[0].getInt() <= args[1].getInt());
             return task.returnValue(result ? 1n : 0n);
+        },
+    },
+    {
+        name: "RAND_INT",
+        argAmount: 2,
+        call: (task, args) => {
+            const result = generateRandomInt(args[0].getInt(), args[1].getInt());
+            return task.returnValue(result);
         },
     },
     {

@@ -1,0 +1,71 @@
+>>> commonFile ~/targetPackage/testUtils.petrol
+COMMENT "Usage: checkRandInts($min, $max, $count)"
+COMMENT "Calls RAND_INT($min, $max) $count times. Prints whether all results are"
+COMMENT "between $min and $max inclusive, and whether the results are not all equal."
+PREP_FUNC @checkRandInts {
+    [ARGS [@min, @max, @count]]
+    WORK_VAR @allInRange = (TRUE)
+    WORK_VAR @firstValue = (RAND_INT(min, max))
+    WORK_VAR @foundDifferent = (FALSE)
+    WORK_VAR @index = (0)
+    WHILE (LESS(index, count)) {
+        WORK_VAR @value = (RAND_INT(min, max))
+        IF (OR(LESS(value, min), GREATER(value, max))) {
+            SET allInRange = (FALSE)
+        }
+        IF (NOT_EQUAL(value, firstValue)) {
+            SET foundDifferent = (TRUE)
+        }
+        SET index = (ADD(index, 1))
+    }
+    PRINT(LIST (allInRange, foundDifferent))
+}
+=========================
+>>> testCase "RAND_INT function with small ranges"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@checkRandInts]]
+checkRandInts(1, 6, 100)
+checkRandInts(0, 1, 100)
+checkRandInts(NEG(10), NEG(5), 100)
+checkRandInts(NEG(3), 3, 100)
+>>> expectPrint
+LIST (1, 1)
+LIST (1, 1)
+LIST (1, 1)
+LIST (1, 1)
+=========================
+>>> testCase "RAND_INT function with large ranges"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@checkRandInts]]
+WORK_VAR @maxInt = (9223372036854775807)
+WORK_VAR @minInt = (SUB(NEG(maxInt), 1))
+COMMENT "These ranges are just below and above the threshold where RAND_INT subdivides the range."
+checkRandInts(0, 999998, 20)
+checkRandInts(0, 999999, 20)
+checkRandInts(NEG(1000000000000), 1000000000000, 20)
+checkRandInts(minInt, maxInt, 20)
+checkRandInts(SUB(maxInt, 5), maxInt, 50)
+checkRandInts(minInt, ADD(minInt, 5), 50)
+>>> expectPrint
+LIST (1, 1)
+LIST (1, 1)
+LIST (1, 1)
+LIST (1, 1)
+LIST (1, 1)
+LIST (1, 1)
+=========================
+>>> testCase "RAND_INT function with equal minimum and maximum"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(RAND_INT(5, 5))
+PRINT(RAND_INT(NEG(7), NEG(7)))
+>>> expectPrint
+5
+-7
+=========================
+>>> testCase "RAND_INT function with minimum greater than maximum"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("Before error")
+PRINT(RAND_INT(6, 1))
+>>> expectPrint
+Before error
+>>> expectError type: #VALUE_ERROR message: "Minimum value must not be bigger than maximum value." lineNumber: 2
