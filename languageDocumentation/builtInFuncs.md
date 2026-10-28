@@ -153,10 +153,16 @@ Attempts to read the member in `$bunch` at `$loc`. If the member exists, this fu
     * `$loc` is a key.
 
 ```
-ADD_ELEM($list, $elem)
+ADD_ELEM($list, $elem, $index?)
 ```
 
-Appends `$elem` to the end of `$list`.
+Inserts `$elem` into `$list` at `$index`, shifting all elements afterward to the right. If `$index` is excluded, this function adds `$elem` to the end of `$list`.
+
+```
+ADD_ELEMS($list, $elems, $index?)
+```
+
+Works in the same way as `ADD_ELEM`, except `$elems` is a list of elements to insert.
 
 ```
 DEL_FIELD($map, $key)
@@ -177,7 +183,7 @@ CONCAT($bunches)
 Returns the elements in `$bunches` concatenated together. `$bunches` may be a list of strings or lists.
 
 ```
-STR($value, $base)
+STR($value, $base?)
 ```
 
 Returns a string representation of `$value`. If `$value` is an integer:
@@ -189,7 +195,7 @@ Returns a string representation of `$value`. If `$value` is an integer:
 `$base` can only be included if `$value` is an integer.
 
 ```
-PARSE_INT($str, $base)
+PARSE_INT($str, $base?)
 ```
 
 Returns the integer value of `$str` interpreted in `$base`. `$base` may be between 2 and 36 inclusive. If `$base` is excluded, `$str` will be interpreted in base 10.
@@ -225,13 +231,13 @@ MAX_ARG_AMOUNT($func)
 Returns the maximum number of arguments which `$func` can accept. If there is no maximum number, `MAX_ARG_AMOUNT` returns null.
 
 ```
-CALL($func, $args)
+CALL($func, $args?)
 ```
 
 Invokes `$func` with `$args`. `$args` is a list of values. If `$args` is excluded, no arguments are passed to `$func`. `CALL` must be used to invoke `$func` if `$func` is not known during prep-phase.
 
 ```
-CALL_METHOD($worker, $methodKey, $args)
+CALL_METHOD($worker, $methodKey, $args?)
 ```
 
 Invokes the method in `$worker` identified by `$methodKey`. `$args` is a list of values. The arguments passed to the method are `$args` prepended with `$worker`. If `$args` is excluded, the only argument passed to the method is `$worker`. `CALL_METHOD` has special behavior depending on `$methodKey`:

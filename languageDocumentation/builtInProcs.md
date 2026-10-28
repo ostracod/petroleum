@@ -127,7 +127,7 @@ CONT
 Throws a continue exception, causing the parent `WHILE` procedure to skip to the next iteration.
 
 ```
-RET ($value, $level)
+RET ($value, $level?)
 ```
 
 Throws a return exception with `$value` and `$level`. If `$level` is excluded, the level will be 0. If `($value, $level)` is excluded, the return value will be null. See the section on exception schemas for details.

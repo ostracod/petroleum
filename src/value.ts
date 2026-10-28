@@ -515,17 +515,21 @@ export class PetList implements ObservableBunchIface {
         return value;
     }
     
+    setMemberHelper(index: number, value: PetValue): void {
+        const lastValue = this.elements[index];
+        this.elements[index] = value;
+        if (typeof lastValue === "undefined" || valueMayHaveChanged(lastValue, value)) {
+            this.observatory.handleMemberChange(BigInt(index));
+        }
+    }
+    
     setMember(index: ListIndex, inputValue: KnownValue | PetValue): void {
         const value = toPetValue(inputValue);
         const numberIndex = listIndexToNumber(index);
         if (numberIndex < 0 || numberIndex >= this.elements.length) {
             throw new ValueError(`Index ${numberIndex} is outside of list.`);
         }
-        const lastValue = this.elements[numberIndex];
-        this.elements[numberIndex] = value;
-        if (typeof lastValue === "undefined" || valueMayHaveChanged(lastValue, value)) {
-            this.observatory.handleMemberChange(listIndexToBigInt(index));
-        }
+        this.setMemberHelper(numberIndex, value);
     }
     
     deferMember(index: ListIndex, message: string): PetValue {
@@ -552,10 +556,25 @@ export class PetList implements ObservableBunchIface {
         this.elements.length = length;
     }
     
-    addElement(value: KnownValue | PetValue): void {
-        const index = this.elements.length;
-        this.elements.push(toPetValue(value));
-        this.observatory.handleMemberChange(listIndexToBigInt(index));
+    addElements(inputValues: PetValue[], inputIndex?: number): void {
+        // Guard against inserting a list into itself.
+        const values = (inputValues === this.elements) ? inputValues.slice() : inputValues;
+        const insertIndex = inputIndex ?? this.elements.length;
+        if (insertIndex < 0 || insertIndex > this.elements.length) {
+            throw new ValueError("Insertion index is out of bounds.");
+        }
+        for (let index = this.elements.length - 1; index >= insertIndex; index--) {
+            const value = this.elements[index];
+            this.setMemberHelper(index + values.length, value);
+        }
+        for (let offset = 0; offset < values.length; offset++) {
+            const value = values[offset];
+            this.setMemberHelper(insertIndex + offset, value);
+        }
+    }
+    
+    addElement(value: PetValue, index?: number): void {
+        this.addElements([value], index);
     }
     
     toString(parents: KnownValue[] = []): string {

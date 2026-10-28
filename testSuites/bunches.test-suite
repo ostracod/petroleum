@@ -188,6 +188,134 @@ NULL
 LIST (10, "text", LIST (1, 2))
 3
 =========================
+>>> testCase "ADD_ELEM function with index"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST (1, 2, 3))
+PRINT(ADD_ELEM(myList, 10, 0))
+PRINT(myList)
+ADD_ELEM(myList, 20, 2)
+PRINT(myList)
+ADD_ELEM(myList, 30, LEN(myList))
+PRINT(myList)
+WORK_VAR @emptyList = (LIST ())
+ADD_ELEM(emptyList, "only", 0)
+PRINT(emptyList)
+>>> expectPrint
+NULL
+LIST (10, 1, 2, 3)
+LIST (10, 1, 20, 2, 3)
+LIST (10, 1, 20, 2, 3, 30)
+LIST ("only")
+=========================
+>>> testCase "ADD_ELEMS function"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST (1, 2))
+PRINT(ADD_ELEMS(myList, LIST (3, 4)))
+PRINT(myList)
+ADD_ELEMS(myList, LIST ("a", "b"), 1)
+PRINT(myList)
+ADD_ELEMS(myList, LIST (0), 0)
+PRINT(myList)
+ADD_ELEMS(myList, LIST ())
+ADD_ELEMS(myList, LIST (), 2)
+PRINT(myList)
+WORK_VAR @source = (LIST (5, 6))
+ADD_ELEMS(myList, source)
+ADD_ELEM(source, 7)
+PRINT(myList)
+>>> expectPrint
+NULL
+LIST (1, 2, 3, 4)
+LIST (1, "a", "b", 2, 3, 4)
+LIST (0, 1, "a", "b", 2, 3, 4)
+LIST (0, 1, "a", "b", 2, 3, 4)
+LIST (0, 1, "a", "b", 2, 3, 4, 5, 6)
+=========================
+>>> testCase "ADD_ELEMS function inserting list into itself"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @list1 = (LIST (1, 2))
+ADD_ELEMS(list1, list1)
+PRINT(list1)
+WORK_VAR @list2 = (LIST (1, 2))
+ADD_ELEMS(list2, list2, 1)
+PRINT(list2)
+WORK_VAR @list3 = (LIST (1, 2, 3))
+ADD_ELEMS(list3, list3, 0)
+PRINT(list3)
+COMMENT "ADD_ELEM inserts the list itself as a single element."
+WORK_VAR @list4 = (LIST (1))
+ADD_ELEM(list4, list4)
+PRINT(LEN(list4))
+PRINT(EQUAL(MEMBER(list4, 1), list4))
+>>> expectPrint
+LIST (1, 2, 1, 2)
+LIST (1, 1, 2, 2)
+LIST (1, 2, 3, 1, 2, 3)
+2
+1
+=========================
+>>> testCase "ADD_ELEM and ADD_ELEMS functions with invalid index"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @printError {
+    [ARGS [@func, @args]]
+    TRY {
+        CALL(func, args)
+    } CATCH {
+        [EXCEP @excep]
+        PRINT(LIST (MEMBER(excep, #ERROR_TYPE), MEMBER(excep, #MESSAGE)))
+    }
+}
+WORK_VAR @myList = (LIST (1, 2))
+printError(ADD_ELEM, LIST (myList, 3, 3))
+printError(ADD_ELEM, LIST (myList, 3, NEG(1)))
+printError(ADD_ELEMS, LIST (myList, LIST (3), 3))
+printError(ADD_ELEMS, LIST (myList, LIST (), NEG(1)))
+PRINT(myList)
+>>> expectPrint
+LIST (#VALUE_ERROR, "Insertion index is out of bounds.")
+LIST (#VALUE_ERROR, "Insertion index is out of bounds.")
+LIST (#VALUE_ERROR, "Insertion index is out of bounds.")
+LIST (#VALUE_ERROR, "Insertion index is out of bounds.")
+LIST (1, 2)
+=========================
+>>> testCase "AWAIT element shifted by ADD_ELEM"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST ("a", "b", "c"))
+SCHED {
+    PRINT("Inserting element")
+    ADD_ELEM(myList, "z", 0)
+}
+COMMENT "The element at index 2 becomes \"b\" when \"b\" is shifted to the right."
+PRINT(AWAIT (myList, 2, FUNC {
+    [ARGS [@member]]
+    RET (EQUAL(member, "b"))
+}, "Waiting for b at index 2"))
+PRINT(myList)
+>>> expectPrint
+Inserting element
+b
+LIST ("z", "a", "b", "c")
+=========================
+>>> testCase "AWAIT elements shifted by ADD_ELEMS"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST (10, 20, 30))
+SCHED {
+    PRINT("Inserting elements")
+    ADD_ELEMS(myList, LIST (1, 2), 1)
+}
+COMMENT "Index 3 receives 20, and index 4 is created to hold 30."
+WORK_VAR @value1 = (AWAIT (myList, 3, FUNC {
+    [ARGS [@member]]
+    RET (EQUAL(member, 20))
+}, "Waiting for 20 at index 3"))
+WORK_VAR @value2 = (DEFER_MEMBER(myList, 4, "Waiting for index 4"))
+PRINT(LIST (value1, value2))
+PRINT(myList)
+>>> expectPrint
+Inserting elements
+LIST (20, 30)
+LIST (10, 1, 2, 20, 30)
+=========================
 >>> testCase "DEL_FIELD function"
 >>> setupFile ~/targetPackage/main.petrol
 WORK_VAR @myMap = (MAP [FIELDS [("a") = (1), ("b") = (2), (3) = (4)]])

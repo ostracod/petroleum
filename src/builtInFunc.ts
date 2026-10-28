@@ -644,9 +644,22 @@ export const globalFuncDefs: FuncDef[] = [
     },
     {
         name: "ADD_ELEM",
-        argAmount: 2,
+        minArgAmount: 2,
+        maxArgAmount: 3,
         call: (task, args) => {
-            args[0].getList().addElement(args[1]);
+            const index = (args.length > 2) ? args[2].toNumber() : undefined;
+            args[0].getList().addElement(args[1], index);
+            return task.returnValue(null);
+        },
+    },
+    {
+        name: "ADD_ELEMS",
+        minArgAmount: 2,
+        maxArgAmount: 3,
+        call: (task, args) => {
+            const index = (args.length > 2) ? args[2].toNumber() : undefined;
+            const { elements } = args[1].getList();
+            args[0].getList().addElements(elements, index);
             return task.returnValue(null);
         },
     },
