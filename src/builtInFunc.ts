@@ -6,7 +6,7 @@ import { toSignedInt64, KnownValue, PetValue, wrapKnownValue, knownValueToLitera
 import { PetTypeError, ValueError, StateError } from "./exception.js";
 import { getChildWorkers } from "./node.js";
 import { findVariable, findVarValue, getScope, createFrame } from "./variable.js";
-import { Action, Task } from "./task.js";
+import { Action, Task, sortListTask } from "./task.js";
 import { PetContext } from "./context.js";
 import { FileSystem } from "./fileSystem.js";
 
@@ -99,6 +99,24 @@ export class FileExistsFunc extends BuiltInFunc {
         return task.returnValue(result ? 1n : 0n);
     }
 }
+
+export class CompareFunc extends BuiltInFunc {
+    
+    getMinArgAmount(): number {
+        return 2;
+    }
+    
+    getMaxArgAmount(): number | null {
+        return 2;
+    }
+    
+    callBuiltIn(task: Task, args: PetValue[]): Action {
+        const result = compareValues(args[0], args[1]);
+        return task.returnValue(BigInt(result));
+    }
+}
+
+const compareFunc = new CompareFunc();
 
 export class DefFunc extends BuiltInFunc {
     def: FuncDef;
@@ -710,6 +728,29 @@ export const globalFuncDefs: FuncDef[] = [
         call: (task, args) => {
             args[0].getList().reverse();
             return task.returnValue(null);
+        },
+    },
+    {
+        name: "SORT",
+        minArgAmount: 1,
+        maxArgAmount: 2,
+        call: (task, args) => {
+            const list = args[0].getList();
+            const compare = (args.length > 1) ? args[1].getFunc() : compareFunc;
+            return task.runTask(
+                sortListTask, { elements: list.elements.slice(), compare },
+                (listValue) => {
+                    const { elements } = listValue.getList();
+                    if (elements.length !== list.getLength()) {
+                        throw new StateError("List length changed during sort. That is very unprofessional.");
+                    }
+                    for (let index = 0; index < elements.length; index++) {
+                        const value = elements[index];
+                        list.setMemberHelper(index, value);
+                    }
+                    return task.returnValue(null);
+                },
+            );
         },
     },
     {

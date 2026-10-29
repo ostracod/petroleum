@@ -830,4 +830,115 @@ export const handleExcepTask: TaskDef<{ exception: PetValue }, null> = {
     ],
 };
 
+interface SortListParams {
+    elements: PetValue[];
+    compare: PetFunc;
+}
+
+interface SortedListNode {
+    element: PetValue;
+    previousNode?: SortedListNode;
+}
+
+interface SortListState {
+    sortedHalf1?: PetValue[];
+    sortedHalf2?: PetValue[];
+    halfIndex1?: number;
+    halfIndex2?: number;
+    lastNode?: SortedListNode;
+}
+
+const getMiddleIndex = (elements: PetValue[]): number => Math.floor(elements.length / 2);
+
+// This is a merge sort. We gather the result as a linked list
+// to avoid mutating the task state.
+export const sortListTask: TaskDef<SortListParams, SortListState> = {
+    getInitState: (params) => ({}),
+    stages: [
+        (task) => {
+            const { elements, compare } = task.params;
+            if (elements.length <= 1) {
+                return task.returnValue(new PetList(elements));
+            }
+            const middleIndex = getMiddleIndex(elements);
+            const half1 = elements.slice(0, middleIndex);
+            return task.runTask(
+                sortListTask, { elements: half1, compare },
+                (listValue) => {
+                    const sortedHalf1 = listValue.getList().elements;
+                    return task.advanceStage({ sortedHalf1 });
+                },
+            );
+        },
+        (task) => {
+            const { elements, compare } = task.params;
+            const { sortedHalf1 } = task.state;
+            const middleIndex = getMiddleIndex(elements);
+            const half2 = elements.slice(middleIndex);
+            return task.runTask(
+                sortListTask, { elements: half2, compare },
+                (listValue) => {
+                    const sortedHalf2 = listValue.getList().elements;
+                    return task.advanceStage({
+                        sortedHalf1,
+                        sortedHalf2,
+                        halfIndex1: 0,
+                        halfIndex2: 0,
+                    });
+                },
+            );
+        },
+        (task) => {
+            const { compare } = task.params;
+            const { state } = task;
+            const sortedHalf1 = state.sortedHalf1!;
+            const sortedHalf2 = state.sortedHalf2!;
+            const halfIndex1 = state.halfIndex1!;
+            const halfIndex2 = state.halfIndex2!;
+            const { lastNode } = state;
+            const element1 = sortedHalf1[halfIndex1];
+            const element2 = sortedHalf2[halfIndex2];
+            const reachedEnd1 = (typeof element1 === "undefined");
+            const reachedEnd2 = (typeof element2 === "undefined");
+            const addElement1 = (): Action => task.repeatStage({
+                sortedHalf1,
+                sortedHalf2,
+                halfIndex1: halfIndex1 + 1,
+                halfIndex2,
+                lastNode: { element: element1, previousNode: lastNode },
+            });
+            const addElement2 = (): Action => task.repeatStage({
+                sortedHalf1,
+                sortedHalf2,
+                halfIndex1,
+                halfIndex2: halfIndex2 + 1,
+                lastNode: { element: element2, previousNode: lastNode },
+            });
+            if (reachedEnd1) {
+                if (reachedEnd2) {
+                    const sortedElements: PetValue[] = [];
+                    let node = lastNode;
+                    while (typeof node !== "undefined") {
+                        sortedElements.push(node.element);
+                        node = node.previousNode;
+                    }
+                    sortedElements.reverse();
+                    return task.returnValue(new PetList(sortedElements));
+                } else {
+                    return addElement2();
+                }
+            } else if (reachedEnd2) {
+                return addElement1();
+            }
+            return task.callFunction(
+                compare, [element1, element2],
+                (comparisonValue) => {
+                    const comparison = comparisonValue.getInt();
+                    return (comparison <= 0n) ? addElement1() : addElement2();
+                },
+            );
+        },
+    ],
+};
+
 

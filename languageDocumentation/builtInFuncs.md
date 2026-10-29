@@ -195,6 +195,18 @@ REVERSE($list)
 Rearranges the elements of `$list` in-place to be in the opposite order.
 
 ```
+SORT($list, $compare?)
+```
+
+Rearranges the elements of `$list` in-place to be in ascending order. `$compare` is a function which accepts arguments `$a` and `$b`, and returns one of the following integers:
+
+* -1 if `$a` < `$b`
+* 1 if `$a` > `$b`
+* 0 if `$a` = `$b`
+
+If `$compare` is excluded, all elements in `$list` must be integers or strings.
+
+```
 CONCAT($bunches)
 ```
 

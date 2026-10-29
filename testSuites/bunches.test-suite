@@ -524,6 +524,212 @@ LIST (10)
 LIST ()
 LIST (1, 2, 3, 4, 5)
 =========================
+>>> testCase "SORT function with default comparison"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @numList = (LIST (5, NEG(3), 9, 0, 5, NEG(10), 2))
+WORK_VAR @sameList = (numList)
+PRINT(SORT(numList))
+PRINT(numList)
+PRINT(sameList)
+WORK_VAR @textList = (LIST ("b", "B", "abc", "", "ab", "10", "9"))
+SORT(textList)
+PRINT(textList)
+WORK_VAR @sortedList = (LIST (1, 2, 3, 4))
+SORT(sortedList)
+PRINT(sortedList)
+WORK_VAR @reversedList = (LIST (4, 3, 2, 1))
+SORT(reversedList)
+PRINT(reversedList)
+WORK_VAR @singleList = (LIST ("a"))
+SORT(singleList)
+PRINT(singleList)
+WORK_VAR @emptyList = (LIST ())
+SORT(emptyList)
+PRINT(emptyList)
+>>> expectPrint
+NULL
+LIST (-10, -3, 0, 2, 5, 5, 9)
+LIST (-10, -3, 0, 2, 5, 5, 9)
+LIST ("", "10", "9", "B", "ab", "abc", "b")
+LIST (1, 2, 3, 4)
+LIST (1, 2, 3, 4)
+LIST ("a")
+LIST ()
+=========================
+>>> testCase "SORT function with mismatched types"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST (3, "2", 1))
+TRY {
+    SORT(myList)
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #ERROR_TYPE))
+    PRINT(MEMBER(excep, #MESSAGE))
+}
+COMMENT "The list is unchanged when sorting fails."
+PRINT(myList)
+>>> expectPrint
+#TYPE_ERROR
+Comparison values must both be integers or strings.
+LIST (3, "2", 1)
+=========================
+>>> testCase "SORT function with custom comparison"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @compareDesc {
+    [ARGS [@a, @b]]
+    IF (GREATER(a, b)) {
+        RET (NEG(1))
+    }
+    IF (LESS(a, b)) {
+        RET (1)
+    }
+    RET (0)
+}
+PREP_FUNC @compareLen {
+    [ARGS [@a, @b]]
+    RET (compareDesc(LEN(b), LEN(a)))
+}
+WORK_VAR @numList = (LIST (5, NEG(3), 9, 0, 5, NEG(10), 2))
+PRINT(SORT(numList, compareDesc))
+PRINT(numList)
+WORK_VAR @nestedList = (LIST (LIST (1, 2, 3), LIST (), LIST (4), LIST (5, 6)))
+SORT(nestedList, compareLen)
+PRINT(nestedList)
+>>> expectPrint
+NULL
+LIST (9, 5, 5, 2, 0, -3, -10)
+LIST (LIST (), LIST (4), LIST (5, 6), LIST (1, 2, 3))
+=========================
+>>> testCase "SORT function is stable"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @compareLen {
+    [ARGS [@a, @b]]
+    IF (LESS(LEN(a), LEN(b))) {
+        RET (NEG(1))
+    }
+    IF (GREATER(LEN(a), LEN(b))) {
+        RET (1)
+    }
+    RET (0)
+}
+COMMENT "Elements of equal length keep their original order."
+WORK_VAR @textList = (LIST ("ccc", "a", "bb", "b", "aaa", "c", "aa", "x", "bbb"))
+SORT(textList, compareLen)
+PRINT(textList)
+WORK_VAR @tiedList = (LIST ("d", "c", "b", "a"))
+SORT(tiedList, compareLen)
+PRINT(tiedList)
+>>> expectPrint
+LIST ("a", "b", "c", "x", "bb", "aa", "ccc", "aaa", "bbb")
+LIST ("d", "c", "b", "a")
+=========================
+>>> testCase "SORT function with asynchronous comparison"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @scores = (MAP [FIELDS []])
+PREP_FUNC @compareInts {
+    [ARGS [@a, @b]]
+    IF (LESS(a, b)) {
+        RET (NEG(1))
+    }
+    IF (GREATER(a, b)) {
+        RET (1)
+    }
+    RET (0)
+}
+COMMENT "Compares names by scores which another coroutine supplies later."
+PREP_FUNC @isPresent {
+    [ARGS [@member]]
+    RET (TRUE)
+}
+PREP_FUNC @compareScores {
+    [ARGS [@a, @b]]
+    AWAIT (scores, a, isPresent, "Waiting for score")
+    AWAIT (scores, b, isPresent, "Waiting for score")
+    RET (compareInts(MEMBER(scores, a), MEMBER(scores, b)))
+}
+WORK_VAR @names = (LIST ("Alice", "Bob", "Carol", "Dave"))
+SCHED {
+    PRINT("Supplying scores")
+    SET_MEMBER(scores, "Alice", 30)
+    SET_MEMBER(scores, "Bob", 10)
+    SET_MEMBER(scores, "Carol", 40)
+    SET_MEMBER(scores, "Dave", 20)
+}
+PRINT("Sorting")
+SORT(names, compareScores)
+PRINT(names)
+>>> expectPrint
+Sorting
+Supplying scores
+LIST ("Bob", "Dave", "Alice", "Carol")
+=========================
+>>> testCase "SORT function when list member changes during sort"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @gate = (MAP [FIELDS []])
+PREP_FUNC @isPresent {
+    [ARGS [@member]]
+    RET (TRUE)
+}
+PREP_FUNC @slowCompare {
+    [ARGS [@a, @b]]
+    AWAIT (gate, "open", isPresent, "Waiting for gate")
+    IF (LESS(a, b)) {
+        RET (NEG(1))
+    }
+    IF (GREATER(a, b)) {
+        RET (1)
+    }
+    RET (0)
+}
+WORK_VAR @myList = (LIST ("d", "b", "c", "a"))
+SCHED {
+    SET_MEMBER(myList, 0, "z")
+    PRINT(myList)
+    SET_MEMBER(gate, "open", TRUE)
+}
+SORT(myList, slowCompare)
+COMMENT "SORT overwrites the change with the sorted original elements."
+PRINT(myList)
+>>> expectPrint
+LIST ("z", "b", "c", "a")
+LIST ("a", "b", "c", "d")
+=========================
+>>> testCase "SORT function when list length changes during sort"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @gate = (MAP [FIELDS []])
+PREP_FUNC @isPresent {
+    [ARGS [@member]]
+    RET (TRUE)
+}
+PREP_FUNC @slowCompare {
+    [ARGS [@a, @b]]
+    AWAIT (gate, "open", isPresent, "Waiting for gate")
+    IF (LESS(a, b)) {
+        RET (NEG(1))
+    }
+    IF (GREATER(a, b)) {
+        RET (1)
+    }
+    RET (0)
+}
+WORK_VAR @myList = (LIST ("d", "b", "c", "a"))
+SCHED {
+    ADD_ELEM(myList, "e")
+    SET_MEMBER(gate, "open", TRUE)
+}
+SORT(myList, slowCompare)
+>>> expectError type: #STATE_ERROR message: "List length changed during sort. That is very unprofessional." lineNumber: 22
+=========================
+>>> testCase "SORT function with exception in comparison"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @badCompare {
+    [ARGS [@a, @b]]
+    ABORT (#VALUE_ERROR, "Cannot compare")
+}
+WORK_VAR @myList = (LIST (2, 1))
+SORT(myList, badCompare)
+>>> expectError type: #VALUE_ERROR message: "Cannot compare" lineNumber: 3
+=========================
 >>> testCase "CONCAT function with strings"
 >>> setupFile ~/targetPackage/main.petrol
 PRINT(CONCAT(LIST("abc", "def", "g")))
