@@ -492,6 +492,38 @@ PRINT(SLICE("hello", 2, 6))
 PRINT(SLICE(LIST(10, 20, 30), 2, 1))
 >>> expectError type: #VALUE_ERROR lineNumber: 1
 =========================
+>>> testCase "REVERSE function"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @oddList = (LIST (1, 2, 3, 4, 5))
+WORK_VAR @sameList = (oddList)
+PRINT(REVERSE(oddList))
+PRINT(oddList)
+PRINT(sameList)
+WORK_VAR @evenList = (LIST ("a", "b", "c", "d"))
+REVERSE(evenList)
+PRINT(evenList)
+WORK_VAR @nestedList = (LIST (LIST (1, 2), NULL, "text"))
+REVERSE(nestedList)
+PRINT(nestedList)
+WORK_VAR @singleList = (LIST (10))
+REVERSE(singleList)
+PRINT(singleList)
+WORK_VAR @emptyList = (LIST ())
+REVERSE(emptyList)
+PRINT(emptyList)
+COMMENT "Reversing twice restores the original order."
+REVERSE(oddList)
+PRINT(oddList)
+>>> expectPrint
+NULL
+LIST (5, 4, 3, 2, 1)
+LIST (5, 4, 3, 2, 1)
+LIST ("d", "c", "b", "a")
+LIST ("text", NULL, LIST (1, 2))
+LIST (10)
+LIST ()
+LIST (1, 2, 3, 4, 5)
+=========================
 >>> testCase "CONCAT function with strings"
 >>> setupFile ~/targetPackage/main.petrol
 PRINT(CONCAT(LIST("abc", "def", "g")))

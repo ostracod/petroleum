@@ -2,7 +2,7 @@
 import "./value.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { toSignedInt64, KnownValue, PetValue, wrapKnownValue, knownValueToLiteral, minIntValue, maxIntValue, stringToLiteral, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
+import { toSignedInt64, KnownValue, PetValue, wrapKnownValue, knownValueToLiteral, minIntValue, maxIntValue, stringToLiteral, compareValues, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
 import { PetTypeError, ValueError, StateError } from "./exception.js";
 import { getChildWorkers } from "./node.js";
 import { findVariable, findVarValue, getScope, createFrame } from "./variable.js";
@@ -530,7 +530,7 @@ export const globalFuncDefs: FuncDef[] = [
         name: "GREATER",
         argAmount: 2,
         call: (task, args) => {
-            const result = (args[0].getInt() > args[1].getInt());
+            const result = (compareValues(args[0], args[1]) > 0);
             return task.returnValue(result ? 1n : 0n);
         },
     },
@@ -538,7 +538,7 @@ export const globalFuncDefs: FuncDef[] = [
         name: "LESS",
         argAmount: 2,
         call: (task, args) => {
-            const result = (args[0].getInt() < args[1].getInt());
+            const result = (compareValues(args[0], args[1]) < 0);
             return task.returnValue(result ? 1n : 0n);
         },
     },
@@ -546,7 +546,7 @@ export const globalFuncDefs: FuncDef[] = [
         name: "GREATER_EQUAL",
         argAmount: 2,
         call: (task, args) => {
-            const result = (args[0].getInt() >= args[1].getInt());
+            const result = (compareValues(args[0], args[1]) >= 0);
             return task.returnValue(result ? 1n : 0n);
         },
     },
@@ -554,7 +554,7 @@ export const globalFuncDefs: FuncDef[] = [
         name: "LESS_EQUAL",
         argAmount: 2,
         call: (task, args) => {
-            const result = (args[0].getInt() <= args[1].getInt());
+            const result = (compareValues(args[0], args[1]) <= 0);
             return task.returnValue(result ? 1n : 0n);
         },
     },
@@ -702,6 +702,14 @@ export const globalFuncDefs: FuncDef[] = [
             } else {
                 throw new PetTypeError("Bunch must be string or list.");
             }
+        },
+    },
+    {
+        name: "REVERSE",
+        argAmount: 1,
+        call: (task, args) => {
+            args[0].getList().reverse();
+            return task.returnValue(null);
         },
     },
     {

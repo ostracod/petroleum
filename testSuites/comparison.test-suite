@@ -136,3 +136,62 @@ PRINT(LESS_EQUAL(NEG(7), NEG(2)))
 1
 1
 1
+=========================
+>>> testCase "GREATER and LESS functions with strings"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(LIST (GREATER("b", "a"), LESS("b", "a")))
+PRINT(LIST (GREATER("a", "b"), LESS("a", "b")))
+PRINT(LIST (GREATER("abc", "abc"), LESS("abc", "abc")))
+COMMENT "A string is greater than its prefix."
+PRINT(LIST (GREATER("abc", "ab"), LESS("abc", "ab")))
+PRINT(LIST (GREATER("", "a"), LESS("", "a")))
+COMMENT "Strings are compared by character code, not by numeric value."
+PRINT(LIST (GREATER("10", "9"), LESS("10", "9")))
+PRINT(LIST (GREATER("a", "B"), LESS("a", "B")))
+COMMENT "Character codes are compared as unsigned bytes."
+PRINT(LIST (GREATER(CHAR(200), "z"), LESS(CHAR(200), "z")))
+PRINT(LIST (GREATER("abd", "abcz"), LESS("abd", "abcz")))
+>>> expectPrint
+LIST (1, 0)
+LIST (0, 1)
+LIST (0, 0)
+LIST (1, 0)
+LIST (0, 1)
+LIST (0, 1)
+LIST (1, 0)
+LIST (1, 0)
+LIST (1, 0)
+=========================
+>>> testCase "GREATER_EQUAL and LESS_EQUAL functions with strings"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @builtString = (CONCAT(LIST ("ab", "c")))
+PRINT(LIST (GREATER_EQUAL("abc", builtString), LESS_EQUAL("abc", builtString)))
+PRINT(LIST (GREATER_EQUAL("abd", "abc"), LESS_EQUAL("abd", "abc")))
+PRINT(LIST (GREATER_EQUAL("ab", "abc"), LESS_EQUAL("ab", "abc")))
+PRINT(LIST (GREATER_EQUAL("", ""), LESS_EQUAL("", "")))
+>>> expectPrint
+LIST (1, 1)
+LIST (1, 0)
+LIST (0, 1)
+LIST (1, 1)
+=========================
+>>> testCase "Comparison functions with mismatched types"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @printError {
+    [ARGS [@func, @args]]
+    TRY {
+        PRINT(CALL(func, args))
+    } CATCH {
+        [EXCEP @excep]
+        PRINT(LIST (MEMBER(excep, #ERROR_TYPE), MEMBER(excep, #MESSAGE)))
+    }
+}
+printError(GREATER, LIST (1, "1"))
+printError(LESS, LIST ("a", 1))
+printError(GREATER_EQUAL, LIST (NULL, NULL))
+printError(LESS_EQUAL, LIST (LIST (1), LIST (2)))
+>>> expectPrint
+LIST (#TYPE_ERROR, "Comparison values must both be integers or strings.")
+LIST (#TYPE_ERROR, "Comparison values must both be integers or strings.")
+LIST (#TYPE_ERROR, "Comparison values must both be integers or strings.")
+LIST (#TYPE_ERROR, "Comparison values must both be integers or strings.")

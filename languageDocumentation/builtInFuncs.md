@@ -67,13 +67,13 @@ NOT_EQUAL($value1, $value2)
 Returns whether `$value1` is equal to or not equal to `$value2`. Note that list and map equality is only checked by reference.
 
 ```
-GREATER($int1, $int2)
-LESS($int1, $int2)
-GREATER_EQUAL($int1, $int2)
-LESS_EQUAL($int1, $int2)
+GREATER($arg1, $arg2)
+LESS($arg1, $arg2)
+GREATER_EQUAL($arg1, $arg2)
+LESS_EQUAL($arg1, $arg2)
 ```
 
-Returns whether `$int1` is greater than, less than, greater than or equal to, or less than or equal to `$int2`.
+Returns whether `$arg1` is greater than, less than, greater than or equal to, or less than or equal to `$arg2`. `$arg1` and `$arg2` may both be integers or strings.
 
 ```
 RAND_INT($min, $max)
@@ -187,6 +187,12 @@ SLICE($bunch, $startIndex, $endIndex)
 ```
 
 Retrieves the portion of `$bunch` between `$startIndex` inclusive and `$endIndex` exclusive. `$bunch` may be a string or a list.
+
+```
+REVERSE($list)
+```
+
+Rearranges the elements of `$list` in-place to be in the opposite order.
 
 ```
 CONCAT($bunches)

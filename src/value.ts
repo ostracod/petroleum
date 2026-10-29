@@ -243,6 +243,25 @@ export const stringToLiteral = (text: string): string => {
     return "\"" + literalParts.join("") + "\"";
 };
 
+// Return -1 if value1 < value2, 1 if value1 > value2, and 0 if value1 === value2.
+export const compareValues = (inputValue1: PetValue, inputValue2: PetValue): number => {
+    const value1 = inputValue1.getKnownValue();
+    const value2 = inputValue2.getKnownValue();
+    if (typeof value1 === "bigint" && typeof value2 === "bigint") {
+        if (value1 < value2) {
+            return -1;
+        } else if (value1 > value2) {
+            return 1;
+        } else {
+            return 0;
+        }
+    } else if (value1 instanceof PetString && value2 instanceof PetString) {
+        return value1.compare(value2);
+    } else {
+        throw new PetTypeError("Comparison values must both be integers or strings.");
+    }
+};
+
 export class PetString {
     // Either `text` or `buffer` are non-null.
     text: string | null;
@@ -271,6 +290,24 @@ export class PetString {
     
     getLength(): number {
         return this.toBuffer().length;
+    }
+    
+    compare(otherString: PetString): number {
+        const buffer1 = this.toBuffer();
+        const buffer2 = otherString.toBuffer();
+        for (let index = 0; index < buffer1.length; index++) {
+            if (index >= buffer2.length) {
+                return 1;
+            }
+            const value1 = buffer1[index];
+            const value2 = buffer2[index];
+            if (value1 < value2) {
+                return -1;
+            } else if (value1 > value2) {
+                return 1;
+            }
+        }
+        return (buffer2.length > buffer1.length) ? -1 : 0;
     }
     
     slice(startIndex: number, endIndex: number): PetString {
@@ -594,6 +631,14 @@ export class PetList implements ObservableBunchIface {
     
     deleteElement(index?: number): void {
         this.deleteElements(1, index);
+    }
+    
+    reverse(): void {
+        const elements = this.elements.slice();
+        for (let srcIndex = 0; srcIndex < elements.length; srcIndex++) {
+            const destIndex = elements.length - 1 - srcIndex;
+            this.setMemberHelper(destIndex, elements[srcIndex]);
+        }
     }
     
     toString(parents: KnownValue[] = []): string {
