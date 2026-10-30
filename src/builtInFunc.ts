@@ -723,6 +723,78 @@ export const globalFuncDefs: FuncDef[] = [
         },
     },
     {
+        name: "FIRST_MEMBER_INDEX",
+        minArgAmount: 2,
+        maxArgAmount: 3,
+        call: (task, args) => {
+            const bunch = args[0].getKnownValue();
+            const searchIndex = (args.length > 2) ? args[2].toNumber() : undefined;
+            let result: number | null;
+            if (bunch instanceof PetString) {
+                result = bunch.firstMemberIndex(args[1].toNumber(), searchIndex);
+            } else if (bunch instanceof PetList) {
+                result = bunch.firstMemberIndex(args[1], searchIndex);
+            } else {
+                throw new PetTypeError("Bunch must be string or list.");
+            }
+            return task.returnValue((result === null) ? null : BigInt(result));
+        },
+    },
+    {
+        name: "LAST_MEMBER_INDEX",
+        minArgAmount: 2,
+        maxArgAmount: 3,
+        call: (task, args) => {
+            const bunch = args[0].getKnownValue();
+            const searchIndex = (args.length > 2) ? args[2].toNumber() : undefined;
+            let result: number | null;
+            if (bunch instanceof PetString) {
+                result = bunch.lastMemberIndex(args[1].toNumber(), searchIndex);
+            } else if (bunch instanceof PetList) {
+                result = bunch.lastMemberIndex(args[1], searchIndex);
+            } else {
+                throw new PetTypeError("Bunch must be string or list.");
+            }
+            return task.returnValue((result === null) ? null : BigInt(result));
+        },
+    },
+    {
+        name: "FIRST_SLICE_INDEX",
+        minArgAmount: 2,
+        maxArgAmount: 3,
+        call: (task, args) => {
+            const bunch = args[0].getKnownValue();
+            const searchIndex = (args.length > 2) ? args[2].toNumber() : undefined;
+            let result: number | null;
+            if (bunch instanceof PetString) {
+                result = bunch.firstSliceIndex(args[1].getPetString(), searchIndex);
+            } else if (bunch instanceof PetList) {
+                result = bunch.firstSliceIndex(args[1].getList(), searchIndex);
+            } else {
+                throw new PetTypeError("Bunch must be string or list.");
+            }
+            return task.returnValue((result === null) ? null : BigInt(result));
+        },
+    },
+    {
+        name: "LAST_SLICE_INDEX",
+        minArgAmount: 2,
+        maxArgAmount: 3,
+        call: (task, args) => {
+            const bunch = args[0].getKnownValue();
+            const searchIndex = (args.length > 2) ? args[2].toNumber() : undefined;
+            let result: number | null;
+            if (bunch instanceof PetString) {
+                result = bunch.lastSliceIndex(args[1].getPetString(), searchIndex);
+            } else if (bunch instanceof PetList) {
+                result = bunch.lastSliceIndex(args[1].getList(), searchIndex);
+            } else {
+                throw new PetTypeError("Bunch must be string or list.");
+            }
+            return task.returnValue((result === null) ? null : BigInt(result));
+        },
+    },
+    {
         name: "REVERSE",
         argAmount: 1,
         call: (task, args) => {

@@ -189,6 +189,35 @@ SLICE($bunch, $startIndex, $endIndex)
 Retrieves the portion of `$bunch` between `$startIndex` inclusive and `$endIndex` exclusive. `$bunch` may be a string or a list.
 
 ```
+FIRST_MEMBER_INDEX($bunch, $member, $searchIndex?)
+```
+
+Returns the index of the first member in `$bunch` equal to `$member`. If no such member is found, this function returns null. If `$searchIndex` is included, the search begins at `$searchIndex`. `$bunch` may have one of the following types:
+
+* If `$bunch` is a string:
+    * `$member` is a character code.
+* If `$bunch` is a list:
+    * `$member` may have any type.
+
+```
+LAST_MEMBER_INDEX($bunch, $member, $searchIndex?)
+```
+
+Works in the same way as `FIRST_MEMBER_INDEX`, but returns the index of the last member equal to `$member`.
+
+```
+FIRST_SLICE_INDEX($bunch, $slice, $searchIndex?)
+```
+
+Returns the start index of the first slice in `$bunch` which is equal to `$slice`. If no such slice is found, this function returns null. If `$searchIndex` is included, the search begins at `$searchIndex`. `$bunch` and `$slice` may both be strings or lists.
+
+```
+LAST_SLICE_INDEX($bunch, $slice, $searchIndex?)
+```
+
+Works in the same way as `FIRST_SLICE_INDEX`, but returns the start index of the last slice equal to `$slice`.
+
+```
 REVERSE($list)
 ```
 

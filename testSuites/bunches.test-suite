@@ -492,6 +492,176 @@ PRINT(SLICE("hello", 2, 6))
 PRINT(SLICE(LIST(10, 20, 30), 2, 1))
 >>> expectError type: #VALUE_ERROR lineNumber: 1
 =========================
+>>> testCase "FIRST_MEMBER_INDEX and LAST_MEMBER_INDEX functions with string"
+>>> setupFile ~/targetPackage/main.petrol
+COMMENT "97 is the character code of \"a\"."
+PRINT(FIRST_MEMBER_INDEX("banana", 97))
+PRINT(LAST_MEMBER_INDEX("banana", 97))
+PRINT(FIRST_MEMBER_INDEX("banana", 97, 2))
+PRINT(FIRST_MEMBER_INDEX("banana", 97, 3))
+PRINT(LAST_MEMBER_INDEX("banana", 97, 4))
+PRINT(LAST_MEMBER_INDEX("banana", 97, 3))
+PRINT(FIRST_MEMBER_INDEX("banana", 97, 6))
+PRINT(LAST_MEMBER_INDEX("banana", 97, 0))
+PRINT(FIRST_MEMBER_INDEX("banana", 122))
+PRINT(LAST_MEMBER_INDEX("banana", 122))
+PRINT(FIRST_MEMBER_INDEX("", 97))
+PRINT(LAST_MEMBER_INDEX("", 97))
+PRINT(FIRST_MEMBER_INDEX(CHAR(200), 200))
+>>> expectPrint
+1
+5
+3
+3
+3
+3
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+0
+=========================
+>>> testCase "FIRST_MEMBER_INDEX and LAST_MEMBER_INDEX functions with list"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @innerList = (LIST (1))
+WORK_VAR @myList = (LIST (10, "a", NULL, 10, CONCAT(LIST ("", "a")), innerList))
+PRINT(FIRST_MEMBER_INDEX(myList, 10))
+PRINT(LAST_MEMBER_INDEX(myList, 10))
+PRINT(FIRST_MEMBER_INDEX(myList, "a"))
+PRINT(LAST_MEMBER_INDEX(myList, "a"))
+PRINT(FIRST_MEMBER_INDEX(myList, NULL))
+PRINT(FIRST_MEMBER_INDEX(myList, 10, 1))
+PRINT(LAST_MEMBER_INDEX(myList, "a", 3))
+PRINT(FIRST_MEMBER_INDEX(myList, 20))
+PRINT(FIRST_MEMBER_INDEX(myList, "10"))
+COMMENT "Lists are compared by reference."
+PRINT(FIRST_MEMBER_INDEX(myList, innerList))
+PRINT(FIRST_MEMBER_INDEX(myList, LIST (1)))
+PRINT(FIRST_MEMBER_INDEX(LIST (), 10))
+PRINT(LAST_MEMBER_INDEX(LIST (), 10))
+>>> expectPrint
+0
+3
+1
+4
+2
+3
+1
+NULL
+NULL
+5
+NULL
+NULL
+NULL
+=========================
+>>> testCase "FIRST_MEMBER_INDEX and LAST_MEMBER_INDEX functions with invalid character code"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @printError {
+    [ARGS [@func, @args]]
+    TRY {
+        PRINT(CALL(func, args))
+    } CATCH {
+        [EXCEP @excep]
+        PRINT(LIST (MEMBER(excep, #ERROR_TYPE), MEMBER(excep, #MESSAGE)))
+    }
+}
+printError(FIRST_MEMBER_INDEX, LIST ("abc", 256))
+printError(LAST_MEMBER_INDEX, LIST ("abc", NEG(1)))
+>>> expectPrint
+LIST (#VALUE_ERROR, "Character code must be between 0 and 255.")
+LIST (#VALUE_ERROR, "Character code must be between 0 and 255.")
+=========================
+>>> testCase "FIRST_SLICE_INDEX and LAST_SLICE_INDEX functions with string"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(FIRST_SLICE_INDEX("abcabcab", "abc"))
+PRINT(LAST_SLICE_INDEX("abcabcab", "abc"))
+PRINT(LAST_SLICE_INDEX("abcabcab", "ab"))
+PRINT(FIRST_SLICE_INDEX("abcabcab", "ab", 1))
+PRINT(FIRST_SLICE_INDEX("abcabcab", "ab", 3))
+PRINT(LAST_SLICE_INDEX("abcabcab", "ab", 5))
+PRINT(FIRST_SLICE_INDEX("abcabcab", "abd"))
+PRINT(LAST_SLICE_INDEX("abcabcab", "abd"))
+PRINT(FIRST_SLICE_INDEX("ab", "abc"))
+PRINT(LAST_SLICE_INDEX("ab", "abc"))
+COMMENT "Matching slices may overlap."
+PRINT(FIRST_SLICE_INDEX("aaaa", "aa", 1))
+PRINT(LAST_SLICE_INDEX("aaaa", "aa"))
+COMMENT "An empty slice matches at the search index."
+PRINT(FIRST_SLICE_INDEX("abc", ""))
+PRINT(LAST_SLICE_INDEX("abc", ""))
+PRINT(LAST_SLICE_INDEX("abc", "", 1))
+PRINT(FIRST_SLICE_INDEX("", ""))
+>>> expectPrint
+0
+3
+6
+3
+3
+3
+NULL
+NULL
+NULL
+NULL
+1
+2
+0
+3
+1
+0
+=========================
+>>> testCase "FIRST_SLICE_INDEX and LAST_SLICE_INDEX functions with list"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST (1, 2, 1, 2, 1))
+PRINT(FIRST_SLICE_INDEX(myList, LIST (1, 2)))
+PRINT(LAST_SLICE_INDEX(myList, LIST (1, 2)))
+PRINT(FIRST_SLICE_INDEX(myList, LIST (2, 1), 2))
+PRINT(LAST_SLICE_INDEX(myList, LIST (2, 1), 2))
+PRINT(LAST_SLICE_INDEX(myList, LIST (1, 2, 1)))
+PRINT(FIRST_SLICE_INDEX(myList, LIST (2, 2)))
+PRINT(FIRST_SLICE_INDEX(myList, LIST (1, 2, 1, 2, 1, 2)))
+PRINT(FIRST_SLICE_INDEX(myList, LIST ()))
+PRINT(LAST_SLICE_INDEX(myList, LIST ()))
+WORK_VAR @innerList = (LIST ())
+WORK_VAR @mixedList = (LIST (NULL, "a", innerList, "b"))
+PRINT(FIRST_SLICE_INDEX(mixedList, LIST ("a", innerList)))
+PRINT(FIRST_SLICE_INDEX(mixedList, LIST ("a", LIST ())))
+>>> expectPrint
+0
+2
+3
+1
+2
+NULL
+NULL
+0
+5
+1
+NULL
+=========================
+>>> testCase "Member and slice index functions with search index out of range"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(FIRST_MEMBER_INDEX("abc", 97, NEG(5)))
+PRINT(LAST_MEMBER_INDEX("abc", 99, 10))
+PRINT(LAST_MEMBER_INDEX("abc", 97, NEG(1)))
+PRINT(FIRST_MEMBER_INDEX(LIST (1, 2), 1, NEG(5)))
+PRINT(LAST_MEMBER_INDEX(LIST (1, 2), 2, 10))
+PRINT(FIRST_SLICE_INDEX("abc", "ab", NEG(5)))
+PRINT(LAST_SLICE_INDEX("abc", "bc", 10))
+PRINT(FIRST_SLICE_INDEX("abc", "bc", 10))
+PRINT(LAST_SLICE_INDEX(LIST (1, 2), LIST (1), NEG(1)))
+>>> expectPrint
+0
+2
+NULL
+0
+1
+0
+1
+NULL
+NULL
+=========================
 >>> testCase "REVERSE function"
 >>> setupFile ~/targetPackage/main.petrol
 WORK_VAR @oddList = (LIST (1, 2, 3, 4, 5))

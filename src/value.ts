@@ -317,6 +317,64 @@ export class PetString {
         return new PetString(subBuffer);
     }
     
+    firstMemberIndex(charCode: number, searchIndex?: number): number | null {
+        if (charCode < 0 || charCode > 255) {
+            throw new ValueError("Character code must be between 0 and 255.");
+        }
+        const buffer = this.toBuffer();
+        let index = (typeof searchIndex === "undefined") ? 0 : Math.max(searchIndex, 0);
+        while (index < buffer.length) {
+            if (buffer[index] === charCode) {
+                return index;
+            }
+            index += 1;
+        }
+        return null;
+    }
+    
+    lastMemberIndex(charCode: number, searchIndex?: number): number | null {
+        if (charCode < 0 || charCode > 255) {
+            throw new ValueError("Character code must be between 0 and 255.");
+        }
+        const buffer = this.toBuffer();
+        const finalIndex = buffer.length - 1;
+        let index = (typeof searchIndex === "undefined") ? finalIndex : Math.min(searchIndex, finalIndex);
+        while (index >= 0) {
+            if (buffer[index] === charCode) {
+                return index;
+            }
+            index -= 1;
+        }
+        return null;
+    }
+    
+    firstSliceIndex(text: PetString, searchIndex?: number): number | null {
+        const slice = text.toBuffer();
+        const buffer = this.toBuffer();
+        let index = (typeof searchIndex === "undefined") ? 0 : Math.max(searchIndex, 0);
+        while (index + slice.length <= buffer.length) {
+            if (slice.compare(buffer, index, index + slice.length) === 0) {
+                return index;
+            }
+            index += 1;
+        }
+        return null;
+    }
+    
+    lastSliceIndex(text: PetString, searchIndex?: number): number | null {
+        const slice = text.toBuffer();
+        const buffer = this.toBuffer();
+        const finalIndex = buffer.length - slice.length;
+        let index = (typeof searchIndex === "undefined") ? finalIndex : Math.min(searchIndex, finalIndex);
+        while (index >= 0) {
+            if (slice.compare(buffer, index, index + slice.length) === 0) {
+                return index;
+            }
+            index -= 1;
+        }
+        return null;
+    }
+    
     toString(): string {
         if (this.text === null) {
             this.text = this.buffer!.toString("utf8");
@@ -581,6 +639,67 @@ export class PetList implements ObservableBunchIface {
         checkSliceIndexes(this.elements.length, startIndex, endIndex);
         const subElements = this.elements.slice(startIndex, endIndex);
         return new PetList(subElements);
+    }
+    
+    firstMemberIndex(inputValue: PetValue, searchIndex?: number): number | null {
+        const value = inputValue.getKnownValue();
+        let index = (typeof searchIndex === "undefined") ? 0 : Math.max(searchIndex, 0);
+        while (index < this.getLength()) {
+            const element = this.elements[index].getKnownValue();
+            if (valuesAreEqual(element, value)) {
+                return index;
+            }
+            index += 1;
+        }
+        return null;
+    }
+    
+    lastMemberIndex(inputValue: PetValue, searchIndex?: number): number | null {
+        const value = inputValue.getKnownValue();
+        const finalIndex = this.getLength() - 1;
+        let index = (typeof searchIndex === "undefined") ? finalIndex : Math.min(searchIndex, finalIndex);
+        while (index >= 0) {
+            const element = this.elements[index].getKnownValue();
+            if (valuesAreEqual(element, value)) {
+                return index;
+            }
+            index -= 1;
+        }
+        return null;
+    }
+    
+    sliceIsEqual(index: number, slice: PetList): boolean {
+        for (let offset = 0; offset < slice.getLength(); offset++) {
+            const element1 = this.elements[index + offset].getKnownValue();
+            const element2 = slice.elements[offset].getKnownValue();
+            if (!valuesAreEqual(element1, element2)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    firstSliceIndex(slice: PetList, searchIndex?: number): number | null {
+        let index = (typeof searchIndex === "undefined") ? 0 : Math.max(searchIndex, 0);
+        while (index + slice.getLength() <= this.getLength()) {
+            if (this.sliceIsEqual(index, slice)) {
+                return index;
+            }
+            index += 1;
+        }
+        return null;
+    }
+    
+    lastSliceIndex(slice: PetList, searchIndex?: number): number | null {
+        const finalIndex = this.getLength() - slice.getLength();
+        let index = (typeof searchIndex === "undefined") ? finalIndex : Math.min(searchIndex, finalIndex);
+        while (index >= 0) {
+            if (this.sliceIsEqual(index, slice)) {
+                return index;
+            }
+            index -= 1;
+        }
+        return null;
     }
     
     truncate(length: number): void {
