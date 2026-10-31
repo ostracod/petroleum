@@ -266,8 +266,8 @@ const generateRandomInt = (minValue: bigint, maxValue: bigint): bigint => {
 };
 
 
-const firstMemberIndex = <ElemT>(
-    bunch: SliceableBunch<ElemT, KnownValue>,
+const firstMemberIndex = <T>(
+    bunch: SliceableBunch<T>,
     member: PetValue,
     searchIndex?: number,
 ): number | null => {
@@ -283,8 +283,8 @@ const firstMemberIndex = <ElemT>(
     return null;
 };
 
-const lastMemberIndex = <ElemT>(
-    bunch: SliceableBunch<ElemT, KnownValue>,
+const lastMemberIndex = <T>(
+    bunch: SliceableBunch<T>,
     member: PetValue,
     searchIndex?: number,
 ): number | null => {
@@ -301,12 +301,12 @@ const lastMemberIndex = <ElemT>(
     return null;
 };
 
-const firstSliceIndex = <BunchT extends SliceableBunch>(
-    bunch: BunchT,
+const firstSliceIndex = <T>(
+    bunch: SliceableBunch<T>,
     sliceValue: PetValue,
     searchIndex?: number,
 ): number | null => {
-    const slice = bunch.valueToSlice(sliceValue) as BunchT;
+    const slice = bunch.valueToSlice(sliceValue);
     let index = (typeof searchIndex === "undefined") ? 0 : Math.max(searchIndex, 0);
     while (index + slice.getLength() <= bunch.getLength()) {
         if (bunch.sliceMatches(index, slice)) {
@@ -317,12 +317,12 @@ const firstSliceIndex = <BunchT extends SliceableBunch>(
     return null;
 };
 
-const lastSliceIndex = <BunchT extends SliceableBunch>(
-    bunch: BunchT,
+const lastSliceIndex = <T>(
+    bunch: SliceableBunch<T>,
     sliceValue: PetValue,
     searchIndex?: number,
 ): number | null => {
-    const slice = bunch.valueToSlice(sliceValue) as BunchT;
+    const slice = bunch.valueToSlice(sliceValue);
     const finalIndex = bunch.getLength() - slice.getLength();
     let index = (typeof searchIndex === "undefined") ? finalIndex : Math.min(searchIndex, finalIndex);
     while (index >= 0) {

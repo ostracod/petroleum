@@ -270,22 +270,24 @@ export const compareValues = (inputValue1: PetValue, inputValue2: PetValue): num
     }
 };
 
-export interface SliceableBunchIface<ElemT, SliceT extends KnownValue> {
+// Do not extend classes which implement SliceableBunchIface, because
+// we cast the output of `slice` and `valueToSlice` to `this`.
+export interface SliceableBunchIface<T> {
     getLength(): number;
-    getElement(index: number): ElemT;
-    valueToElement(value: PetValue): ElemT;
-    elementsAreEqual(element1: ElemT, element2: ElemT): boolean;
-    slice(startIndex: number, endIndex: number): SliceT;
-    valueToSlice(value: PetValue): SliceT;
-    sliceMatches(startIndex: number, slice: SliceT): boolean;
+    getElement(index: number): T;
+    valueToElement(value: PetValue): T;
+    elementsAreEqual(element1: T, element2: T): boolean;
+    slice(startIndex: number, endIndex: number): this;
+    valueToSlice(value: PetValue): this;
+    sliceMatches(startIndex: number, slice: SliceableBunchIface<T>): boolean;
 }
 
 // This type must be defined as `SliceableBunchIface & KnownValue` instead of
 // `KnownValue & SliceableBunchIface`, because type intersection in TypeScript
 // is not commutative...!
-export type SliceableBunch<ElemT = any, SliceT extends KnownValue = KnownValue> = SliceableBunchIface<ElemT, SliceT> & KnownValue;
+export type SliceableBunch<T = any> = SliceableBunchIface<T> & KnownValue;
 
-export class PetString implements SliceableBunchIface<number, PetString> {
+export class PetString implements SliceableBunchIface<number> {
     // Either `text` or `buffer` are non-null.
     text: string | null;
     buffer: Buffer | null;
@@ -345,15 +347,15 @@ export class PetString implements SliceableBunchIface<number, PetString> {
         return (buffer2.length > buffer1.length) ? -1 : 0;
     }
     
-    slice(startIndex: number, endIndex: number): PetString {
+    slice(startIndex: number, endIndex: number): this {
         const buffer = this.toBuffer();
         checkSliceIndexes(buffer.length, startIndex, endIndex);
         const subBuffer = buffer.subarray(startIndex, endIndex);
-        return new PetString(subBuffer);
+        return new PetString(subBuffer) as this;
     }
     
-    valueToSlice(value: PetValue): PetString {
-        return value.getPetString();
+    valueToSlice(value: PetValue): this {
+        return value.getPetString() as this;
     }
     
     sliceMatches(startIndex: number, slice: PetString): boolean {
@@ -571,7 +573,7 @@ const listIndexToBigInt = (value: ListIndex): bigint => {
     }
 };
 
-export class PetList implements ObservableBunchIface, SliceableBunchIface<PetValue, PetList> {
+export class PetList implements ObservableBunchIface, SliceableBunchIface<PetValue> {
     elements: PetValue[];
     observatory: MemberObservatory;
     
@@ -634,14 +636,14 @@ export class PetList implements ObservableBunchIface, SliceableBunchIface<PetVal
         return this.elements.length;
     }
     
-    slice(startIndex: number, endIndex: number): PetList {
+    slice(startIndex: number, endIndex: number): this {
         checkSliceIndexes(this.elements.length, startIndex, endIndex);
         const subElements = this.elements.slice(startIndex, endIndex);
-        return new PetList(subElements);
+        return new PetList(subElements) as this;
     }
     
-    valueToSlice(value: PetValue): PetList {
-        return value.getList();
+    valueToSlice(value: PetValue): this {
+        return value.getList() as this;
     }
     
     sliceMatches(startIndex: number, slice: PetList): boolean {
