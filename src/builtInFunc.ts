@@ -1029,6 +1029,25 @@ export const globalFuncDefs: FuncDef[] = [
         },
     },
     {
+        name: "SHALLOW_COPY",
+        argAmount: 1,
+        call: (task, args) => {
+            const value = args[0].getKnownValue();
+            const result = (value instanceof PetList || value instanceof PetMap)
+                ? value.shallowCopy()
+                : value;
+            return task.returnValue(result);
+        },
+    },
+    {
+        name: "DEEP_COPY",
+        argAmount: 1,
+        call: (task, args) => {
+            const result = args[0].deepCopy();
+            return task.returnValue(result);
+        },
+    },
+    {
         name: "MIN_ARG_AMOUNT",
         argAmount: 1,
         call: (task, args) => {

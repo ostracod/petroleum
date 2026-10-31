@@ -1206,3 +1206,140 @@ PRINT(HAS_KEY(myMap, "c"))
 0
 0
 1
+=========================
+>>> testCase "SHALLOW_COPY function with list"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @innerList = (LIST (2, 3))
+WORK_VAR @myList = (LIST (1, innerList, "text"))
+WORK_VAR @copy = (SHALLOW_COPY(myList))
+PRINT(copy)
+PRINT(EQUAL(copy, myList))
+COMMENT "Child members are shared with the original."
+PRINT(EQUAL(MEMBER(copy, 1), innerList))
+ADD_ELEM(innerList, 4)
+PRINT(copy)
+COMMENT "Changing one list does not change the other."
+SET_MEMBER(copy, 0, 10)
+ADD_ELEM(myList, 20)
+PRINT(myList)
+PRINT(copy)
+PRINT(SHALLOW_COPY(LIST ()))
+>>> expectPrint
+LIST (1, LIST (2, 3), "text")
+0
+1
+LIST (1, LIST (2, 3, 4), "text")
+LIST (1, LIST (2, 3, 4), "text", 20)
+LIST (10, LIST (2, 3, 4), "text")
+LIST ()
+=========================
+>>> testCase "SHALLOW_COPY function with map"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @innerList = (LIST (2, 3))
+WORK_VAR @myMap = (MAP [FIELDS [("a") = (1), ("b") = (innerList), (5) = (NULL)]])
+WORK_VAR @copy = (SHALLOW_COPY(myMap))
+PRINT(copy)
+PRINT(EQUAL(copy, myMap))
+COMMENT "Child members are shared with the original."
+PRINT(EQUAL(MEMBER(copy, "b"), innerList))
+COMMENT "Changing one map does not change the other."
+SET_MEMBER(copy, "a", 10)
+DEL_FIELD(copy, 5)
+SET_MEMBER(myMap, "c", 20)
+PRINT(myMap)
+PRINT(copy)
+PRINT(SHALLOW_COPY(MAP [FIELDS []]))
+>>> expectPrint
+MAP [FIELDS [("a") = (1), ("b") = (LIST (2, 3)), (5) = (NULL)]]
+0
+1
+MAP [FIELDS [("a") = (1), ("b") = (LIST (2, 3)), (5) = (NULL), ("c") = (20)]]
+MAP [FIELDS [("a") = (10), ("b") = (LIST (2, 3))]]
+MAP [FIELDS []]
+=========================
+>>> testCase "SHALLOW_COPY and DEEP_COPY functions with non-bunch values"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @myFunc {
+    RET (1)
+}
+WORK_VAR @mySymbol = (SYMBOL("mySymbol"))
+PRINT(LIST (SHALLOW_COPY(5), SHALLOW_COPY("text"), SHALLOW_COPY(NULL)))
+PRINT(LIST (DEEP_COPY(5), DEEP_COPY("text"), DEEP_COPY(NULL)))
+PRINT(EQUAL(SHALLOW_COPY(myFunc), myFunc))
+PRINT(EQUAL(DEEP_COPY(myFunc), myFunc))
+PRINT(EQUAL(SHALLOW_COPY(mySymbol), mySymbol))
+PRINT(EQUAL(DEEP_COPY(mySymbol), mySymbol))
+>>> expectPrint
+LIST (5, "text", NULL)
+LIST (5, "text", NULL)
+1
+1
+1
+1
+=========================
+>>> testCase "DEEP_COPY function"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @innerList = (LIST (2, 3))
+WORK_VAR @innerMap = (MAP [FIELDS [("x") = (innerList)]])
+WORK_VAR @myList = (LIST (1, innerList, innerMap, "text"))
+WORK_VAR @copy = (DEEP_COPY(myList))
+PRINT(copy)
+PRINT(EQUAL(copy, myList))
+COMMENT "Child members are copied too."
+PRINT(EQUAL(MEMBER(copy, 1), innerList))
+PRINT(EQUAL(MEMBER(copy, 2), innerMap))
+PRINT(EQUAL(MEMBER(MEMBER(copy, 2), "x"), innerList))
+ADD_ELEM(innerList, 4)
+SET_MEMBER(innerMap, "y", 5)
+SET_MEMBER(MEMBER(copy, 1), 0, 20)
+PRINT(myList)
+PRINT(copy)
+>>> expectPrint
+LIST (1, LIST (2, 3), MAP [FIELDS [("x") = (LIST (2, 3))]], "text")
+0
+0
+0
+0
+LIST (1, LIST (2, 3, 4), MAP [FIELDS [("x") = (LIST (2, 3, 4)), ("y") = (5)]], "text")
+LIST (1, LIST (20, 3), MAP [FIELDS [("x") = (LIST (20, 3))]], "text")
+=========================
+>>> testCase "DEEP_COPY function with shared and cyclic references"
+>>> setupFile ~/targetPackage/main.petrol
+COMMENT "A member which appears twice is copied once."
+WORK_VAR @innerList = (LIST (1))
+WORK_VAR @sharedList = (LIST (innerList, innerList))
+WORK_VAR @sharedCopy = (DEEP_COPY(sharedList))
+PRINT(EQUAL(MEMBER(sharedCopy, 0), innerList))
+PRINT(EQUAL(MEMBER(sharedCopy, 0), MEMBER(sharedCopy, 1)))
+COMMENT "A bunch which contains itself is copied as a bunch which contains its copy."
+WORK_VAR @cyclicList = (LIST (1))
+ADD_ELEM(cyclicList, cyclicList)
+WORK_VAR @cyclicListCopy = (DEEP_COPY(cyclicList))
+PRINT(cyclicListCopy)
+PRINT(EQUAL(MEMBER(cyclicListCopy, 1), cyclicListCopy))
+PRINT(EQUAL(MEMBER(cyclicListCopy, 1), cyclicList))
+WORK_VAR @cyclicMap = (MAP [FIELDS []])
+SET_MEMBER(cyclicMap, "self", LIST (cyclicMap))
+WORK_VAR @cyclicMapCopy = (DEEP_COPY(cyclicMap))
+PRINT(EQUAL(MEMBER(MEMBER(cyclicMapCopy, "self"), 0), cyclicMapCopy))
+PRINT(EQUAL(MEMBER(MEMBER(cyclicMapCopy, "self"), 0), cyclicMap))
+>>> expectPrint
+0
+1
+LIST (1, ...)
+1
+0
+1
+0
+=========================
+>>> testCase "DEEP_COPY function does not copy map keys"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @keyList = (LIST (1))
+WORK_VAR @myMap = (MAP [FIELDS [(keyList) = (keyList)]])
+WORK_VAR @copy = (DEEP_COPY(myMap))
+WORK_VAR @copyKey = (MEMBER(KEYS(copy), 0))
+PRINT(EQUAL(copyKey, keyList))
+PRINT(EQUAL(MEMBER(copy, keyList), keyList))
+>>> expectPrint
+1
+0

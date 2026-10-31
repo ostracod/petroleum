@@ -168,6 +168,13 @@ export class PetValue {
         const value = this.getKnownValue();
         return knownValueToMapKey(value);
     }
+    
+    deepCopy(copies: Map<KnownValue, KnownValue> = new Map()): KnownValue {
+        const value = this.getKnownValue();
+        return (value instanceof PetList || value instanceof PetMap)
+            ? value.deepCopy(copies)
+            : value;
+    }
 }
 
 export const wrapKnownValue = (knownValue: KnownValue): PetValue => {
@@ -774,6 +781,20 @@ export class PetList implements ObservableBunchIface, SliceableBunchIface<PetVal
     shallowCopy(): PetList {
         return new PetList(this.elements.slice());
     }
+    
+    deepCopy(copies: Map<KnownValue, KnownValue> = new Map()): PetList {
+        let copy = copies.get(this);
+        if (typeof copy !== "undefined") {
+            return copy as PetList;
+        }
+        copy = new PetList();
+        copies.set(this, copy);
+        for (const element of this.elements) {
+            const elementCopy = wrapKnownValue(element.deepCopy(copies));
+            copy.addElement(elementCopy);
+        }
+        return copy;
+    }
 }
 
 class PetField {
@@ -870,6 +891,19 @@ export class PetMap implements ObservableBunchIface {
     shallowCopy(): PetMap {
         const fields = Array.from(this.fields.values());
         return new PetMap(fields.map((field) => [field.key, field.value]));
+    }
+    
+    deepCopy(copies: Map<KnownValue, KnownValue> = new Map()): PetMap {
+        let copy = copies.get(this);
+        if (typeof copy !== "undefined") {
+            return copy as PetMap;
+        }
+        copy = new PetMap();
+        copies.set(this, copy);
+        for (const field of this.fields.values()) {
+            copy.setMember(field.key, field.value.deepCopy(copies));
+        }
+        return copy;
     }
     
     getKeys(): KnownValue[] {

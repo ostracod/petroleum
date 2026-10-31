@@ -319,6 +319,18 @@ HAS_KEY($map, $key)
 Returns whether a field with `$key` exists in `$map`.
 
 ```
+SHALLOW_COPY($value)
+```
+
+Creates a copy of `$value` without copying any child members in `$value`.
+
+```
+DEEP_COPY($value)
+```
+
+Creates a copy of `$value`, including copies of all child members in `$value`. Note that map field keys are not copied; only field values are copied.
+
+```
 MIN_ARG_AMOUNT($func)
 ```
 
