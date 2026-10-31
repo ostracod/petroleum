@@ -294,6 +294,19 @@ CHAR($charCode)
 Returns a string containing a single character whose character code is `$charCode`.
 
 ```
+CHAR_CODES_TO_STR($charCodes)
+```
+
+Creates a string using the character codes in `$charCodes`. `$charCodes` is a list of integers.
+
+```
+UPPERCASE($str)
+LOWERCASE($str)
+```
+
+Returns `$str` converted to uppercase or lowercase.
+
+```
 KEYS($map)
 ```
 

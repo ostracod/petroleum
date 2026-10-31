@@ -140,6 +140,14 @@ export class PetValue {
         return Number(this.getInt());
     }
     
+    toCharCode(): number {
+        const result = this.toNumber();
+        if (result < 0 || result > 255) {
+            throw new ValueError("Character code must be between 0 and 255.");
+        }
+        return result;
+    }
+    
     // If the known value is a PetString, returns the string content in quotes.
     toLiteral(parents: KnownValue[] = []): string {
         const value = this.getKnownValue();
@@ -315,11 +323,7 @@ export class PetString implements SliceableBunchIface<number> {
     }
     
     valueToElement(value: PetValue): number {
-        const charCode = value.toNumber();
-        if (charCode < 0 || charCode > 255) {
-            throw new ValueError("Character code must be between 0 and 255.");
-        }
-        return charCode;
+        return value.toCharCode();
     }
     
     elementsAreEqual(element1: number, element2: number): boolean {
@@ -368,6 +372,32 @@ export class PetString implements SliceableBunchIface<number> {
     concatBunches(bunches: PetString[]): this {
         const buffers = bunches.map((bunch) => bunch.toBuffer());
         return new PetString(Buffer.concat(buffers)) as this;
+    }
+    
+    toUppercase(): PetString {
+        const buffer = this.toBuffer();
+        const charCodes: number[] = [];
+        for (let index = 0; index < buffer.length; index++) {
+            let charCode = buffer[index];
+            if (charCode >= 97 && charCode <= 122) {
+                charCode -= 32;
+            }
+            charCodes.push(charCode);
+        }
+        return new PetString(Buffer.from(charCodes));
+    }
+    
+    toLowercase(): PetString {
+        const buffer = this.toBuffer();
+        const charCodes: number[] = [];
+        for (let index = 0; index < buffer.length; index++) {
+            let charCode = buffer[index];
+            if (charCode >= 65 && charCode <= 90) {
+                charCode += 32;
+            }
+            charCodes.push(charCode);
+        }
+        return new PetString(Buffer.from(charCodes));
     }
     
     toString(): string {

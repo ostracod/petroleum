@@ -978,11 +978,36 @@ export const globalFuncDefs: FuncDef[] = [
         name: "CHAR",
         argAmount: 1,
         call: (task, args) => {
-            const charCode = args[0].toNumber();
-            if (charCode < 0 || charCode > 255) {
-                throw new ValueError("Invalid character code.");
-            }
+            const charCode = args[0].toCharCode();
             const result = new PetString(Buffer.from([charCode]));
+            return task.returnValue(result);
+        },
+    },
+    {
+        name: "CHAR_CODES_TO_STR",
+        argAmount: 1,
+        call: (task, args) => {
+            const charCodeValues = args[0].getList().elements;
+            const charCodes: number[] = charCodeValues.map((value) => value.toCharCode());
+            const result = new PetString(Buffer.from(charCodes));
+            return task.returnValue(result);
+        },
+    },
+    {
+        name: "UPPERCASE",
+        argAmount: 1,
+        call: (task, args) => {
+            const text = args[0].getPetString();
+            const result = text.toUppercase();
+            return task.returnValue(result);
+        },
+    },
+    {
+        name: "LOWERCASE",
+        argAmount: 1,
+        call: (task, args) => {
+            const text = args[0].getPetString();
+            const result = text.toLowercase();
             return task.returnValue(result);
         },
     },

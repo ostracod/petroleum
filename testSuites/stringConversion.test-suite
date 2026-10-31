@@ -126,6 +126,117 @@ hi
 CHAR(256)
 >>> expectError type: #VALUE_ERROR lineNumber: 1
 =========================
+>>> testCase "CHAR_CODES_TO_STR function"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(CHAR_CODES_TO_STR(LIST(104, 105)))
+PRINT(CHAR_CODES_TO_STR(LIST('A', 'b', '!')))
+PRINT(CHAR_CODES_TO_STR(LIST(65)))
+PRINT(EQUAL(CHAR_CODES_TO_STR(LIST(34, 92)), "\"\\"))
+PRINT(CHAR_CODES_TO_STR(LIST(97, 10, 98)))
+PRINT(LEN(CHAR_CODES_TO_STR(LIST())))
+PRINT(TYPE(CHAR_CODES_TO_STR(LIST())))
+WORK_VAR @myStr = (CHAR_CODES_TO_STR(LIST(0, 128, 255)))
+PRINT(LEN(myStr))
+PRINT(MEMBER(myStr, 0))
+PRINT(MEMBER(myStr, 1))
+PRINT(MEMBER(myStr, 2))
+WORK_VAR @charCodes = (LIST(120, 121))
+WORK_VAR @result = (CHAR_CODES_TO_STR(charCodes))
+SET_MEMBER(charCodes, 0, 122)
+PRINT(result)
+>>> expectPrint
+hi
+Ab!
+A
+1
+a
+b
+0
+#STR
+3
+0
+128
+255
+xy
+=========================
+>>> testCase "CHAR_CODES_TO_STR function with invalid input"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@printError]]
+printError(CHAR_CODES_TO_STR, LIST (LIST (65, 256)))
+printError(CHAR_CODES_TO_STR, LIST (LIST (NEG(1), 65)))
+printError(CHAR_CODES_TO_STR, LIST (LIST (9223372036854775807)))
+printError(CHAR_CODES_TO_STR, LIST (LIST ("A")))
+printError(CHAR_CODES_TO_STR, LIST (LIST (NULL)))
+printError(CHAR_CODES_TO_STR, LIST ("AB"))
+printError(CHAR_CODES_TO_STR, LIST (65))
+>>> expectPrint
+LIST (#VALUE_ERROR, "Character code must be between 0 and 255.")
+LIST (#VALUE_ERROR, "Character code must be between 0 and 255.")
+LIST (#VALUE_ERROR, "Character code must be between 0 and 255.")
+LIST (#TYPE_ERROR, "Expected integer.")
+LIST (#TYPE_ERROR, "Expected integer.")
+LIST (#TYPE_ERROR, "Expected list.")
+LIST (#TYPE_ERROR, "Expected list.")
+=========================
+>>> testCase "UPPERCASE and LOWERCASE functions"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(UPPERCASE("Hello, World! 123"))
+PRINT(LOWERCASE("Hello, World! 123"))
+PRINT(UPPERCASE("ABC"))
+PRINT(LOWERCASE("abc"))
+PRINT(UPPERCASE("azAZ"))
+PRINT(LOWERCASE("azAZ"))
+PRINT(UPPERCASE("@[`{"))
+PRINT(LOWERCASE("@[`{"))
+PRINT(LEN(UPPERCASE("")))
+PRINT(TYPE(LOWERCASE("")))
+WORK_VAR @text = ("MiXeD")
+PRINT(UPPERCASE(text))
+PRINT(LOWERCASE(text))
+PRINT(text)
+>>> expectPrint
+HELLO, WORLD! 123
+hello, world! 123
+ABC
+abc
+AZAZ
+azaz
+@[`{
+@[`{
+0
+#STR
+MIXED
+mixed
+MiXeD
+=========================
+>>> testCase "UPPERCASE and LOWERCASE functions ignore non-ASCII characters"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @text = (CHAR_CODES_TO_STR(LIST(97, 193, 200, 225, 65)))
+WORK_VAR @upper = (UPPERCASE(text))
+WORK_VAR @lower = (LOWERCASE(text))
+PRINT(LIST(MEMBER(upper, 0), MEMBER(upper, 1), MEMBER(upper, 2), MEMBER(upper, 3), MEMBER(upper, 4)))
+PRINT(LIST(MEMBER(lower, 0), MEMBER(lower, 1), MEMBER(lower, 2), MEMBER(lower, 3), MEMBER(lower, 4)))
+PRINT(UPPERCASE("café"))
+PRINT(LOWERCASE("CAFÉ"))
+>>> expectPrint
+LIST (65, 193, 200, 225, 65)
+LIST (97, 193, 200, 225, 97)
+CAFé
+cafÉ
+=========================
+>>> testCase "UPPERCASE and LOWERCASE functions with invalid input"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@printError]]
+printError(UPPERCASE, LIST (65))
+printError(UPPERCASE, LIST (LIST ("a")))
+printError(LOWERCASE, LIST (NULL))
+printError(LOWERCASE, LIST (#INT))
+>>> expectPrint
+LIST (#TYPE_ERROR, "Expected string.")
+LIST (#TYPE_ERROR, "Expected string.")
+LIST (#TYPE_ERROR, "Expected string.")
+LIST (#TYPE_ERROR, "Expected string.")
+=========================
 >>> testCase "STR function with base"
 >>> setupFile ~/targetPackage/main.petrol
 PRINT(STR(255, 16))
