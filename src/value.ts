@@ -120,6 +120,14 @@ export class PetValue {
         return this.getInstance(EvalState, "evaluation state");
     }
     
+    getSliceableBunch(): SliceableBunch {
+        const value = this.getKnownValue();
+        if (!(value instanceof PetString || value instanceof PetList)) {
+            throw new PetTypeError("Expected string or list.");
+        }
+        return value;
+    }
+    
     getObservableBunch(): ObservableBunch {
         const value = this.getKnownValue();
         if (!(value instanceof PetList || value instanceof PetMap)) {
@@ -262,7 +270,22 @@ export const compareValues = (inputValue1: PetValue, inputValue2: PetValue): num
     }
 };
 
-export class PetString {
+export interface SliceableBunchIface<ElemT, SliceT extends KnownValue> {
+    getLength(): number;
+    getElement(index: number): ElemT;
+    valueToElement(value: PetValue): ElemT;
+    elementsAreEqual(element1: ElemT, element2: ElemT): boolean;
+    slice(startIndex: number, endIndex: number): SliceT;
+    valueToSlice(value: PetValue): SliceT;
+    sliceMatches(startIndex: number, slice: SliceT): boolean;
+}
+
+// This type must be defined as `SliceableBunchIface & KnownValue` instead of
+// `KnownValue & SliceableBunchIface`, because type intersection in TypeScript
+// is not commutative...!
+export type SliceableBunch<ElemT = any, SliceT extends KnownValue = KnownValue> = SliceableBunchIface<ElemT, SliceT> & KnownValue;
+
+export class PetString implements SliceableBunchIface<number, PetString> {
     // Either `text` or `buffer` are non-null.
     text: string | null;
     buffer: Buffer | null;
@@ -280,12 +303,24 @@ export class PetString {
         this.hexString = null;
     }
     
-    getCharCode(index: number): number {
+    getElement(index: number): number {
         const buffer = this.toBuffer();
         if (index < 0 || index >= buffer.length) {
             throw new ValueError(`Index ${index} is outside of string.`);
         }
         return buffer[index];
+    }
+    
+    valueToElement(value: PetValue): number {
+        const charCode = value.toNumber();
+        if (charCode < 0 || charCode > 255) {
+            throw new ValueError("Character code must be between 0 and 255.");
+        }
+        return charCode;
+    }
+    
+    elementsAreEqual(element1: number, element2: number): boolean {
+        return (element1 === element2);
     }
     
     getLength(): number {
@@ -317,62 +352,14 @@ export class PetString {
         return new PetString(subBuffer);
     }
     
-    firstMemberIndex(charCode: number, searchIndex?: number): number | null {
-        if (charCode < 0 || charCode > 255) {
-            throw new ValueError("Character code must be between 0 and 255.");
-        }
-        const buffer = this.toBuffer();
-        let index = (typeof searchIndex === "undefined") ? 0 : Math.max(searchIndex, 0);
-        while (index < buffer.length) {
-            if (buffer[index] === charCode) {
-                return index;
-            }
-            index += 1;
-        }
-        return null;
+    valueToSlice(value: PetValue): PetString {
+        return value.getPetString();
     }
     
-    lastMemberIndex(charCode: number, searchIndex?: number): number | null {
-        if (charCode < 0 || charCode > 255) {
-            throw new ValueError("Character code must be between 0 and 255.");
-        }
-        const buffer = this.toBuffer();
-        const finalIndex = buffer.length - 1;
-        let index = (typeof searchIndex === "undefined") ? finalIndex : Math.min(searchIndex, finalIndex);
-        while (index >= 0) {
-            if (buffer[index] === charCode) {
-                return index;
-            }
-            index -= 1;
-        }
-        return null;
-    }
-    
-    firstSliceIndex(text: PetString, searchIndex?: number): number | null {
-        const slice = text.toBuffer();
-        const buffer = this.toBuffer();
-        let index = (typeof searchIndex === "undefined") ? 0 : Math.max(searchIndex, 0);
-        while (index + slice.length <= buffer.length) {
-            if (slice.compare(buffer, index, index + slice.length) === 0) {
-                return index;
-            }
-            index += 1;
-        }
-        return null;
-    }
-    
-    lastSliceIndex(text: PetString, searchIndex?: number): number | null {
-        const slice = text.toBuffer();
-        const buffer = this.toBuffer();
-        const finalIndex = buffer.length - slice.length;
-        let index = (typeof searchIndex === "undefined") ? finalIndex : Math.min(searchIndex, finalIndex);
-        while (index >= 0) {
-            if (slice.compare(buffer, index, index + slice.length) === 0) {
-                return index;
-            }
-            index -= 1;
-        }
-        return null;
+    sliceMatches(startIndex: number, slice: PetString): boolean {
+        const sliceBuffer = slice.toBuffer();
+        const endIndex = startIndex + sliceBuffer.length;
+        return (sliceBuffer.compare(this.toBuffer(), startIndex, endIndex) === 0);
     }
     
     toString(): string {
@@ -458,7 +445,7 @@ export interface ObservableBunchIface {
     deferMember(location: KnownValue | PetValue, message: string): PetValue;
 }
 
-export type ObservableBunch = KnownValue & ObservableBunchIface;
+export type ObservableBunch = ObservableBunchIface & KnownValue;
 
 const deferMember = (
     bunch: ObservableBunch,
@@ -584,7 +571,7 @@ const listIndexToBigInt = (value: ListIndex): bigint => {
     }
 };
 
-export class PetList implements ObservableBunchIface {
+export class PetList implements ObservableBunchIface, SliceableBunchIface<PetValue, PetList> {
     elements: PetValue[];
     observatory: MemberObservatory;
     
@@ -608,6 +595,18 @@ export class PetList implements ObservableBunchIface {
             throw new ValueError(`Index ${numberIndex} is outside of list.`);
         }
         return value;
+    }
+    
+    getElement(index: number): PetValue {
+        return this.getMember(index);
+    }
+    
+    valueToElement(value: PetValue): PetValue {
+        return value;
+    }
+    
+    elementsAreEqual(element1: PetValue, element2: PetValue): boolean {
+        return valuesAreEqual(element1.getKnownValue(), element2.getKnownValue());
     }
     
     setMemberHelper(index: number, value: PetValue): void {
@@ -641,65 +640,19 @@ export class PetList implements ObservableBunchIface {
         return new PetList(subElements);
     }
     
-    firstMemberIndex(inputValue: PetValue, searchIndex?: number): number | null {
-        const value = inputValue.getKnownValue();
-        let index = (typeof searchIndex === "undefined") ? 0 : Math.max(searchIndex, 0);
-        while (index < this.getLength()) {
-            const element = this.elements[index].getKnownValue();
-            if (valuesAreEqual(element, value)) {
-                return index;
-            }
-            index += 1;
-        }
-        return null;
+    valueToSlice(value: PetValue): PetList {
+        return value.getList();
     }
     
-    lastMemberIndex(inputValue: PetValue, searchIndex?: number): number | null {
-        const value = inputValue.getKnownValue();
-        const finalIndex = this.getLength() - 1;
-        let index = (typeof searchIndex === "undefined") ? finalIndex : Math.min(searchIndex, finalIndex);
-        while (index >= 0) {
-            const element = this.elements[index].getKnownValue();
-            if (valuesAreEqual(element, value)) {
-                return index;
-            }
-            index -= 1;
-        }
-        return null;
-    }
-    
-    sliceIsEqual(index: number, slice: PetList): boolean {
+    sliceMatches(startIndex: number, slice: PetList): boolean {
         for (let offset = 0; offset < slice.getLength(); offset++) {
-            const element1 = this.elements[index + offset].getKnownValue();
+            const element1 = this.elements[startIndex + offset].getKnownValue();
             const element2 = slice.elements[offset].getKnownValue();
             if (!valuesAreEqual(element1, element2)) {
                 return false;
             }
         }
         return true;
-    }
-    
-    firstSliceIndex(slice: PetList, searchIndex?: number): number | null {
-        let index = (typeof searchIndex === "undefined") ? 0 : Math.max(searchIndex, 0);
-        while (index + slice.getLength() <= this.getLength()) {
-            if (this.sliceIsEqual(index, slice)) {
-                return index;
-            }
-            index += 1;
-        }
-        return null;
-    }
-    
-    lastSliceIndex(slice: PetList, searchIndex?: number): number | null {
-        const finalIndex = this.getLength() - slice.getLength();
-        let index = (typeof searchIndex === "undefined") ? finalIndex : Math.min(searchIndex, finalIndex);
-        while (index >= 0) {
-            if (this.sliceIsEqual(index, slice)) {
-                return index;
-            }
-            index -= 1;
-        }
-        return null;
     }
     
     truncate(length: number): void {

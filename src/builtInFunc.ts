@@ -2,7 +2,7 @@
 import "./value.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { toSignedInt64, KnownValue, PetValue, wrapKnownValue, knownValueToLiteral, minIntValue, maxIntValue, stringToLiteral, compareValues, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
+import { toSignedInt64, KnownValue, PetValue, wrapKnownValue, knownValueToLiteral, minIntValue, maxIntValue, stringToLiteral, compareValues, SliceableBunch, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
 import { PetTypeError, ValueError, StateError } from "./exception.js";
 import { getChildWorkers } from "./node.js";
 import { findVariable, findVarValue, getScope, createFrame } from "./variable.js";
@@ -263,6 +263,75 @@ const generateRandomInt = (minValue: bigint, maxValue: bigint): bigint => {
         throw new ValueError("Minimum value must not be bigger than maximum value.");
     }
     return randomIntHelper(maxValue - minValue) + minValue;
+};
+
+
+const firstMemberIndex = <ElemT>(
+    bunch: SliceableBunch<ElemT, KnownValue>,
+    member: PetValue,
+    searchIndex?: number,
+): number | null => {
+    const elementToFind = bunch.valueToElement(member);
+    let index = (typeof searchIndex === "undefined") ? 0 : Math.max(searchIndex, 0);
+    while (index < bunch.getLength()) {
+        const bunchElement = bunch.getElement(index);
+        if (bunch.elementsAreEqual(bunchElement, elementToFind)) {
+            return index;
+        }
+        index += 1;
+    }
+    return null;
+};
+
+const lastMemberIndex = <ElemT>(
+    bunch: SliceableBunch<ElemT, KnownValue>,
+    member: PetValue,
+    searchIndex?: number,
+): number | null => {
+    const elementToFind = bunch.valueToElement(member);
+    const finalIndex = bunch.getLength() - 1;
+    let index = (typeof searchIndex === "undefined") ? finalIndex : Math.min(searchIndex, finalIndex);
+    while (index >= 0) {
+        const bunchElement = bunch.getElement(index);
+        if (bunch.elementsAreEqual(bunchElement, elementToFind)) {
+            return index;
+        }
+        index -= 1;
+    }
+    return null;
+};
+
+const firstSliceIndex = <BunchT extends SliceableBunch>(
+    bunch: BunchT,
+    sliceValue: PetValue,
+    searchIndex?: number,
+): number | null => {
+    const slice = bunch.valueToSlice(sliceValue) as BunchT;
+    let index = (typeof searchIndex === "undefined") ? 0 : Math.max(searchIndex, 0);
+    while (index + slice.getLength() <= bunch.getLength()) {
+        if (bunch.sliceMatches(index, slice)) {
+            return index;
+        }
+        index += 1;
+    }
+    return null;
+};
+
+const lastSliceIndex = <BunchT extends SliceableBunch>(
+    bunch: BunchT,
+    sliceValue: PetValue,
+    searchIndex?: number,
+): number | null => {
+    const slice = bunch.valueToSlice(sliceValue) as BunchT;
+    const finalIndex = bunch.getLength() - slice.getLength();
+    let index = (typeof searchIndex === "undefined") ? finalIndex : Math.min(searchIndex, finalIndex);
+    while (index >= 0) {
+        if (bunch.sliceMatches(index, slice)) {
+            return index;
+        }
+        index -= 1;
+    }
+    return null;
 };
 
 const assertWorkerUnprepped = (context: PetContext, worker: PetMap): void => {
@@ -633,7 +702,7 @@ export const globalFuncDefs: FuncDef[] = [
             let member: PetValue;
             if (bunch instanceof PetString) {
                 const index = location.toNumber();
-                const charCode = bunch.getCharCode(index);
+                const charCode = bunch.getElement(index);
                 member = wrapKnownValue(BigInt(charCode));
             } else if (bunch instanceof PetList || bunch instanceof PetMap) {
                 member = bunch.getMember(location);
@@ -713,13 +782,9 @@ export const globalFuncDefs: FuncDef[] = [
         name: "SLICE",
         argAmount: 3,
         call: (task, args) => {
-            const bunch = args[0].getKnownValue();
-            if (bunch instanceof PetString || bunch instanceof PetList) {
-                const result = bunch.slice(args[1].toNumber(), args[2].toNumber());
-                return task.returnValue(result);
-            } else {
-                throw new PetTypeError("Bunch must be string or list.");
-            }
+            const bunch = args[0].getSliceableBunch();
+            const result = bunch.slice(args[1].toNumber(), args[2].toNumber());
+            return task.returnValue(result);
         },
     },
     {
@@ -727,16 +792,9 @@ export const globalFuncDefs: FuncDef[] = [
         minArgAmount: 2,
         maxArgAmount: 3,
         call: (task, args) => {
-            const bunch = args[0].getKnownValue();
+            const bunch = args[0].getSliceableBunch();
             const searchIndex = (args.length > 2) ? args[2].toNumber() : undefined;
-            let result: number | null;
-            if (bunch instanceof PetString) {
-                result = bunch.firstMemberIndex(args[1].toNumber(), searchIndex);
-            } else if (bunch instanceof PetList) {
-                result = bunch.firstMemberIndex(args[1], searchIndex);
-            } else {
-                throw new PetTypeError("Bunch must be string or list.");
-            }
+            const result = firstMemberIndex(bunch, args[1], searchIndex);
             return task.returnValue((result === null) ? null : BigInt(result));
         },
     },
@@ -745,16 +803,9 @@ export const globalFuncDefs: FuncDef[] = [
         minArgAmount: 2,
         maxArgAmount: 3,
         call: (task, args) => {
-            const bunch = args[0].getKnownValue();
+            const bunch = args[0].getSliceableBunch();
             const searchIndex = (args.length > 2) ? args[2].toNumber() : undefined;
-            let result: number | null;
-            if (bunch instanceof PetString) {
-                result = bunch.lastMemberIndex(args[1].toNumber(), searchIndex);
-            } else if (bunch instanceof PetList) {
-                result = bunch.lastMemberIndex(args[1], searchIndex);
-            } else {
-                throw new PetTypeError("Bunch must be string or list.");
-            }
+            const result = lastMemberIndex(bunch, args[1], searchIndex);
             return task.returnValue((result === null) ? null : BigInt(result));
         },
     },
@@ -763,16 +814,9 @@ export const globalFuncDefs: FuncDef[] = [
         minArgAmount: 2,
         maxArgAmount: 3,
         call: (task, args) => {
-            const bunch = args[0].getKnownValue();
+            const bunch = args[0].getSliceableBunch();
             const searchIndex = (args.length > 2) ? args[2].toNumber() : undefined;
-            let result: number | null;
-            if (bunch instanceof PetString) {
-                result = bunch.firstSliceIndex(args[1].getPetString(), searchIndex);
-            } else if (bunch instanceof PetList) {
-                result = bunch.firstSliceIndex(args[1].getList(), searchIndex);
-            } else {
-                throw new PetTypeError("Bunch must be string or list.");
-            }
+            const result = firstSliceIndex(bunch, args[1], searchIndex);
             return task.returnValue((result === null) ? null : BigInt(result));
         },
     },
@@ -781,16 +825,9 @@ export const globalFuncDefs: FuncDef[] = [
         minArgAmount: 2,
         maxArgAmount: 3,
         call: (task, args) => {
-            const bunch = args[0].getKnownValue();
+            const bunch = args[0].getSliceableBunch();
             const searchIndex = (args.length > 2) ? args[2].toNumber() : undefined;
-            let result: number | null;
-            if (bunch instanceof PetString) {
-                result = bunch.lastSliceIndex(args[1].getPetString(), searchIndex);
-            } else if (bunch instanceof PetList) {
-                result = bunch.lastSliceIndex(args[1].getList(), searchIndex);
-            } else {
-                throw new PetTypeError("Bunch must be string or list.");
-            }
+            const result = lastSliceIndex(bunch, args[1], searchIndex);
             return task.returnValue((result === null) ? null : BigInt(result));
         },
     },
