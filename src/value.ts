@@ -270,8 +270,8 @@ export const compareValues = (inputValue1: PetValue, inputValue2: PetValue): num
     }
 };
 
-// Do not extend classes which implement SliceableBunchIface, because
-// we cast the output of `slice` and `valueToSlice` to `this`.
+// Do not extend classes which implement SliceableBunchIface, because we cast
+// the output of `slice`, `valueToSlice`, and `concatBunches` to `this`.
 export interface SliceableBunchIface<T> {
     getLength(): number;
     getElement(index: number): T;
@@ -280,6 +280,7 @@ export interface SliceableBunchIface<T> {
     slice(startIndex: number, endIndex: number): this;
     valueToSlice(value: PetValue): this;
     sliceMatches(startIndex: number, slice: SliceableBunchIface<T>): boolean;
+    concatBunches(bunches: SliceableBunchIface<T>[]): this;
 }
 
 // This type must be defined as `SliceableBunchIface & KnownValue` instead of
@@ -362,6 +363,11 @@ export class PetString implements SliceableBunchIface<number> {
         const sliceBuffer = slice.toBuffer();
         const endIndex = startIndex + sliceBuffer.length;
         return (sliceBuffer.compare(this.toBuffer(), startIndex, endIndex) === 0);
+    }
+    
+    concatBunches(bunches: PetString[]): this {
+        const buffers = bunches.map((bunch) => bunch.toBuffer());
+        return new PetString(Buffer.concat(buffers)) as this;
     }
     
     toString(): string {
@@ -655,6 +661,16 @@ export class PetList implements ObservableBunchIface, SliceableBunchIface<PetVal
             }
         }
         return true;
+    }
+    
+    concatBunches(bunches: PetList[]): this {
+        const elements: PetValue[] = [];
+        for (const bunch of bunches) {
+            for (const element of bunch.elements) {
+                elements.push(element);
+            }
+        }
+        return new PetList(elements) as this;
     }
     
     truncate(length: number): void {

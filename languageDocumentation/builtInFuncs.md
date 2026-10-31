@@ -242,6 +242,34 @@ CONCAT($bunches)
 Returns the elements in `$bunches` concatenated together. `$bunches` may be a list of strings or lists.
 
 ```
+JOIN($bunches, $delim)
+```
+
+Returns the elements in `$bunches` concatenated together with `$delim` between elements. `$bunches` may have one of the following types:
+
+* If `$bunches` is a list of strings:
+    * `$delim` is a string.
+    * `JOIN` returns a string.
+* If `$bunches` is a list of lists:
+    * `$delim` is a list.
+    * `JOIN` returns a list.
+
+```
+SPLIT($bunch, $delim)
+```
+
+Returns the slices in `$bunch` separated by `$delim`. `$bunch` may have one of the following types:
+
+* If `$bunch` is a string:
+    * `$delim` is also a string.
+    * `SPLIT` returns a list of strings.
+* If `$bunch` is a list:
+    * `$delim` is also a list.
+    * `SPLIT` returns a list of lists.
+
+If the length of `$delim` is 0, `SPLIT` returns a list of bunches each containing a single member of `$bunch`.
+
+```
 STR($value, $base?)
 ```
 

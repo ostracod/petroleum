@@ -334,6 +334,47 @@ const lastSliceIndex = <T>(
     return null;
 };
 
+const joinBunches = <T>(
+    bunches: PetValue[],
+    delim: SliceableBunch<T>,
+): SliceableBunch<T> => {
+    const parts: SliceableBunch<T>[] = [];
+    for (let index = 0; index < bunches.length; index++) {
+        if (index > 0) {
+            parts.push(delim);
+        }
+        const bunch = delim.valueToSlice(bunches[index]);
+        parts.push(bunch);
+    }
+    return delim.concatBunches(parts);
+};
+
+const splitBunch = <T>(
+    bunch: SliceableBunch<T>,
+    delimValue: PetValue,
+): PetList => {
+    const delim = bunch.valueToSlice(delimValue);
+    const slices: SliceableBunch<T>[] = [];
+    if (delim.getLength() > 0) {
+        let startIndex = 0;
+        while (true) {
+            const endIndex = firstSliceIndex(bunch, delimValue, startIndex);
+            const slice = bunch.slice(startIndex, endIndex ?? bunch.getLength());
+            slices.push(slice);
+            if (endIndex === null) {
+                break;
+            }
+            startIndex = endIndex + delim.getLength();
+        }
+    } else {
+        for (let index = 0; index < bunch.getLength(); index++) {
+            const slice = bunch.slice(index, index + 1);
+            slices.push(slice);
+        }
+    }
+    return new PetList(slices);
+};
+
 const assertWorkerUnprepped = (context: PetContext, worker: PetMap): void => {
     const phase = worker.getMember(symbols.PHASE).getSymbol();
     if (phase !== symbols.PREP_PHASE || context.preppingWorkers.has(worker)) {
@@ -866,30 +907,33 @@ export const globalFuncDefs: FuncDef[] = [
         name: "CONCAT",
         argAmount: 1,
         call: (task, args) => {
-            const bunches = args[0].getList();
-            if (bunches.getLength() <= 0) {
+            const bunchList = args[0].getList();
+            if (bunchList.getLength() <= 0) {
                 throw new ValueError("Cannot concatenate empty list of bunches.");
             }
-            const firstBunch = bunches.getMember(0).getKnownValue();
-            if (firstBunch instanceof PetString) {
-                const buffers = bunches.elements.map((element) => (
-                    element.getPetString().toBuffer()
-                ));
-                const result = new PetString(Buffer.concat(buffers));
-                return task.returnValue(result);
-            } else if (firstBunch instanceof PetList) {
-                const joinedElements: PetValue[] = [];
-                for (const listValue of bunches.elements) {
-                    const list = listValue.getList();
-                    for (const element of list.elements) {
-                        joinedElements.push(element);
-                    }
-                }
-                const result = new PetList(joinedElements);
-                return task.returnValue(result);
-            } else {
-                throw new PetTypeError("Concatenation bunches must be strings or lists.");
-            }
+            const firstBunch = bunchList.getMember(0).getSliceableBunch();
+            const bunches = bunchList.elements.map((value) => firstBunch.valueToSlice(value));
+            const result = firstBunch.concatBunches(bunches);
+            return task.returnValue(result);
+        },
+    },
+    {
+        name: "JOIN",
+        argAmount: 2,
+        call: (task, args) => {
+            const bunches = args[0].getList().elements;
+            const delim = args[1].getSliceableBunch();
+            const result = joinBunches(bunches, delim);
+            return task.returnValue(result);
+        },
+    },
+    {
+        name: "SPLIT",
+        argAmount: 2,
+        call: (task, args) => {
+            const bunch = args[0].getSliceableBunch();
+            const result = splitBunch(bunch, args[1]);
+            return task.returnValue(result);
         },
     },
     {

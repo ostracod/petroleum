@@ -928,6 +928,243 @@ LIST (10, 20, "text", 30)
 LIST (10, 20)
 LIST ()
 =========================
+>>> testCase "JOIN function with strings"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(JOIN(LIST("a", "b", "c"), ", "))
+PRINT(JOIN(LIST("abc", "def"), ""))
+PRINT(JOIN(LIST("abc"), ","))
+PRINT(JOIN(LIST("", ""), "-"))
+PRINT(JOIN(LIST("a", "", "b"), "-"))
+PRINT(JOIN(LIST("a", "b"), "\n"))
+PRINT(LEN(JOIN(LIST(""), ",")))
+PRINT(LEN(JOIN(LIST(), ",")))
+PRINT(TYPE(JOIN(LIST(), ",")))
+>>> expectPrint
+a, b, c
+abcdef
+abc
+-
+a--b
+a
+b
+0
+0
+#STR
+=========================
+>>> testCase "JOIN function with lists"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @list1 = (LIST(10, 20))
+WORK_VAR @list2 = (LIST("text"))
+WORK_VAR @delim = (LIST(0, NULL))
+WORK_VAR @result = (JOIN(LIST(list1, LIST(), list2), delim))
+PRINT(result)
+ADD_ELEM(result, 30)
+PRINT(result)
+PRINT(list1)
+PRINT(delim)
+WORK_VAR @single = (JOIN(LIST(list1), delim))
+PRINT(single)
+ADD_ELEM(single, 30)
+PRINT(list1)
+PRINT(JOIN(LIST(list1, list2), LIST()))
+PRINT(JOIN(LIST(LIST(), LIST()), delim))
+PRINT(JOIN(LIST(), delim))
+PRINT(TYPE(JOIN(LIST(), LIST())))
+>>> expectPrint
+LIST (10, 20, 0, NULL, 0, NULL, "text")
+LIST (10, 20, 0, NULL, 0, NULL, "text", 30)
+LIST (10, 20)
+LIST (0, NULL)
+LIST (10, 20)
+LIST (10, 20)
+LIST (10, 20, "text")
+LIST (0, NULL)
+LIST ()
+#LIST
+=========================
+>>> testCase "JOIN function with invalid types"
+>>> setupFile ~/targetPackage/main.petrol
+TRY {
+    JOIN("abc", ",")
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #ERROR_TYPE))
+    PRINT(MEMBER(excep, #MESSAGE))
+}
+TRY {
+    JOIN(LIST("a", LIST()), ",")
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #ERROR_TYPE))
+    PRINT(MEMBER(excep, #MESSAGE))
+}
+TRY {
+    JOIN(LIST(LIST(1)), ",")
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #ERROR_TYPE))
+    PRINT(MEMBER(excep, #MESSAGE))
+}
+TRY {
+    JOIN(LIST("a"), LIST())
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #ERROR_TYPE))
+    PRINT(MEMBER(excep, #MESSAGE))
+}
+TRY {
+    JOIN(LIST("a"), 5)
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #ERROR_TYPE))
+    PRINT(MEMBER(excep, #MESSAGE))
+}
+>>> expectPrint
+#TYPE_ERROR
+Expected list.
+#TYPE_ERROR
+Expected string.
+#TYPE_ERROR
+Expected string.
+#TYPE_ERROR
+Expected list.
+#TYPE_ERROR
+Expected string or list.
+=========================
+>>> testCase "SPLIT function with strings"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(SPLIT("a,b,c", ","))
+PRINT(SPLIT("a::b::c", "::"))
+PRINT(SPLIT(",a,,b,", ","))
+PRINT(SPLIT("abc", ","))
+PRINT(SPLIT("abc", "abcd"))
+PRINT(SPLIT("abc", "abc"))
+PRINT(SPLIT("", ","))
+PRINT(SPLIT("aaa", "aa"))
+PRINT(SPLIT("aaaa", "aa"))
+PRINT(SPLIT("a\nb", "\n"))
+>>> expectPrint
+LIST ("a", "b", "c")
+LIST ("a", "b", "c")
+LIST ("", "a", "", "b", "")
+LIST ("abc")
+LIST ("abc")
+LIST ("", "")
+LIST ("")
+LIST ("", "a")
+LIST ("", "", "")
+LIST ("a", "b")
+=========================
+>>> testCase "SPLIT function with lists"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST(1, 0, 2, 3, 0, 4))
+WORK_VAR @result = (SPLIT(myList, LIST(0)))
+PRINT(result)
+ADD_ELEM(MEMBER(result, 0), 5)
+PRINT(result)
+PRINT(myList)
+PRINT(SPLIT(LIST(1, 2, 3, 1, 2), LIST(1, 2)))
+PRINT(SPLIT(LIST("a", "b", "c"), LIST("x")))
+PRINT(SPLIT(LIST(1, "1", 1), LIST("1")))
+PRINT(SPLIT(LIST(0, 0), LIST(0)))
+PRINT(SPLIT(LIST(), LIST(0)))
+>>> expectPrint
+LIST (LIST (1), LIST (2, 3), LIST (4))
+LIST (LIST (1, 5), LIST (2, 3), LIST (4))
+LIST (1, 0, 2, 3, 0, 4)
+LIST (LIST (), LIST (3), LIST ())
+LIST (LIST ("a", "b", "c"))
+LIST (LIST (1), LIST (1))
+LIST (LIST (), LIST (), LIST ())
+LIST (LIST ())
+=========================
+>>> testCase "SPLIT function with empty string delimiter"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(SPLIT("abc", ""))
+PRINT(SPLIT("a", ""))
+PRINT(SPLIT("a,b", ""))
+PRINT(SPLIT("a\nb", ""))
+PRINT(SPLIT("", ""))
+PRINT(TYPE(MEMBER(SPLIT("ab", ""), 0)))
+PRINT(JOIN(SPLIT("abc", ""), "-"))
+>>> expectPrint
+LIST ("a", "b", "c")
+LIST ("a")
+LIST ("a", ",", "b")
+LIST ("a", "\n", "b")
+LIST ()
+#STR
+a-b-c
+=========================
+>>> testCase "SPLIT function with empty list delimiter"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST(1, "a", NULL))
+WORK_VAR @result = (SPLIT(myList, LIST()))
+PRINT(result)
+ADD_ELEM(MEMBER(result, 0), 5)
+PRINT(result)
+PRINT(myList)
+PRINT(SPLIT(LIST(LIST(1, 2)), LIST()))
+PRINT(SPLIT(LIST(), LIST()))
+PRINT(JOIN(SPLIT(LIST(1, 2, 3), LIST()), LIST(0)))
+>>> expectPrint
+LIST (LIST (1), LIST ("a"), LIST (NULL))
+LIST (LIST (1, 5), LIST ("a"), LIST (NULL))
+LIST (1, "a", NULL)
+LIST (LIST (LIST (1, 2)))
+LIST ()
+LIST (1, 0, 2, 0, 3)
+=========================
+>>> testCase "SPLIT function with invalid types"
+>>> setupFile ~/targetPackage/main.petrol
+TRY {
+    SPLIT(5, ",")
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #ERROR_TYPE))
+    PRINT(MEMBER(excep, #MESSAGE))
+}
+TRY {
+    SPLIT("abc", LIST())
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #ERROR_TYPE))
+    PRINT(MEMBER(excep, #MESSAGE))
+}
+TRY {
+    SPLIT(LIST(1), ",")
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #ERROR_TYPE))
+    PRINT(MEMBER(excep, #MESSAGE))
+}
+TRY {
+    SPLIT(LIST(1), NULL)
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #ERROR_TYPE))
+    PRINT(MEMBER(excep, #MESSAGE))
+}
+>>> expectPrint
+#TYPE_ERROR
+Expected string or list.
+#TYPE_ERROR
+Expected string.
+#TYPE_ERROR
+Expected list.
+#TYPE_ERROR
+Expected list.
+=========================
+>>> testCase "SPLIT and JOIN functions round trip"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT(JOIN(SPLIT("one two  three", " "), "_"))
+PRINT(JOIN(SPLIT(",a,,b,", ","), ","))
+PRINT(JOIN(SPLIT(LIST(1, 0, 2), LIST(0)), LIST(9, 9)))
+>>> expectPrint
+one_two__three
+,a,,b,
+LIST (1, 9, 9, 2)
+=========================
 >>> testCase "KEYS function"
 >>> setupFile ~/targetPackage/main.petrol
 WORK_VAR @mySymbol = (SYMBOL("mySymbol"))
