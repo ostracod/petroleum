@@ -804,6 +804,21 @@ export const globalProcDefs: ProcDef[] = [
         },
     },
     {
+        name: "IN_ENTRY_PACK",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 2);
+            assertWorkGradeExprs(comps, 1, 0);
+            return callDefaultPrep(task, worker);
+        },
+        eval: (task, worker, varSpace) => {
+            const pack = getPackage(worker);
+            const packPath = pack.getMember(symbols.DIR_PATH).toStringStrict();
+            const isEntryPack = (packPath === task.context.entryPackagePath);
+            return task.returnValue(isEntryPack ? 1n : 0n);
+        },
+    },
+    {
         name: "LOAD_MODULE",
         prep: (task, worker) => {
             const comps = worker.getMember(symbols.COMPS).getList();

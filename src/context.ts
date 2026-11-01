@@ -23,6 +23,7 @@ export interface ContextOptions {
 }
 
 export class PetContext {
+    entryPackagePath: string;
     applicationArgs: string[];
     logger: Logger;
     fileSystem: FileSystem;
@@ -46,6 +47,7 @@ export class PetContext {
         this.applicationArgs = applicationArgs;
         this.logger = options.logger ?? new ConsoleLogger();
         this.fileSystem = options.fileSystem ?? new HostFileSystem();
+        this.entryPackagePath = this.fileSystem.getAbsolutePath(entryPackagePath);
         const timeout = (typeof options.timeout === "undefined") ? null : options.timeout;
         this.timeoutTimestamp = (timeout === null) ? null : Date.now() / 1000 + timeout;
         this.scheduler = new Scheduler(this);
@@ -58,7 +60,7 @@ export class PetContext {
         this.excepsToReport = [];
         const packageResolver = new PackageResolver(
             this.fileSystem,
-            entryPackagePath,
+            this.entryPackagePath,
             this.globalScope,
         );
         const { entryPackage, exceptions } = packageResolver.resolvePackages();

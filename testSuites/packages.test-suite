@@ -675,3 +675,85 @@ PREP_VAR @version = <"1.0.0">
 >>> setupFile ~/targetPackage/main.petrol
 PRINT("This line is not reached")
 >>> expectError type: #STATE_ERROR message: "Package resolution encountered instability!"
+=========================
+>>> testCase "IN_ENTRY_PACK procedure"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        { "specifier": "testDev.lib", "version": "^1.0.0" }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/lib/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.lib",
+    "version": "1.0.0",
+    "mainModule": "./lib.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        { "specifier": "testDev.subLib", "version": "^1.0.0" }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/lib/v1.0.0/lib.petrol
+IMPORT_PACK <"testDev.subLib"> [VARS [@subLibInEntry]]
+PREP_VAR @libInEntry = <IN_ENTRY_PACK ()>
+PREP_FUNC @getLibInEntry {
+    RET (IN_ENTRY_PACK ())
+}
+IF (IN_ENTRY_PACK ()) {
+    PRINT("This line is not reached")
+}
+>>> setupFile ~/petroleumPackages/testDev/subLib/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.subLib",
+    "version": "1.0.0",
+    "mainModule": "./subLib.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/subLib/v1.0.0/subLib.petrol
+PREP_VAR @subLibInEntry = <IN_ENTRY_PACK ()>
+>>> setupFile ~/targetPackage/utils/helper.petrol
+PREP_VAR @helperInEntry = <IN_ENTRY_PACK ()>
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./utils/helper.petrol"> [VARS [@helperInEntry]]
+IMPORT_PACK <"testDev.lib"> AS @lib [VARS [@libInEntry, @getLibInEntry]]
+PRINT(IN_ENTRY_PACK ())
+PRINT(helperInEntry)
+PRINT(libInEntry)
+PRINT(GET <lib> subLibInEntry)
+COMMENT "The result depends on where the code is, not where it is called from."
+PRINT(getLibInEntry())
+>>> expectPrint
+1
+1
+0
+0
+0
+=========================
+>>> testCase "IN_ENTRY_PACK procedure with expression"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(IN_ENTRY_PACK (1))
+>>> expectError type: #SYNTAX_ERROR message: "Expected 0 expressions in sequence." lineNumber: 2
+=========================
+>>> testCase "IN_ENTRY_PACK procedure with statement sequence"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(IN_ENTRY_PACK {PRINT("This line is not reached")})
+>>> expectError type: #SYNTAX_ERROR message: "Expected expression sequence component." lineNumber: 2
+=========================
+>>> testCase "IN_ENTRY_PACK procedure with prep-grade expression sequence"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(IN_ENTRY_PACK <>)
+>>> expectError type: #SYNTAX_ERROR message: "Expected work-grade expression sequence component." lineNumber: 2
+=========================
+>>> testCase "IN_ENTRY_PACK procedure with too many components"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(IN_ENTRY_PACK () ())
+>>> expectError type: #SYNTAX_ERROR message: "Node has too many components." lineNumber: 2

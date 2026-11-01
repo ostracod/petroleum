@@ -375,15 +375,13 @@ export class PackageResolver {
     // Set of sorted keys of all selected packages concatenated together.
     previousStates: Set<string>;
     
+    // entryPackagePath must be an absolute path.
     constructor(fileSystem: FileSystem, entryPackagePath: string, globalScope: PetMap) {
         this.fileSystem = fileSystem;
         this.packageStorePath = pathUtils.join(
             this.fileSystem.getHomeDirectory(), "petroleumPackages",
         );
-        this.entryPackage = new PetPackage(
-            this.fileSystem,
-            this.fileSystem.getAbsolutePath(entryPackagePath),
-        );
+        this.entryPackage = new PetPackage(this.fileSystem, entryPackagePath);
         this.globalScope = globalScope;
         this.packageStoreCache = new Map();
     }

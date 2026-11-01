@@ -175,6 +175,12 @@ RESUME ($evalState)
 Resumes `$evalState`. The evaluation state of the current coroutine becomes `$evalState`. Control flow will not proceed to any statements which are after this procedure.
 
 ```
+IN_ENTRY_PACK ()
+```
+
+Returns whether the current module is in the entry package of the running application. The entry package is specified by the first argument of the Petroleum interpreter.
+
+```
 LOAD_MODULE ($specifier)
 ```
 
