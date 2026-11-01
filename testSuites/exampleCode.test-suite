@@ -67,7 +67,7 @@ PREP_VAR @repeatMethods = <MAP [FIELDS [
         WORK_VAR @count = (ADD(attrInt, exprInt))
         WHILE (GREATER(count, 0)) {
             CALL_METHOD(stmtsComp, #EVAL, LIST (frame))
-            SET count = (SUB(count, 1))
+            DEC count
         }
     })
 ]]>
@@ -213,7 +213,7 @@ PREP_FUNC @isPrime {
         IF (EQUAL(0, MOD(inputNum, factor))) {
             RET (FALSE)
         }
-        SET factor = (ADD(factor, 1))
+        INC factor
     }
     RET (TRUE)
 }
@@ -225,7 +225,7 @@ WHILE (LESS_EQUAL(num, 30)) {
         WORK_VAR @textList = (LIST (STR(num), " is prime!"))
         PRINT(CONCAT(textList))
     }
-    SET num = (ADD(num, 1))
+    INC num
 }
 >>> expectPrint
 2 is prime!
@@ -284,7 +284,7 @@ LIST (20, 10, 11, 21, 22, 12)
 IMPORT <"./repeat.petrol"> [VARS [@repeat]]
 WORK_VAR @sum = (0)
 repeat (ADD(1, 2)) [5] {
-    SET sum = (ADD(sum, 1))
+    INC sum
 }
 COMMENT "Prints 8."
 PRINT(sum)

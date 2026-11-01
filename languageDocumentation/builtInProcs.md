@@ -84,6 +84,13 @@ SET <$module> $name = ($value)
 Assigns `$value` to work-var `$name` in `$module`. The `#PREP` method of this procedure stores the destination variable in a `#DEST_VAR` field of the `SET` statement. The `#EVAL` method of this procedure accesses the `#DEST_VAR` field. If `<$module>` is excluded, the variable is visible in the current scope.
 
 ```
+INC $name BY ($int)
+DEC $name BY ($int)
+```
+
+Increases or decreases the value of work-var `$name` by `$int`. If `BY ($int)` is excluded, the offset is 1. The `#PREP` method of these procedures stores the variable in a `#VAR` field of the invocation statement. The `#EVAL` method of these procedures accesses the `#VAR` field.
+
+```
 IMPORT <$specifier> AS @$moduleName [VARS [$vars]]
 ```
 

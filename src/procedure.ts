@@ -2,11 +2,11 @@
 import "./method.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc } from "./value.js";
+import { PetValue, nullValue, toSignedInt64, PetString, PetList, PetMap, UserFunc } from "./value.js";
 import { MethodDict, createMethodMap, callDefaultPrep } from "./method.js";
-import { PetException, createBreakExcep, createContExcep, createSyntaxError, StateError } from "./exception.js";
+import { PetException, createBreakExcep, createContExcep, createSyntaxError, PetTypeError, StateError } from "./exception.js";
 import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getStmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp, getCompIdent, getAttrComps } from "./node.js";
-import { findVarValue, findModuleVarValue, getModuleVarValue, getScope, varIsInScope, getFuncSignature, setArgVarTypes } from "./variable.js";
+import { findVarValue, findModuleVarValue, getVariable, getModuleVarValue, getScope, varIsInScope, getFuncSignature, getResolvedVarType, setArgVarTypes } from "./variable.js";
 import { createMethodInvocation, callMethodTask, prepWorkersTask, workersVarsTask } from "./task.js";
 import { setProcPrepTask, awaitProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask, getFuncWorkers, funcProcPrepTask, tryProcEvalTask, importProcPrepTask, loadModuleProcTask } from "./procTask.js";
 
@@ -82,6 +82,86 @@ const readSetComps = (stmt: PetMap): SetProcParts => {
     }
     return output;
 };
+
+const addVarsToMap = (srcMap: PetMap, destMap: PetMap): void => {
+    const names = srcMap.getKeys();
+    for (const name of names) {
+        const variable = srcMap.getMember(name);
+        destMap.setMember(name, variable);
+    }
+};
+
+const createOffsetProcDef = (name: string, direction: number): ProcDef => ({
+    name,
+    prep: (task, worker) => {
+        const comps = worker.getMember(symbols.COMPS).getList();
+        assertMinCompAmount(comps, 2);
+        const varName = getCompIdent(comps, 1);
+        const scope = getScope(worker);
+        const variable = getVariable(scope, varName);
+        if (getResolvedVarType(variable) !== symbols.WORK_VAR) {
+            throw new PetTypeError(`${name} variable must be work-var.`);
+        }
+        worker.setMember(symbols.VAR, variable);
+        if (comps.getLength() <= 2) {
+            return task.returnValue(null);
+        }
+        assertCompAmount(comps, 4);
+        assertIdentComp(comps, 2, "BY");
+        const exprsComp = getWorkGradeExprs(comps, 3, 1);
+        return task.callMethod(
+            exprsComp, symbols.PREP, [],
+            (value) => task.returnValue(null),
+        );
+    },
+    eval: (task, worker, varSpace) => {
+        const comps = worker.getMember(symbols.COMPS).getList();
+        const variable = worker.getMember(symbols.VAR).getMap();
+        const frameEntry = findVarValue(varSpace, variable);
+        const applyOffset = (offset: bigint): void => {
+            let value = frameEntry.getMember(symbols.VALUE).getInt();
+            if (direction > 0) {
+                value += offset;
+            } else {
+                value -= offset;
+            }
+            frameEntry.setMember(symbols.VALUE, toSignedInt64(value));
+        };
+        if (comps.getLength() < 4) {
+            applyOffset(1n);
+            return task.returnValue(null);
+        }
+        const exprsComp = comps.getMember(3).getMap();
+        return task.callMethod(
+            exprsComp, symbols.EVAL, [varSpace],
+            (values) => {
+                const offset = values.getList().getMember(0).getInt();
+                applyOffset(offset);
+                return task.returnValue(null);
+            },
+        );
+    },
+    accessedVars: (task, worker, scope) => {
+        const comps = worker.getMember(symbols.COMPS).getList();
+        const variable = worker.getMember(symbols.VAR).getMap();
+        const varMap = new PetMap();
+        if (varIsInScope(variable, scope)) {
+            const varName = variable.getMember(symbols.IDENT).getPetString();
+            varMap.setMember(varName, variable);
+        }
+        if (comps.getLength() < 4) {
+            return task.returnValue(varMap);
+        }
+        const exprsComp = comps.getMember(3).getMap();
+        return task.callMethod(
+            exprsComp, symbols.ACCESSED_VARS, [scope],
+            (result) => {
+                addVarsToMap(result.getMap(), varMap);
+                return task.returnValue(varMap);
+            },
+        );
+    },
+});
 
 const setUpImportVar = (varAttr: PetMap, moduleVars: PetMap): void => {
     const comps = varAttr.getMember(symbols.COMPS).getList();
@@ -354,13 +434,8 @@ export const globalProcDefs: ProcDef[] = [
             }
             return task.callMethod(
                 exprsComp, symbols.ACCESSED_VARS, [scope],
-                (resultValue) => {
-                    const resultMap = resultValue.getMap();
-                    const names = resultMap.getKeys();
-                    for (const name of names) {
-                        const accessedVar = resultMap.getMember(name);
-                        varMap.setMember(name, accessedVar);
-                    }
+                (result) => {
+                    addVarsToMap(result.getMap(), varMap);
                     return task.returnValue(varMap);
                 },
             );
@@ -487,18 +562,15 @@ export const globalProcDefs: ProcDef[] = [
             }
             return task.callMethod(
                 valueComp, symbols.ACCESSED_VARS, [scope],
-                (resultValue) => {
-                    const resultMap = resultValue.getMap();
-                    const names = resultMap.getKeys();
-                    for (const name of names) {
-                        const accessedVar = resultMap.getMember(name);
-                        varMap.setMember(name, accessedVar);
-                    }
+                (result) => {
+                    addVarsToMap(result.getMap(), varMap);
                     return task.returnValue(varMap);
                 },
             );
         },
     },
+    createOffsetProcDef("INC", 1),
+    createOffsetProcDef("DEC", -1),
     {
         name: "IMPORT",
         prep: (task, worker) => task.runTask(

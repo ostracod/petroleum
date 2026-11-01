@@ -181,6 +181,35 @@ LIST ("var2")
 LIST ("localVar", "var2")
 LIST ("var1")
 =========================
+>>> testCase "ACCESSED_VARS method of INC and DEC procedures"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode, @varNames, @getComp, @getStmt]]
+WORK_VAR @var1 = (1)
+WORK_VAR @var2 = (2)
+capture "myStmt" {
+    WORK_VAR @localVar = (0)
+    INC var1
+    DEC var1 BY (var2)
+    INC localVar BY (var2)
+}
+CALL_METHOD(getComp("myStmt", 2), #PREP)
+WORK_VAR @scope = (SCOPE(MEMBER(capturedCode, "myStmt")))
+WORK_VAR @incStmt = (getStmt("myStmt", 1))
+PRINT(EQUAL(MEMBER(incStmt, #VAR), FIND_VAR(scope, "var1")))
+WORK_VAR @accessedVars = (CALL_METHOD(incStmt, #ACCESSED_VARS, LIST (scope)))
+PRINT(KEYS(accessedVars))
+PRINT(EQUAL(MEMBER(accessedVars, "var1"), FIND_VAR(scope, "var1")))
+PRINT(varNames(getStmt("myStmt", 2), scope))
+PRINT(varNames(getStmt("myStmt", 3), scope))
+PRINT(varNames(getStmt("myStmt", 3), SCOPE(getStmt("myStmt", 3))))
+>>> expectPrint
+1
+LIST ("var1")
+1
+LIST ("var1", "var2")
+LIST ("var2")
+LIST ("localVar", "var2")
+=========================
 >>> testCase "ACCESSED_VARS method of GET procedure"
 >>> setupFile ~/targetPackage/otherModule.petrol
 WORK_VAR @otherVar = (1)

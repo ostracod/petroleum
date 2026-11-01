@@ -11,7 +11,7 @@ PREP_FUNC @isPrime {
         IF (EQUAL(0, MOD(inputNum, factor))) {
             RET (FALSE)
         }
-        SET factor = (ADD(factor, 1))
+        INC factor
     }
     RET (TRUE)
 }
@@ -27,7 +27,7 @@ WHILE (LESS_EQUAL(num, 100)) {
     }
     WORK_VAR @textList = (LIST (STR(num), predicate))
     PRINT(CONCAT(textList))
-    SET num = (ADD(num, 1))
+    INC num
 }
 ```
 
@@ -255,7 +255,7 @@ PREP_VAR @repeatMethods = <MAP [FIELDS [
         WORK_VAR @count = (ADD(attrInt, exprInt))
         WHILE (GREATER(count, 0)) {
             CALL_METHOD(stmtsComp, #EVAL, LIST (frame))
-            SET count = (SUB(count, 1))
+            DEC count
         }
     })
 ]]>
@@ -267,7 +267,7 @@ PREP_VAR @repeat = <MAP [FIELDS [
 
 WORK_VAR @sum = (0)
 repeat (ADD(1, 2)) [5] {
-    SET sum = (ADD(sum, 1))
+    INC sum
 }
 COMMENT "Prints 8."
 PRINT(sum)

@@ -518,6 +518,116 @@ WORK_VAR @myVar
 SET myVar (1)
 >>> expectError type: #SYNTAX_ERROR message: "Node has too few components." lineNumber: 2
 =========================
+>>> testCase "INC and DEC procedures"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @count = (10)
+INC count
+PRINT(count)
+DEC count
+DEC count
+PRINT(count)
+INC count BY (5)
+PRINT(count)
+DEC count BY (20)
+PRINT(count)
+INC count BY (NEG(4))
+PRINT(count)
+COMMENT "The offset may read the variable itself."
+INC count BY (count)
+PRINT(count)
+COMMENT "The variable may be in an outer scope."
+WORK_VAR @index = (0)
+WHILE (LESS(index, 3)) {
+    INC index
+}
+PRINT(index)
+>>> expectPrint
+11
+9
+14
+-6
+-10
+-20
+3
+=========================
+>>> testCase "INC and DEC procedures with integer overflow"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myInt = (9223372036854775807)
+INC myInt
+PRINT(myInt)
+DEC myInt
+PRINT(myInt)
+DEC myInt BY (NEG(2))
+PRINT(myInt)
+>>> expectPrint
+-9223372036854775808
+9223372036854775807
+-9223372036854775807
+=========================
+>>> testCase "INC and DEC procedures with imported work-var"
+>>> setupFile ~/targetPackage/otherModule.petrol
+WORK_VAR @otherVar = (10)
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./otherModule.petrol"> AS @otherModule [VARS [otherVar AS @importedVar]]
+INC importedVar BY (5)
+PRINT(GET <otherModule> otherVar)
+DEC importedVar
+PRINT(importedVar)
+>>> expectPrint
+15
+14
+=========================
+>>> testCase "INC procedure with offset which waits for another coroutine"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @isPresent {
+    [ARGS [@member]]
+    RET (TRUE)
+}
+WORK_VAR @count = (0)
+WORK_VAR @offsets = (MAP [FIELDS []])
+SCHED {
+    INC count BY (10)
+    SET_MEMBER(offsets, "offset", 1)
+}
+COMMENT "The variable is read after the offset is evaluated, so the other increment is kept."
+INC count BY (AWAIT (offsets, "offset", isPresent, "Waiting for offset"))
+PRINT(count)
+>>> expectPrint
+11
+=========================
+>>> testCase "INC procedure with prep-var"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @myVar = <1>
+PRINT("This line is not reached")
+INC myVar
+>>> expectError type: #TYPE_ERROR message: "INC variable must be work-var." lineNumber: 3
+=========================
+>>> testCase "DEC procedure with imported prep-var"
+>>> setupFile ~/targetPackage/otherModule.petrol
+PREP_VAR @otherVar = <1>
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./otherModule.petrol"> [VARS [@otherVar]]
+DEC otherVar BY (2)
+>>> expectError type: #TYPE_ERROR message: "DEC variable must be work-var." lineNumber: 2
+=========================
+>>> testCase "INC procedure with wrong keyword"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myVar = (1)
+INC myVar TO (2)
+>>> expectError type: #SYNTAX_ERROR message: "Expected \"BY\" identifier component." lineNumber: 2
+=========================
+>>> testCase "INC procedure with missing offset"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myVar = (1)
+INC myVar BY
+>>> expectError type: #SYNTAX_ERROR message: "Node has too few components." lineNumber: 2
+=========================
+>>> testCase "DEC procedure with prep-grade offset"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myVar = (1)
+DEC myVar BY <2>
+>>> expectError type: #SYNTAX_ERROR message: "Expected work-grade expression sequence component." lineNumber: 2
+=========================
 >>> testCase "Fields stored by PREP, GET, and SET procedures"
 >>> setupFile ~/targetPackage/otherModule.petrol
 PREP_VAR @otherVar = <10>
