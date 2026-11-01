@@ -1,6 +1,7 @@
 
 import "./scheduler.js";
 
+import * as pathUtils from "path";
 import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, KnownValue, PetString, PetList, PetMap } from "./value.js";
 import { DefFunc, globalFuncDefs } from "./builtInFunc.js";
@@ -217,13 +218,25 @@ export class PetContext {
         this.scheduler.scheduleTask(prepModuleTask, { module });
     }
     
-    loadUserModule(parentPackage: PetMap, absModulePath: string): PetMap {
+    getUserModuleAbsPath(pack: PetMap, specifier: string): string {
+        const packPath = pack.getMember(symbols.DIR_PATH).toStringStrict();
+        return this.fileSystem.getAbsolutePath(pathUtils.join(packPath, specifier));
+    }
+    
+    getUserModule(absModulePath: string): PetMap | null {
         const userModuleIndex = this.userModuleIndexes.get(absModulePath);
-        if (typeof userModuleIndex !== "undefined") {
-            return this.userModules[userModuleIndex];
-        }
+        return (typeof userModuleIndex === "undefined")
+            ? null
+            : this.userModules[userModuleIndex];
+    }
+    
+    loadUserModule(
+        moduleContent: string,
+        parentPackage: PetMap,
+        absModulePath: string,
+    ): PetMap {
         const moduleParser = new ModuleParser(
-            this.fileSystem,
+            moduleContent,
             parentPackage,
             absModulePath,
             this.globalScope,

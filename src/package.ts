@@ -327,8 +327,9 @@ class PackageSelection {
             [symbols.DIR_PATH, new PetString(dirPath)],
         ]);
         const { globalScope } = this.resolver;
+        const moduleContent = this.pack.fileSystem.readFile(mainModulePath).toString();
         const moduleParser = new ModuleParser(
-            this.pack.fileSystem,
+            moduleContent,
             packageAsMap,
             mainModulePath,
             globalScope,

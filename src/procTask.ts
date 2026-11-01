@@ -1,10 +1,9 @@
 
 import "./task.js";
 
-import * as pathUtils from "path";
 import { PetSymbol, symbols } from "./symbol.js";
 import { KnownValue, PetValue, PetString, PetList, PetMap, ObservableBunch } from "./value.js";
-import { FileExistsFunc } from "./builtInFunc.js";
+import { UserModuleExistsFunc } from "./builtInFunc.js";
 import { SetProcParts, setUpImportVars } from "./procedure.js";
 import { PetTypeError, createBreakExcep } from "./exception.js";
 import { getPackage, assertMinCompAmount, getPrepGradeExprs } from "./node.js";
@@ -381,14 +380,20 @@ const importUserModuleTask: TaskDef<{ pack: PetMap, absPath: string }, null> = {
     stages: [
         (task) => {
             const { absPath } = task.params;
-            const condition = new FileExistsFunc(task.context.fileSystem, absPath);
-            const message = new PetString(`Waiting for ${absPath} to exist`);
+            const condition = new UserModuleExistsFunc(absPath);
+            const message = new PetString(`Waiting for module at ${absPath} to exist`);
             const nextAction = task.advanceStage(null);
             return task.spin(condition, message, nextAction);
         },
         (task) => {
             const { pack, absPath } = task.params;
-            const module = task.context.loadUserModule(pack, absPath);
+            let module = task.context.getUserModule(absPath);
+            if (module !== null) {
+                // This happens when a virtual module exists at absPath.
+                return task.returnValue(module);
+            }
+            const moduleContent = task.context.fileSystem.readFile(absPath).toString();
+            module = task.context.loadUserModule(moduleContent, pack, absPath);
             return task.returnValue(module);
         },
     ],
@@ -400,11 +405,7 @@ export const importModuleTask: TaskDef<{ pack: PetMap, specifier: KnownValue }, 
         (task) => {
             const { pack, specifier } = task.params;
             if (specifier instanceof PetString) {
-                const relPath = specifier.toString();
-                const packPath = pack.getMember(symbols.DIR_PATH).toStringStrict();
-                const absPath = task.context.fileSystem.getAbsolutePath(
-                    pathUtils.join(packPath, relPath),
-                );
+                const absPath = task.context.getUserModuleAbsPath(pack, specifier.toString());
                 return task.runTask(
                     importUserModuleTask, { pack, absPath },
                     (value) => {

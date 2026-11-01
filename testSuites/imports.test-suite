@@ -75,7 +75,7 @@ Evaluating lateModule
 >>> setupFile ~/targetPackage/main.petrol
 IMPORT <"./missingModule.petrol">
 PRINT("This line is not reached")
->>> expectStuck message: "Waiting for /home/testUser/targetPackage/missingModule.petrol to exist" lineNumber: 1
+>>> expectStuck message: "Waiting for module at /home/testUser/targetPackage/missingModule.petrol to exist" lineNumber: 1
 =========================
 >>> testCase "IMPORT procedure with missing variable"
 >>> setupFile ~/targetPackage/otherModule.petrol
@@ -380,3 +380,102 @@ Before load
 >>> setupFile ~/targetPackage/main.petrol
 LOAD_PACK ("testDev.missing")
 >>> expectError type: #VALUE_ERROR message: "Current package does not have dependency with specifier \"testDev.missing\"." lineNumber: 1
+=========================
+>>> testCase "VIRT_MODULE procedure"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#FILE_SYSTEM> [VARS [@EXISTS]]
+PREP_VAR @virtModule = <VIRT_MODULE (
+    "./virtModule.petrol",
+    "PRINT(\"Evaluating virtModule\")\nPREP_VAR @virtVar = <123>"
+)>
+PRINT(MEMBER(virtModule, #MODULE_TYPE))
+PRINT(MEMBER(virtModule, #FILE_PATH))
+PRINT(EQUAL(MEMBER(virtModule, #PACK), MEMBER(MODULE(MEMBER(virtModule, #STMTS_COMP)), #PACK)))
+PRINT(GET <virtModule> virtVar)
+PRINT(EQUAL(LOAD_MODULE ("./virtModule.petrol"), virtModule))
+COMMENT "The virtual module does not create a file."
+PRINT(EXISTS("./virtModule.petrol"))
+>>> expectPrint
+Evaluating virtModule
+#PETROL_MODULE
+/home/testUser/targetPackage/virtModule.petrol
+1
+123
+1
+0
+=========================
+>>> testCase "IMPORT procedure with virtual module created later"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./virtModule.petrol"> AS @virtModule [VARS [@virtVar]]
+PREP <RUN {
+    SCHED {
+        PRINT("Creating virtModule")
+        VIRT_MODULE (
+            "./virtModule.petrol",
+            "PRINT(\"Evaluating virtModule\")\nPREP_VAR @virtVar = <123>"
+        )
+    }
+}>
+PRINT(virtVar)
+PRINT(MEMBER(virtModule, #FILE_PATH))
+>>> expectPrint
+Creating virtModule
+Evaluating virtModule
+123
+/home/testUser/targetPackage/virtModule.petrol
+=========================
+>>> testCase "VIRT_MODULE procedure with module already loaded"
+>>> setupFile ~/targetPackage/otherModule.petrol
+PREP_VAR @otherVar = <1>
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @printError {
+    [ARGS [@specifier]]
+    TRY {
+        VIRT_MODULE (specifier, "PRINT(\"This line is not reached\")")
+    } CATCH {
+        [EXCEP @excep]
+        PRINT(LIST (MEMBER(excep, #ERROR_TYPE), MEMBER(excep, #MESSAGE)))
+    }
+}
+IMPORT <"./otherModule.petrol">
+PREP <RUN {
+    VIRT_MODULE ("./virtModule.petrol", "PREP_VAR @virtVar = <1>")
+    COMMENT "Virtual module"
+    printError("./virtModule.petrol")
+    COMMENT "Same path written differently"
+    printError("./sub/../virtModule.petrol")
+    COMMENT "Module loaded from file"
+    printError("./otherModule.petrol")
+    COMMENT "Current module"
+    printError("./main.petrol")
+}>
+>>> expectPrint
+LIST (#STATE_ERROR, "Module has already been loaded at /home/testUser/targetPackage/virtModule.petrol.")
+LIST (#STATE_ERROR, "Module has already been loaded at /home/testUser/targetPackage/virtModule.petrol.")
+LIST (#STATE_ERROR, "Module has already been loaded at /home/testUser/targetPackage/otherModule.petrol.")
+LIST (#STATE_ERROR, "Module has already been loaded at /home/testUser/targetPackage/main.petrol.")
+=========================
+>>> testCase "VIRT_MODULE procedure with file not yet loaded"
+>>> setupFile ~/targetPackage/otherModule.petrol
+PRINT("This line is not reached")
+>>> setupFile ~/targetPackage/main.petrol
+COMMENT "The virtual module takes the place of the file, which has not been loaded."
+PREP <VIRT_MODULE ("./otherModule.petrol", "PRINT(\"Evaluating virtual module\")")>
+PRINT(MEMBER(LOAD_MODULE ("./otherModule.petrol"), #FILE_PATH))
+>>> expectPrint
+Evaluating virtual module
+/home/testUser/targetPackage/otherModule.petrol
+=========================
+>>> testCase "VIRT_MODULE procedure after modules finish prep-phase"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("Before creation")
+VIRT_MODULE ("./virtModule.petrol", "PREP_VAR @virtVar = <1>")
+PRINT("This line is not reached")
+>>> expectPrint
+Before creation
+>>> expectError type: #STATE_ERROR message: "Cannot import module after all modules have finished prep-phase." lineNumber: 2
+=========================
+>>> testCase "VIRT_MODULE procedure with syntax error"
+>>> setupFile ~/targetPackage/main.petrol
+PREP <VIRT_MODULE ("./virtModule.petrol", "PRINT(1)\nPRINT(2")>
+>>> expectError type: #SYNTAX_ERROR path: ~/targetPackage/virtModule.petrol lineNumber: 2

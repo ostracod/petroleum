@@ -4,7 +4,7 @@ import "./method.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, nullValue, PetString, PetList, PetMap, UserFunc } from "./value.js";
 import { MethodDict, createMethodMap, callDefaultPrep } from "./method.js";
-import { PetException, createBreakExcep, createContExcep, createSyntaxError } from "./exception.js";
+import { PetException, createBreakExcep, createContExcep, createSyntaxError, StateError } from "./exception.js";
 import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getStmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp, getCompIdent, getAttrComps } from "./node.js";
 import { findVarValue, findModuleVarValue, getModuleVarValue, getScope, varIsInScope, getFuncSignature, setArgVarTypes } from "./variable.js";
 import { createMethodInvocation, callMethodTask, prepWorkersTask, workersVarsTask } from "./task.js";
@@ -836,7 +836,34 @@ export const globalProcDefs: ProcDef[] = [
                     return task.returnValue(mainModule);
                 },
             );
-            
+        },
+    },
+    {
+        name: "VIRT_MODULE",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 2);
+            assertWorkGradeExprs(comps, 1, 2);
+            return callDefaultPrep(task, worker);
+        },
+        eval: (task, worker, varSpace) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            const exprsComp = comps.getMember(1).getMap();
+            const pack = getPackage(worker);
+            return task.callMethod(
+                exprsComp, symbols.EVAL, [varSpace],
+                (values) => {
+                    const valueList = values.getList();
+                    const specifier = valueList.getMember(0).toStringStrict();
+                    const absPath = task.context.getUserModuleAbsPath(pack, specifier);
+                    if (task.context.hasUserModule(absPath)) {
+                        throw new StateError(`Module has already been loaded at ${absPath}.`);
+                    }
+                    const moduleContent = valueList.getMember(1).toStringStrict();
+                    const module = task.context.loadUserModule(moduleContent, pack, absPath);
+                    return task.returnValue(module);
+                },
+            );
         },
     },
     {

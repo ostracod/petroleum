@@ -4,7 +4,6 @@ import "./builtInModule.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { maxIntValue, toSignedInt64, PetValue, KnownValue, toPetValue, escapeChars, PetString, PetList, PetMap } from "./value.js";
 import { PetSyntaxError, ValueError } from "./exception.js";
-import { FileSystem } from "./fileSystem.js";
 
 interface ContentPos {
     lineNumber: bigint;
@@ -89,7 +88,6 @@ const createStmtsComp = (stmtSeqResult: StmtSeqResult, pos: ContentPos): PetMap 
 };
 
 export class ModuleParser {
-    fileSystem: FileSystem;
     parentPackage: PetValue;
     modulePath: string;
     globalScope: PetMap;
@@ -101,12 +99,12 @@ export class ModuleParser {
     
     // `modulePath` must be an absolute path.
     constructor(
-        fileSystem: FileSystem,
+        moduleContent: string,
         parentPackage: PetMap | PetValue,
         modulePath: string,
         globalScope: PetMap,
     ) {
-        this.fileSystem = fileSystem;
+        this.moduleContent = moduleContent;
         this.parentPackage = toPetValue(parentPackage);
         this.modulePath = modulePath;
         this.globalScope = globalScope;
@@ -542,7 +540,6 @@ export class ModuleParser {
     }
     
     parseModule(): PetMap {
-        this.moduleContent = this.fileSystem.readFile(this.modulePath).toString();
         this.contentIndex = 0;
         this.lineNumber = 1;
         this.columnNumber = 1;

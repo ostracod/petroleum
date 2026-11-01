@@ -94,7 +94,7 @@ Imports a built-in module or a module in the current package according to `$spec
 * `$externVarName AS @$internVarName`
     * Imports `$externVarName` from the external module, exposing the variable as `$internVarName` in the current module.
 
-If `$specifier` is a path to a missing file, the procedure will pause until the file is created.
+If `$specifier` is a path to a missing module, the procedure will pause until the module is created.
 
 ```
 IMPORT_PACK <$specifier> AS @$moduleName [VARS [$vars]]
@@ -185,6 +185,12 @@ LOAD_PACK ($specifier)
 ```
 
 Returns the main module of package `$specifier` in the package store. The version of the imported package depends on `petroleumPackage.json` in the current package.
+
+```
+VIRT_MODULE ($specifier, $content)
+```
+
+Creates and returns a virtual module which can be accessed using the `IMPORT` and `LOAD_MODULE` procedures. `$specifier` is a path relative to the current package root. `$content` is a string containing Petroleum code. `VIRT_MODULE` throws an error if a module has already been loaded at `$specifier`.
 
 ```
 COMMENT "$text"

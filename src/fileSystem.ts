@@ -75,7 +75,7 @@ export abstract class FileSystem {
     }
     
     replacePathTilde(path: string): string {
-        const parts = path.split(pathUtils.sep);
+        const parts = pathUtils.normalize(path).split(pathUtils.sep);
         if (parts[0] === "~") {
             parts[0] = this.getHomeDirectory();
         }

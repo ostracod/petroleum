@@ -8,7 +8,6 @@ import { getChildWorkers, getModule } from "./node.js";
 import { findVariable, findVarValue, getScope, createFrame } from "./variable.js";
 import { Action, Task, sortListTask } from "./task.js";
 import { PetContext } from "./context.js";
-import { FileSystem } from "./fileSystem.js";
 
 export interface FuncDef {
     name: string | null;
@@ -76,13 +75,11 @@ export class NotEqualFunc extends BuiltInFunc {
     }
 }
 
-export class FileExistsFunc extends BuiltInFunc {
-    fileSystem: FileSystem;
+export class UserModuleExistsFunc extends BuiltInFunc {
     path: string;
     
-    constructor(fileSystem: FileSystem, path: string) {
+    constructor(path: string) {
         super();
-        this.fileSystem = fileSystem;
         this.path = path;
     }
     
@@ -95,8 +92,10 @@ export class FileExistsFunc extends BuiltInFunc {
     }
     
     callBuiltIn(task: Task, args: PetValue[]): Action {
-        const result = this.fileSystem.entityExists(this.path);
-        return task.returnValue(result ? 1n : 0n);
+        const fileExists = task.context.fileSystem.entityExists(this.path);
+        // Take virtual modules into account.
+        const contextHasModule = task.context.hasUserModule(this.path);
+        return task.returnValue((fileExists || contextHasModule) ? 1n : 0n);
     }
 }
 
