@@ -369,6 +369,12 @@ CLONE_CODE($code)
 Returns a copy of `$code`. `$code` may be a node or a component. This function deeply copies all nested nodes, components, scopes, and variables. The copy of `$code` will retain the same parent. The `#PREP` method must not have been called on `$code` or workers in `$code`. This function is useful for implementing macros and generic functions.
 
 ```
+MODULE($code)
+```
+
+Returns the parent module of `$code`. `$code` may be a node or a component.
+
+```
 SCOPE($code)
 ```
 

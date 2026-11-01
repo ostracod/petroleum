@@ -242,3 +242,141 @@ PRINT("Hello from greeter")
 IMPORT_PACK <"testDev.greeter">
 >>> expectPrint
 Hello from greeter
+=========================
+>>> testCase "LOAD_MODULE procedure"
+>>> setupFile ~/targetPackage/otherModule.petrol
+PREP_VAR @otherVar = <10>
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./otherModule.petrol"> AS @otherModule
+IMPORT <#FILE_SYSTEM> AS @fileSystem
+COMMENT "The specifier is determined during work-phase."
+WORK_VAR @path = (CONCAT(LIST ("./other", "Module.petrol")))
+WORK_VAR @loadedModule = (LOAD_MODULE (path))
+PRINT(MEMBER(loadedModule, #FILE_PATH))
+PRINT(EQUAL(loadedModule, otherModule))
+WORK_VAR @loadedFileSystem = (LOAD_MODULE (#FILE_SYSTEM))
+PRINT(MEMBER(loadedFileSystem, #SYMBOL))
+PRINT(EQUAL(loadedFileSystem, fileSystem))
+>>> expectPrint
+/home/testUser/targetPackage/otherModule.petrol
+1
+#FILE_SYSTEM
+1
+=========================
+>>> testCase "LOAD_MODULE procedure during prep-phase"
+>>> setupFile ~/targetPackage/otherModule.petrol
+PRINT("Evaluating otherModule")
+PREP_VAR @otherVar = <10>
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @otherModule = <LOAD_MODULE ("./otherModule.petrol")>
+PRINT(MEMBER(otherModule, #FILE_PATH))
+PRINT(GET <otherModule> otherVar)
+>>> expectPrint
+Evaluating otherModule
+/home/testUser/targetPackage/otherModule.petrol
+10
+=========================
+>>> testCase "LOAD_MODULE procedure after modules finish prep-phase"
+>>> setupFile ~/targetPackage/otherModule.petrol
+PREP_VAR @otherVar = <10>
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("Before load")
+LOAD_MODULE ("./otherModule.petrol")
+PRINT("This line is not reached")
+>>> expectPrint
+Before load
+>>> expectError type: #STATE_ERROR message: "Cannot import module after all modules have finished prep-phase." lineNumber: 2
+=========================
+>>> testCase "LOAD_PACK procedure"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        { "specifier": "testDev.greeter", "version": "^1.0.0" }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/greeter/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.greeter",
+    "version": "1.0.0",
+    "mainModule": "./greeter.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/greeter/v1.0.0/greeter.petrol
+PREP_VAR @greeting = <"Hello">
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT_PACK <"testDev.greeter"> AS @greeter
+WORK_VAR @specifier = (CONCAT(LIST ("testDev.", "greeter")))
+WORK_VAR @loadedModule = (LOAD_PACK (specifier))
+PRINT(MEMBER(loadedModule, #FILE_PATH))
+PRINT(EQUAL(loadedModule, greeter))
+>>> expectPrint
+/home/testUser/petroleumPackages/testDev/greeter/v1.0.0/greeter.petrol
+1
+=========================
+>>> testCase "LOAD_PACK procedure during prep-phase"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        { "specifier": "testDev.greeter", "version": "^1.0.0" }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/greeter/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.greeter",
+    "version": "1.0.0",
+    "mainModule": "./greeter.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/greeter/v1.0.0/greeter.petrol
+PRINT("Evaluating greeter")
+PREP_VAR @greeting = <"Hello">
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @greeter = <LOAD_PACK ("testDev.greeter")>
+PRINT(GET <greeter> greeting)
+>>> expectPrint
+Evaluating greeter
+Hello
+=========================
+>>> testCase "LOAD_PACK procedure after modules finish prep-phase"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        { "specifier": "testDev.greeter", "version": "^1.0.0" }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/greeter/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.greeter",
+    "version": "1.0.0",
+    "mainModule": "./greeter.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/greeter/v1.0.0/greeter.petrol
+PREP_VAR @greeting = <"Hello">
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("Before load")
+LOAD_PACK ("testDev.greeter")
+PRINT("This line is not reached")
+>>> expectPrint
+Before load
+>>> expectError type: #STATE_ERROR message: "Cannot import module after all modules have finished prep-phase." lineNumber: 2
+=========================
+>>> testCase "LOAD_PACK procedure with missing dependency"
+>>> setupFile ~/targetPackage/main.petrol
+LOAD_PACK ("testDev.missing")
+>>> expectError type: #VALUE_ERROR message: "Current package does not have dependency with specifier \"testDev.missing\"." lineNumber: 1

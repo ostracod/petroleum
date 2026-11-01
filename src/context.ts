@@ -233,6 +233,21 @@ export class PetContext {
         return module;
     }
     
+    loadPack(parentPackage: PetMap, specifier: PetString): PetMap {
+        const depMap = parentPackage.getMember(symbols.DEPS).getMap();
+        const depPackValue = depMap.getOptionalMember(specifier);
+        if (typeof depPackValue === "undefined") {
+            throw new ValueError(`Current package does not have dependency with specifier ${specifier.toLiteral()}.`);
+        }
+        const depPackage = depPackValue.getMap();
+        const mainModule = depPackage.getMember(symbols.MAIN_MODULE).getMap();
+        const modulePath = mainModule.getMember(symbols.FILE_PATH).toStringStrict();
+        if (!this.hasUserModule(modulePath)) {
+            this.addUserModule(mainModule);
+        }
+        return mainModule;
+    }
+    
     handleUncaughtExcep(exception: PetMap): void {
         if (this.isPrepping) {
             this.excepsToReport.push(exception);

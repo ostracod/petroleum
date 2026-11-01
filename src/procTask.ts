@@ -394,6 +394,34 @@ const importUserModuleTask: TaskDef<{ pack: PetMap, absPath: string }, null> = {
     ],
 };
 
+export const importModuleTask: TaskDef<{ pack: PetMap, specifier: KnownValue }, null> = {
+    getInitState: (params) => null,
+    stages: [
+        (task) => {
+            const { pack, specifier } = task.params;
+            if (specifier instanceof PetString) {
+                const relPath = specifier.toString();
+                const packPath = pack.getMember(symbols.DIR_PATH).toStringStrict();
+                const absPath = task.context.fileSystem.getAbsolutePath(
+                    pathUtils.join(packPath, relPath),
+                );
+                return task.runTask(
+                    importUserModuleTask, { pack, absPath },
+                    (value) => {
+                        const module = value.getMap();
+                        return task.returnValue(module);
+                    },
+                );
+            } else if (specifier instanceof PetSymbol) {
+                const module = task.context.getBuiltInModule(specifier);
+                return task.returnValue(module);
+            } else {
+                throw new PetTypeError("Module specifier must be string or symbol.");
+            }
+        },
+    ],
+};
+
 interface ImportProcPrepState {
     specifier: KnownValue;
     module: PetMap | null;
@@ -418,32 +446,48 @@ export const importProcPrepTask: TaskDef<{ stmt: PetMap }, ImportProcPrepState> 
         },
         (task) => {
             const { specifier } = task.state;
-            if (specifier instanceof PetString) {
-                const relPath = specifier.toString();
-                const pack = getPackage(task.params.stmt);
-                const packPath = pack.getMember(symbols.DIR_PATH).toStringStrict();
-                const absPath = task.context.fileSystem.getAbsolutePath(
-                    pathUtils.join(packPath, relPath),
-                );
-                return task.runTask(
-                    importUserModuleTask, { pack, absPath },
-                    (value) => {
-                        const module = value.getMap();
-                        return task.advanceStage({ specifier, module });
-                    },
-                );
-            } else if (specifier instanceof PetSymbol) {
-                const module = task.context.getBuiltInModule(specifier);
-                return task.advanceStage({ specifier, module });
-            } else {
-                throw new PetTypeError("Module specifier must be string or symbol.");
-            }
+            const pack = getPackage(task.params.stmt);
+            return task.runTask(
+                importModuleTask, { pack, specifier },
+                (value) => task.advanceStage({ specifier, module: value.getMap() }),
+            );
         },
         (task) => {
             const { stmt } = task.params;
             const comps = stmt.getMember(symbols.COMPS).getList();
             setUpImportVars(comps, task.state.module!);
             return task.returnValue(null);
+        },
+    ],
+};
+
+interface LoadModuleProcParams {
+    expr: PetMap;
+    varSpace: PetMap;
+}
+
+export const loadModuleProcTask: TaskDef<LoadModuleProcParams, { specifier: KnownValue }> = {
+    getInitState: (params) => ({ specifier: null }),
+    stages: [
+        (task) => {
+            const { expr, varSpace } = task.params;
+            const comps = expr.getMember(symbols.COMPS).getList();
+            const exprsComp = comps.getMember(1).getMap();
+            return task.callMethod(
+                exprsComp, symbols.EVAL, [varSpace],
+                (values) => {
+                    const specifier = values.getList().getMember(0).getKnownValue();
+                    return task.advanceStage({ specifier });
+                },
+            );
+        },
+        (task) => {
+            const { specifier } = task.state;
+            const pack = getPackage(task.params.expr);
+            return task.runTask(
+                importModuleTask, { pack, specifier },
+                (value) => task.returnValue(value),
+            );
         },
     ],
 };

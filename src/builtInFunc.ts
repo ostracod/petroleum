@@ -4,7 +4,7 @@ import "./value.js";
 import { PetSymbol, symbols } from "./symbol.js";
 import { toSignedInt64, KnownValue, PetValue, wrapKnownValue, knownValueToLiteral, minIntValue, maxIntValue, stringToLiteral, compareValues, SliceableBunch, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
 import { PetTypeError, ValueError, StateError } from "./exception.js";
-import { getChildWorkers } from "./node.js";
+import { getChildWorkers, getModule } from "./node.js";
 import { findVariable, findVarValue, getScope, createFrame } from "./variable.js";
 import { Action, Task, sortListTask } from "./task.js";
 import { PetContext } from "./context.js";
@@ -1138,6 +1138,14 @@ export const globalFuncDefs: FuncDef[] = [
                 throw new PetTypeError("Parent scope must be map or null");
             }
             const result = createFrame(args[0].getMap(), parentScope);
+            return task.returnValue(result);
+        },
+    },
+    {
+        name: "MODULE",
+        argAmount: 1,
+        call: (task, args) => {
+            const result = getModule(args[0].getMap());
             return task.returnValue(result);
         },
     },

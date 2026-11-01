@@ -175,6 +175,18 @@ RESUME ($evalState)
 Resumes `$evalState`. The evaluation state of the current coroutine becomes `$evalState`. Control flow will not proceed to any statements which are after this procedure.
 
 ```
+LOAD_MODULE ($specifier)
+```
+
+Returns a built-in module or a module in the current package according to `$specifier`. `$specifier` is either a built-in module symbol or a path relative to the current package root.
+
+```
+LOAD_PACK ($specifier)
+```
+
+Returns the main module of package `$specifier` in the package store. The version of the imported package depends on `petroleumPackage.json` in the current package.
+
+```
 COMMENT "$text"
 ```
 

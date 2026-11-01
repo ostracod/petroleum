@@ -8,7 +8,7 @@ import { PetException, createBreakExcep, createContExcep, createSyntaxError } fr
 import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getStmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp, getCompIdent, getAttrComps } from "./node.js";
 import { findVarValue, findModuleVarValue, getModuleVarValue, getScope, varIsInScope, getFuncSignature, setArgVarTypes } from "./variable.js";
 import { createMethodInvocation, callMethodTask, prepWorkersTask, workersVarsTask } from "./task.js";
-import { setProcPrepTask, awaitProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask, getFuncWorkers, funcProcPrepTask, tryProcEvalTask, importProcPrepTask } from "./procTask.js";
+import { setProcPrepTask, awaitProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask, getFuncWorkers, funcProcPrepTask, tryProcEvalTask, importProcPrepTask, loadModuleProcTask } from "./procTask.js";
 
 interface ProcDef extends MethodDict {
     name: string;
@@ -512,19 +512,13 @@ export const globalProcDefs: ProcDef[] = [
             const comps = worker.getMember(symbols.COMPS).getList();
             assertMinCompAmount(comps, 2);
             const exprsComp = getPrepGradeExprs(comps, 1, 1);
+            const parentPackage = getPackage(worker);
             const scope = getScope(exprsComp);
             return task.callMethod(
                 exprsComp, symbols.EVAL, [scope],
                 (values) => {
-                    const specifier = values.getList().getMember(0);
-                    const parentPackage = getPackage(worker);
-                    const depMap = parentPackage.getMember(symbols.DEPS).getMap();
-                    const depPackage = depMap.getMember(specifier).getMap();
-                    const mainModule = depPackage.getMember(symbols.MAIN_MODULE).getMap();
-                    const modulePath = mainModule.getMember(symbols.FILE_PATH).toStringStrict();
-                    if (!task.context.hasUserModule(modulePath)) {
-                        task.context.addUserModule(mainModule);
-                    }
+                    const specifier = values.getList().getMember(0).getPetString();
+                    const mainModule = task.context.loadPack(parentPackage, specifier);
                     setUpImportVars(comps, mainModule);
                     return task.returnValue(null);
                 },
@@ -807,6 +801,42 @@ export const globalProcDefs: ProcDef[] = [
                     return evalState.actionToResume;
                 },
             );
+        },
+    },
+    {
+        name: "LOAD_MODULE",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 2);
+            assertWorkGradeExprs(comps, 1, 1);
+            return callDefaultPrep(task, worker);
+        },
+        eval: (task, worker, varSpace) => task.runTask(
+            loadModuleProcTask, { expr: worker, varSpace },
+            (value) => task.returnValue(value),
+        ),
+    },
+    {
+        name: "LOAD_PACK",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 2);
+            assertWorkGradeExprs(comps, 1, 1);
+            return callDefaultPrep(task, worker);
+        },
+        eval: (task, worker, varSpace) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            const exprsComp = comps.getMember(1).getMap();
+            const parentPackage = getPackage(worker);
+            return task.callMethod(
+                exprsComp, symbols.EVAL, [varSpace],
+                (values) => {
+                    const specifier = values.getList().getMember(0).getPetString();
+                    const mainModule = task.context.loadPack(parentPackage, specifier);
+                    return task.returnValue(mainModule);
+                },
+            );
+            
         },
     },
     {

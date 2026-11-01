@@ -196,6 +196,37 @@ PREP_VAR @cloneSelf = <MAP [FIELDS [
 cloneSelf
 >>> expectError type: #STATE_ERROR message: "Cannot clone code which has begun prepping." lineNumber: 6
 =========================
+>>> testCase "MODULE function"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> AS @testUtils [VARS [@capture, @capturedCode]]
+capture "topStmt"
+RUN {
+    capture "runStmt" (ADD(1, 2))
+}
+WORK_VAR @topStmt = (MEMBER(capturedCode, "topStmt"))
+WORK_VAR @mainModule = (MEMBER(SCOPE(topStmt), #MODULE))
+PRINT(MEMBER(MODULE(topStmt), #FILE_PATH))
+PRINT(EQUAL(MODULE(topStmt), mainModule))
+WORK_VAR @runStmt = (MEMBER(capturedCode, "runStmt"))
+PRINT(EQUAL(MODULE(runStmt), mainModule))
+WORK_VAR @exprsComp = (MEMBER(MEMBER(runStmt, #COMPS), 2))
+PRINT(EQUAL(MODULE(exprsComp), mainModule))
+PRINT(EQUAL(MODULE(MEMBER(MEMBER(exprsComp, #EXPRS), 0)), mainModule))
+PRINT(EQUAL(MODULE(MEMBER(mainModule, #STMTS_COMP)), mainModule))
+COMMENT "Code in another module belongs to that module."
+WORK_VAR @utilsStmtsComp = (MEMBER(testUtils, #STMTS_COMP))
+PRINT(EQUAL(MODULE(utilsStmtsComp), testUtils))
+PRINT(EQUAL(MODULE(MEMBER(MEMBER(utilsStmtsComp, #STMTS), 0)), testUtils))
+>>> expectPrint
+/home/testUser/targetPackage/main.petrol
+1
+1
+1
+1
+1
+1
+1
+=========================
 >>> testCase "SCOPE function"
 >>> setupFile ~/targetPackage/main.petrol
 IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode]]
