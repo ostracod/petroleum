@@ -56,6 +56,13 @@ export const getVarSpaceType = (varSpace: PetMap): VarSpaceType => {
     throw new PetTypeError("Invalid variable space.");
 };
 
+export const createStmtsCompFrame = (stmtsComp: PetMap, parentVarSpace: PetMap): PetMap => {
+    const scope = stmtsComp.getMember(symbols.SCOPE).getMap();
+    const varSpaceType = getVarSpaceType(parentVarSpace);
+    const parentFrame = (varSpaceType === VarSpaceType.Frame) ? parentVarSpace : null;
+    return createFrame(scope, parentFrame);
+};
+
 export const findVariable = (scope: PetMap, name: PetString): PetMap | null => {
     while (true) {
         const variables = scope.getMember(symbols.VARS).getMap();

@@ -117,6 +117,420 @@ WHILE (FALSE) {
 WHILE (TRUE)
 >>> expectError type: #SYNTAX_ERROR message: "Node has too few components." lineNumber: 1
 =========================
+>>> testCase "ITER procedure with list"
+>>> setupFile ~/targetPackage/main.petrol
+ITER (LIST ("a", NULL, LIST (1, 2))) {
+    [LOC @index, MEMBER @value]
+    PRINT(LIST (index, value))
+}
+ITER (LIST ()) {
+    PRINT("This line is not reached")
+}
+>>> expectPrint
+LIST (0, "a")
+LIST (1, NULL)
+LIST (2, LIST (1, 2))
+=========================
+>>> testCase "ITER procedure with string"
+>>> setupFile ~/targetPackage/main.petrol
+ITER ("Hi!") {
+    [LOC @index, MEMBER @charCode]
+    PRINT(LIST (index, charCode))
+}
+ITER ("") {
+    PRINT("This line is not reached")
+}
+>>> expectPrint
+LIST (0, 72)
+LIST (1, 105)
+LIST (2, 33)
+=========================
+>>> testCase "ITER procedure with map"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @mySymbol = (SYMBOL("mySymbol"))
+ITER (MAP [FIELDS [("a") = (1), (2) = ("b"), (mySymbol) = (NULL)]]) {
+    [LOC @key, MEMBER @value]
+    PRINT(LIST (key, value))
+}
+ITER (MAP [FIELDS []]) {
+    PRINT("This line is not reached")
+}
+>>> expectPrint
+LIST ("a", 1)
+LIST (2, "b")
+LIST (mySymbol, NULL)
+=========================
+>>> testCase "ITER procedure with optional attributes"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST (10, 20, 30))
+WORK_VAR @count = (0)
+ITER (myList) {
+    INC count
+}
+PRINT(count)
+ITER (myList) {
+    [MEMBER @value]
+    PRINT(value)
+}
+ITER (myList) {
+    [LOC @index]
+    PRINT(index)
+}
+ITER ("ab") {
+    [MEMBER @charCode, LOC @index]
+    PRINT(LIST (index, charCode))
+}
+>>> expectPrint
+3
+10
+20
+30
+0
+1
+2
+LIST (0, 97)
+LIST (1, 98)
+=========================
+>>> testCase "ITER procedure creates new variables for each iteration"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myList = (LIST (1, 2, 3))
+WORK_VAR @funcs = (LIST ())
+ITER (myList) {
+    [LOC @index, MEMBER @value]
+    WORK_VAR @doubled = (MUL(value, 2))
+    ADD_ELEM(funcs, FUNC {
+        RET (LIST (index, value, doubled))
+    })
+}
+ITER (funcs) {
+    [MEMBER @func]
+    PRINT(CALL(func, LIST ()))
+}
+COMMENT "Changing the variables does not change the list or the iteration."
+ITER (myList) {
+    [LOC @index, MEMBER @value]
+    PRINT(index)
+    SET value = (0)
+    SET index = (10)
+}
+PRINT(myList)
+>>> expectPrint
+LIST (0, 1, 2)
+LIST (1, 2, 4)
+LIST (2, 3, 6)
+0
+1
+2
+LIST (1, 2, 3)
+=========================
+>>> testCase "ITER procedure with BREAK and CONT"
+>>> setupFile ~/targetPackage/main.petrol
+ITER (LIST (1, 2, 3, 4, 5, 6)) {
+    [MEMBER @value]
+    IF (EQUAL(MOD(value, 2), 0)) {
+        CONT
+    }
+    IF (EQUAL(value, 5)) {
+        BREAK
+    }
+    PRINT(value)
+}
+ITER ("abcd") {
+    [LOC @index]
+    IF (EQUAL(index, 2)) {
+        BREAK
+    }
+    PRINT(index)
+}
+ITER (MAP [FIELDS [("a") = (1), ("b") = (2), ("c") = (3)]]) {
+    [LOC @key]
+    IF (EQUAL(key, "b")) {
+        CONT
+    }
+    PRINT(key)
+}
+COMMENT "BREAK only stops the innermost loop."
+ITER (LIST ("x", "y")) {
+    [MEMBER @outer]
+    ITER (LIST (1, 2, 3)) {
+        [MEMBER @inner]
+        IF (EQUAL(inner, 3)) {
+            BREAK
+        }
+        PRINT(LIST (outer, inner))
+    }
+}
+>>> expectPrint
+1
+3
+0
+1
+a
+c
+LIST ("x", 1)
+LIST ("x", 2)
+LIST ("y", 1)
+LIST ("y", 2)
+=========================
+>>> testCase "ITER procedure with RET"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @findIndex {
+    [ARGS [@myList, @target]]
+    ITER (myList) {
+        [LOC @index, MEMBER @value]
+        IF (EQUAL(value, target)) {
+            RET (index)
+        }
+    }
+    RET (NULL)
+}
+PRINT(findIndex(LIST ("a", "b", "c"), "b"))
+PRINT(findIndex(LIST ("a", "b", "c"), "d"))
+>>> expectPrint
+1
+NULL
+=========================
+>>> testCase "ITER procedure with list changed during iteration"
+>>> setupFile ~/targetPackage/main.petrol
+COMMENT "Elements added during iteration are visited."
+WORK_VAR @growingList = (LIST (1, 2))
+ITER (growingList) {
+    [MEMBER @value]
+    PRINT(value)
+    IF (LESS(value, 4)) {
+        ADD_ELEM(growingList, ADD(value, 2))
+    }
+}
+COMMENT "Iteration stops at the new end of the list."
+WORK_VAR @shrinkingList = (LIST (1, 2, 3, 4))
+ITER (shrinkingList) {
+    [MEMBER @value]
+    PRINT(value)
+    IF (EQUAL(value, 1)) {
+        DEL_ELEMS(shrinkingList, 2, 2)
+    }
+}
+>>> expectPrint
+1
+2
+3
+4
+5
+1
+2
+=========================
+>>> testCase "ITER procedure with fields added to map during iteration"
+>>> setupFile ~/targetPackage/main.petrol
+WORK_VAR @myMap = (MAP [FIELDS [("a") = (1), ("b") = (2)]])
+ITER (myMap) {
+    [LOC @key, MEMBER @value]
+    PRINT(LIST (key, value))
+    IF (EQUAL(key, "a")) {
+        COMMENT "Changing a field which has not been visited yet"
+        SET_MEMBER(myMap, "b", 20)
+        SET_MEMBER(myMap, "c", 3)
+    }
+    COMMENT "Adding a field while visiting the last field"
+    IF (EQUAL(key, "c")) {
+        SET_MEMBER(myMap, "d", 4)
+    }
+}
+PRINT(myMap)
+>>> expectPrint
+LIST ("a", 1)
+LIST ("b", 20)
+LIST ("c", 3)
+LIST ("d", 4)
+MAP [FIELDS [("a") = (1), ("b") = (20), ("c") = (3), ("d") = (4)]]
+=========================
+>>> testCase "ITER procedure with fields deleted from map during iteration"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @newMap {
+    RET (MAP [FIELDS [("a") = (1), ("b") = (2), ("c") = (3), ("d") = (4)]])
+}
+COMMENT "Usage: iterAndDelete($deleteKeys)"
+COMMENT "Iterates over a new map. When visiting each key in $deleteKeys,"
+COMMENT "deletes the listed keys. Prints the visited keys and the final map."
+PREP_FUNC @iterAndDelete {
+    [ARGS [@deleteKeys]]
+    WORK_VAR @myMap = (newMap())
+    WORK_VAR @visitedKeys = (LIST ())
+    ITER (myMap) {
+        [LOC @key]
+        ADD_ELEM(visitedKeys, key)
+        IF (HAS_KEY(deleteKeys, key)) {
+            ITER (MEMBER(deleteKeys, key)) {
+                [MEMBER @deleteKey]
+                DEL_FIELD(myMap, deleteKey)
+            }
+        }
+    }
+    PRINT(visitedKeys)
+    PRINT(KEYS(myMap))
+}
+COMMENT "Current field"
+iterAndDelete(MAP [FIELDS [("b") = (LIST ("b"))]])
+COMMENT "Next field"
+iterAndDelete(MAP [FIELDS [("b") = (LIST ("c"))]])
+COMMENT "Later field"
+iterAndDelete(MAP [FIELDS [("a") = (LIST ("c"))]])
+COMMENT "Earlier fields"
+iterAndDelete(MAP [FIELDS [("c") = (LIST ("a", "b"))]])
+COMMENT "Current and next fields"
+iterAndDelete(MAP [FIELDS [("b") = (LIST ("b", "c"))]])
+COMMENT "Current field, then previous field"
+iterAndDelete(MAP [FIELDS [("c") = (LIST ("c", "b"))]])
+COMMENT "Previous field, then current field"
+iterAndDelete(MAP [FIELDS [("c") = (LIST ("b", "c"))]])
+COMMENT "Each field when it is visited"
+iterAndDelete(MAP [FIELDS [
+    ("a") = (LIST ("a"))
+    ("b") = (LIST ("b"))
+    ("c") = (LIST ("c"))
+    ("d") = (LIST ("d"))
+]])
+COMMENT "Fields at different times"
+iterAndDelete(MAP [FIELDS [
+    ("a") = (LIST ("b"))
+    ("c") = (LIST ("c", "a"))
+]])
+COMMENT "Last field while visiting the last field"
+iterAndDelete(MAP [FIELDS [("d") = (LIST ("d"))]])
+>>> expectPrint
+LIST ("a", "b", "c", "d")
+LIST ("a", "c", "d")
+LIST ("a", "b", "d")
+LIST ("a", "b", "d")
+LIST ("a", "b", "d")
+LIST ("a", "b", "d")
+LIST ("a", "b", "c", "d")
+LIST ("c", "d")
+LIST ("a", "b", "d")
+LIST ("a", "d")
+LIST ("a", "b", "c", "d")
+LIST ("a", "d")
+LIST ("a", "b", "c", "d")
+LIST ("a", "d")
+LIST ("a", "b", "c", "d")
+LIST ()
+LIST ("a", "c", "d")
+LIST ("d")
+LIST ("a", "b", "c", "d")
+LIST ("a", "b", "c")
+=========================
+>>> testCase "ITER procedure with fields deleted and added during iteration"
+>>> setupFile ~/targetPackage/main.petrol
+COMMENT "Deleting every field and adding a new field"
+WORK_VAR @myMap = (MAP [FIELDS [("a") = (1), ("b") = (2), ("c") = (3)]])
+ITER (myMap) {
+    [LOC @key]
+    PRINT(key)
+    IF (EQUAL(key, "b")) {
+        DEL_FIELD(myMap, "a")
+        DEL_FIELD(myMap, "b")
+        DEL_FIELD(myMap, "c")
+        SET_MEMBER(myMap, "d", 4)
+    }
+}
+PRINT(myMap)
+COMMENT "A deleted key which is added again is visited again."
+SET myMap = (MAP [FIELDS [("a") = (1), ("b") = (2)]])
+ITER (myMap) {
+    [LOC @key, MEMBER @value]
+    PRINT(LIST (key, value))
+    IF (EQUAL(value, 1)) {
+        DEL_FIELD(myMap, "a")
+        SET_MEMBER(myMap, "a", 10)
+    }
+}
+PRINT(myMap)
+COMMENT "A field which is added and then deleted before being reached is not visited."
+SET myMap = (MAP [FIELDS [("a") = (1), ("b") = (2)]])
+ITER (myMap) {
+    [LOC @key]
+    PRINT(key)
+    IF (EQUAL(key, "a")) {
+        SET_MEMBER(myMap, "c", 3)
+        SET_MEMBER(myMap, "d", 4)
+        DEL_FIELD(myMap, "c")
+    }
+}
+PRINT(myMap)
+>>> expectPrint
+a
+b
+d
+MAP [FIELDS [("d") = (4)]]
+LIST ("a", 1)
+LIST ("b", 2)
+LIST ("a", 10)
+MAP [FIELDS [("b") = (2), ("a") = (10)]]
+a
+b
+d
+MAP [FIELDS [("a") = (1), ("b") = (2), ("d") = (4)]]
+=========================
+>>> testCase "ITER procedure with map changed by another coroutine during iteration"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @isPresent {
+    [ARGS [@member]]
+    RET (TRUE)
+}
+WORK_VAR @myMap = (MAP [FIELDS [("a") = (1), ("b") = (2), ("c") = (3)]])
+WORK_VAR @flags = (MAP [FIELDS []])
+SCHED {
+    PRINT("Changing map")
+    DEL_FIELD(myMap, "a")
+    DEL_FIELD(myMap, "b")
+    SET_MEMBER(myMap, "c", 30)
+    SET_MEMBER(myMap, "d", 4)
+    SET_MEMBER(flags, "done", TRUE)
+}
+ITER (myMap) {
+    [LOC @key, MEMBER @value]
+    PRINT(LIST (key, value))
+    IF (EQUAL(key, "a")) {
+        AWAIT (flags, "done", isPresent, "Waiting for map change")
+    }
+}
+>>> expectPrint
+LIST ("a", 1)
+Changing map
+LIST ("c", 30)
+LIST ("d", 4)
+=========================
+>>> testCase "ITER procedure with unknown attribute"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+ITER (LIST (1)) {
+    [INDEX @index]
+}
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected INDEX attribute." lineNumber: 3
+=========================
+>>> testCase "ITER procedure with duplicate attribute"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+ITER (LIST (1)) {
+    [MEMBER @value1, MEMBER @value2]
+}
+>>> expectError type: #SYNTAX_ERROR message: "Duplicate MEMBER attribute." lineNumber: 3
+=========================
+>>> testCase "ITER procedure with attribute missing declaration"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+ITER (LIST (1)) {
+    [LOC index]
+}
+>>> expectError type: #SYNTAX_ERROR message: "Expected declaration component." lineNumber: 3
+=========================
+>>> testCase "ITER procedure with prep-grade bunch"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+ITER <LIST (1)> {
+    PRINT(1)
+}
+>>> expectError type: #SYNTAX_ERROR message: "Expected work-grade expression sequence component." lineNumber: 2
+=========================
 >>> testCase "BREAK procedure"
 >>> setupFile ~/targetPackage/main.petrol
 WORK_VAR @count = (0)

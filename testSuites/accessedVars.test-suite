@@ -210,6 +210,23 @@ LIST ("var1", "var2")
 LIST ("var2")
 LIST ("localVar", "var2")
 =========================
+>>> testCase "ACCESSED_VARS method of ITER procedure"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <"./testUtils.petrol"> [VARS [@capture, @capturedCode, @varNames, @getComp, @getStmt]]
+WORK_VAR @myList = (LIST (1))
+WORK_VAR @total = (0)
+capture "myStmt" {
+    ITER (myList) {
+        [LOC @index, MEMBER @value]
+        SET total = (ADD(value, index))
+    }
+}
+CALL_METHOD(getComp("myStmt", 2), #PREP)
+WORK_VAR @scope = (SCOPE(MEMBER(capturedCode, "myStmt")))
+PRINT(varNames(getStmt("myStmt", 0), scope))
+>>> expectPrint
+LIST ("myList", "total")
+=========================
 >>> testCase "ACCESSED_VARS method of GET procedure"
 >>> setupFile ~/targetPackage/otherModule.petrol
 WORK_VAR @otherVar = (1)

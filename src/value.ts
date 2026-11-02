@@ -291,6 +291,7 @@ export interface SliceableBunchIface<T> {
     getLength(): number;
     getElement(index: number): T;
     valueToElement(value: PetValue): T;
+    elementToValue(element: T): PetValue;
     elementsAreEqual(element1: T, element2: T): boolean;
     slice(startIndex: number, endIndex: number): this;
     valueToSlice(value: PetValue): this;
@@ -302,6 +303,14 @@ export interface SliceableBunchIface<T> {
 // `KnownValue & SliceableBunchIface`, because type intersection in TypeScript
 // is not commutative...!
 export type SliceableBunch<T = any> = SliceableBunchIface<T> & KnownValue;
+
+export const getBunchElementValue = <T>(
+    bunch: SliceableBunch<T>,
+    index: number,
+): PetValue => {
+    const element = bunch.getElement(index);
+    return bunch.elementToValue(element);
+};
 
 export class PetString implements SliceableBunchIface<number> {
     // Either `text` or `buffer` are non-null.
@@ -331,6 +340,10 @@ export class PetString implements SliceableBunchIface<number> {
     
     valueToElement(value: PetValue): number {
         return value.toCharCode();
+    }
+    
+    elementToValue(element: number): PetValue {
+        return wrapKnownValue(BigInt(element));
     }
     
     elementsAreEqual(element1: number, element2: number): boolean {
@@ -650,6 +663,10 @@ export class PetList implements ObservableBunchIface, SliceableBunchIface<PetVal
         return value;
     }
     
+    elementToValue(element: PetValue): PetValue {
+        return element;
+    }
+    
     elementsAreEqual(element1: PetValue, element2: PetValue): boolean {
         return valuesAreEqual(element1.getKnownValue(), element2.getKnownValue());
     }
@@ -797,22 +814,65 @@ export class PetList implements ObservableBunchIface, SliceableBunchIface<PetVal
     }
 }
 
-class PetField {
+export class PetField {
+    parentMap: PetMap;
     key: KnownValue;
     value: PetValue;
+    // If isDeleted is false, previousField and nextField are also undeleted fields
+    // (as long as they are not null). If isDeleted is true, previousField and
+    // nextField may also have been deleted.
+    previousField: PetField | null;
+    nextField: PetField | null;
+    isDeleted: boolean;
     
-    constructor(key: KnownValue, value: PetValue) {
+    constructor(parentMap: PetMap, key: KnownValue, value: PetValue) {
+        this.parentMap = parentMap;
         this.key = key;
         this.value = value;
+        this.previousField = null;
+        this.nextField = null;
+        this.isDeleted = false;
+    }
+    
+    getNextUndeletedField(): PetField | null {
+        if (!this.isDeleted) {
+            return this.nextField;
+        }
+        // We iterate backward to the first undeleted field, flatten the connections,
+        // then return nextField of that field. This is more efficient than iterating
+        // forward, because we might add and delete fields after `this` an arbitrarily
+        // large number of times, but we will never add any fields before `this`.
+        const fieldsToFlatten: PetField[] = [this];
+        let field = this.previousField;
+        while (true) {
+            if (field === null) {
+                // Every field before and including `this` has been deleted.
+                return this.parentMap.firstField;
+            }
+            if (!field.isDeleted) {
+                break;
+            }
+            fieldsToFlatten.push(field);
+            field = field.previousField;
+        }
+        const undeletedField = field;
+        for (const fieldToFlatten of fieldsToFlatten) {
+            fieldToFlatten.previousField = undeletedField;
+        }
+        return undeletedField.nextField;
     }
 }
 
 export class PetMap implements ObservableBunchIface {
     fields: Map<MapKey, PetField>;
+    firstField: PetField | null;
+    lastField: PetField | null;
     observatory: MemberObservatory;
     
     constructor(entries: [KnownValue | PetValue, KnownValue | PetValue][] = []) {
         this.fields = new Map();
+        this.firstField = null;
+        this.lastField = null;
         this.observatory = new MemberObservatory(this);
         for (const entry of entries) {
             const key = toKnownValue(entry[0]);
@@ -841,8 +901,16 @@ export class PetMap implements ObservableBunchIface {
         let lastValue: PetValue | undefined;
         let field = this.fields.get(mapKey);
         if (typeof field === "undefined") {
-            field = new PetField(key, value);
+            field = new PetField(this, key, value);
             this.fields.set(mapKey, field);
+            if (this.lastField === null) {
+                this.firstField = field;
+                this.lastField = field;
+            } else {
+                this.lastField.nextField = field;
+                field.previousField = this.lastField;
+                this.lastField = field;
+            }
         } else {
             lastValue = field.value;
             field.value = value;
@@ -870,9 +938,22 @@ export class PetMap implements ObservableBunchIface {
     
     deleteField(key: KnownValue | PetValue): void {
         const mapKey = toMapKey(key);
-        if (!this.fields.has(mapKey)) {
+        const field = this.fields.get(mapKey);
+        if (typeof field === "undefined") {
             throw new ValueError(`Key ${toLiteral(key)} does not exist in map.`);
         }
+        const { previousField, nextField } = field;
+        if (previousField === null) {
+            this.firstField = nextField;
+        } else {
+            previousField.nextField = nextField;
+        }
+        if (nextField === null) {
+            this.lastField = previousField;
+        } else {
+            nextField.previousField = previousField;
+        }
+        field.isDeleted = true;
         this.fields.delete(mapKey);
     }
     

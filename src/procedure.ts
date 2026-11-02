@@ -5,10 +5,10 @@ import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, nullValue, toSignedInt64, PetString, PetList, PetMap, UserFunc } from "./value.js";
 import { MethodDict, createMethodMap, callDefaultPrep } from "./method.js";
 import { PetException, createBreakExcep, createContExcep, createSyntaxError, PetTypeError, StateError } from "./exception.js";
-import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getStmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp, getCompIdent, getLabeledAttrComps } from "./node.js";
+import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getStmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp, getCompIdent, getLabeledAttrComps, getLabeledAttrsComps } from "./node.js";
 import { findVarValue, findModuleVarValue, getVariable, getModuleVarValue, getScope, varIsInScope, getFuncSignature, getResolvedVarType, setArgVarTypes } from "./variable.js";
 import { createMethodInvocation, callMethodTask, prepWorkersTask, workersVarsTask } from "./task.js";
-import { setProcPrepTask, awaitProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask, getFuncWorkers, funcProcPrepTask, tryProcEvalTask, importProcPrepTask, loadModuleProcTask } from "./procTask.js";
+import { setProcPrepTask, awaitProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask, iterProcEvalTask, getFuncWorkers, funcProcPrepTask, tryProcEvalTask, importProcPrepTask, loadModuleProcTask } from "./procTask.js";
 
 interface ProcDef extends MethodDict {
     name: string;
@@ -253,6 +253,35 @@ const getIfProcClauses = (stmt: PetMap): IfProcClause[] => {
         const stmtsComp = comps.getMember(index).getMap();
         index += 1;
         output.push({ exprsComp, stmtsComp });
+    }
+    return output;
+};
+
+export interface IterProcParts {
+    bunchComp: PetMap;
+    stmtsComp: PetMap;
+    locVar?: PetMap;
+    memberVar?: PetMap;
+}
+
+const readIterComps = (stmts: PetMap): IterProcParts => {
+    const comps = stmts.getMember(symbols.COMPS).getList();
+    const bunchComp = comps.getMember(1).getMap();
+    const stmtsComp = comps.getMember(2).getMap();
+    const output: IterProcParts = { bunchComp, stmtsComp };
+    const attrs = stmtsComp.getMember(symbols.ATTRS).getList();
+    const labeledComps = getLabeledAttrsComps(attrs, ["LOC", "MEMBER"]);
+    const locComps = labeledComps.get("LOC");
+    if (typeof locComps !== "undefined") {
+        const declComp = locComps.getMember(1).getMap();
+        const locVar = declComp.getMember(symbols.VAR).getMap();
+        output.locVar = locVar;
+    }
+    const memberComps = labeledComps.get("MEMBER");
+    if (typeof memberComps !== "undefined") {
+        const declComp = memberComps.getMember(1).getMap();
+        const memberVar = declComp.getMember(symbols.VAR).getMap();
+        output.memberVar = memberVar;
     }
     return output;
 };
@@ -649,6 +678,30 @@ export const globalProcDefs: ProcDef[] = [
             const stmtsComp = comps.getMember(2).getMap();
             return task.runTask(
                 whileProcEvalTask, { exprsComp, stmtsComp, varSpace },
+                (value) => task.returnValue(null),
+            );
+        },
+    },
+    {
+        name: "ITER",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 3);
+            assertWorkGradeExprs(comps, 1, 1);
+            const stmtsComp = getStmtsComp(comps, 2, true);
+            const attrs = stmtsComp.getMember(symbols.ATTRS).getList();
+            const labeledComps = getLabeledAttrsComps(attrs, ["LOC", "MEMBER"]);
+            for (const attrComps of labeledComps.values()) {
+                const declComp = getDeclComp(attrComps, 1);
+                const variable = declComp.getMember(symbols.VAR).getMap();
+                variable.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);
+            }
+            return callDefaultPrep(task, worker);
+        },
+        eval: (task, worker, varSpace) => {
+            const parts = readIterComps(worker);
+            return task.runTask(
+                iterProcEvalTask, { parts, varSpace },
                 (value) => task.returnValue(null),
             );
         },

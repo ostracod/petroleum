@@ -2,13 +2,13 @@
 import "./task.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { KnownValue, PetValue, PetString, PetList, PetMap, ObservableBunch } from "./value.js";
+import { KnownValue, PetValue, SliceableBunch, getBunchElementValue, PetString, PetList, PetField, PetMap, ObservableBunch } from "./value.js";
 import { UserModuleExistsFunc } from "./builtInFunc.js";
-import { SetProcParts, setUpImportVars } from "./procedure.js";
+import { SetProcParts, IterProcParts, setUpImportVars } from "./procedure.js";
 import { PetTypeError, createBreakExcep } from "./exception.js";
 import { getPackage, assertMinCompAmount, getPrepGradeExprs, getLabeledAttrComps } from "./node.js";
-import { getVariable, getResolvedVarType, findVarValue, getScope, VarSpaceType, getVarSpaceType, createFrame, FuncSignature, getFuncSignature, setArgVarTypes } from "./variable.js";
-import { TaskDef, prepWorkersTask, workersVarsTask } from "./task.js";
+import { getVariable, getResolvedVarType, findVarValue, getScope, createStmtsCompFrame, FuncSignature, getFuncSignature, setArgVarTypes } from "./variable.js";
+import { TaskDef, Action, Task, prepWorkersTask, workersVarsTask } from "./task.js";
 
 export interface MapFieldComps {
     keyComp: PetMap;
@@ -220,24 +220,142 @@ export const whileIterEvalTask: TaskDef<WhileProcEvalParams, null> = {
     ],
 };
 
+const handleIterExceps = (task: Task, nextIteration: () => Action) => (
+    (excepValue: PetValue): Action => {
+        const exception = excepValue.getMap();
+        const excepType = exception.getMember(symbols.EXCEP_TYPE).getSymbol();
+        if (excepType === symbols.BREAK_EXCEP) {
+            return task.returnValue(null);
+        } else if (excepType === symbols.CONT_EXCEP) {
+            return nextIteration();
+        } else {
+            return task.throwException(excepValue);
+        }
+    }
+);
+
 export const whileProcEvalTask: TaskDef<WhileProcEvalParams, null> = {
     getInitState: (params) => null,
     stages: [
         (task) => task.runTask(
             whileIterEvalTask, task.params,
             (value) => task.repeatStage(null),
-            (excepValue) => {
-                const exception = excepValue.getMap();
-                const excepType = exception.getMember(symbols.EXCEP_TYPE).getSymbol();
-                if (excepType === symbols.BREAK_EXCEP) {
-                    return task.returnValue(null);
-                } else if (excepType === symbols.CONT_EXCEP) {
-                    return task.repeatStage(null);
-                } else {
-                    return task.throwException(excepValue);
-                }
-            },
+            handleIterExceps(task, () => task.repeatStage(null)),
         ),
+    ],
+};
+
+interface SliceableIterParams {
+    parts: IterProcParts;
+    varSpace: PetMap;
+    bunch: SliceableBunch;
+}
+
+const sliceableIterTask: TaskDef<SliceableIterParams, { index: number }> = {
+    getInitState: (params) => ({ index: 0 }),
+    stages: [
+        (task) => {
+            const { parts, varSpace, bunch } = task.params;
+            const { index } = task.state;
+            if (index >= bunch.getLength()) {
+                return task.returnValue(null);
+            }
+            const memberValue = getBunchElementValue(bunch, index);
+            const { stmtsComp, locVar, memberVar } = parts;
+            const frame = createStmtsCompFrame(stmtsComp, varSpace);
+            if (typeof locVar !== "undefined") {
+                const frameEntry = findVarValue(frame, locVar);
+                frameEntry.setMember(symbols.VALUE, BigInt(index));
+            }
+            if (typeof memberVar !== "undefined") {
+                const frameEntry = findVarValue(frame, memberVar);
+                frameEntry.setMember(symbols.VALUE, memberValue);
+            }
+            const nextIteration = () => task.repeatStage({ index: index + 1 });
+            return task.callMethod(
+                stmtsComp, symbols.EVAL, [frame],
+                (value) => nextIteration(),
+                handleIterExceps(task, nextIteration),
+            );
+        },
+    ],
+};
+
+interface MapIterParams {
+    parts: IterProcParts;
+    varSpace: PetMap;
+    bunch: PetMap;
+}
+
+const mapIterTask: TaskDef<MapIterParams, { field: PetField | null }> = {
+    getInitState: (params) => ({ field: params.bunch.firstField }),
+    stages: [
+        (task) => {
+            const { parts, varSpace } = task.params;
+            let { field } = task.state;
+            if (field !== null && field.isDeleted) {
+                field = field.getNextUndeletedField();
+            }
+            if (field === null) {
+                return task.returnValue(null);
+            }
+            const { stmtsComp, locVar, memberVar } = parts;
+            const frame = createStmtsCompFrame(stmtsComp, varSpace);
+            if (typeof locVar !== "undefined") {
+                const frameEntry = findVarValue(frame, locVar);
+                frameEntry.setMember(symbols.VALUE, field.key);
+            }
+            if (typeof memberVar !== "undefined") {
+                const frameEntry = findVarValue(frame, memberVar);
+                frameEntry.setMember(symbols.VALUE, field.value);
+            }
+            const nextIteration = () => task.repeatStage({
+                field: field.getNextUndeletedField(),
+            });
+            return task.callMethod(
+                stmtsComp, symbols.EVAL, [frame],
+                (value) => nextIteration(),
+                handleIterExceps(task, nextIteration),
+            );
+        },
+    ],
+};
+
+interface IterProcEvalParams {
+    parts: IterProcParts;
+    varSpace: PetMap;
+}
+
+export const iterProcEvalTask: TaskDef<IterProcEvalParams, { bunch: KnownValue }> = {
+    getInitState: (params) => ({ bunch: null }),
+    stages: [
+        (task) => {
+            const { parts, varSpace } = task.params;
+            return task.callMethod(
+                parts.bunchComp, symbols.EVAL, [varSpace],
+                (values) => {
+                    const bunch = values.getList().getMember(0).getKnownValue();
+                    return task.advanceStage({ bunch });
+                },
+            );
+        },
+        (task) => {
+            const { parts, varSpace } = task.params;
+            const { bunch } = task.state;
+            if (bunch instanceof PetString || bunch instanceof PetList) {
+                return task.runTask(
+                    sliceableIterTask, { parts, varSpace, bunch },
+                    (value) => task.returnValue(null),
+                );
+            } else if (bunch instanceof PetMap) {
+                return task.runTask(
+                    mapIterTask, { parts, varSpace, bunch },
+                    (value) => task.returnValue(null),
+                );
+            } else {
+                throw new PetTypeError("Bunch must be string, list, or map.");
+            }
+        },
     ],
 };
 
@@ -358,10 +476,7 @@ export const tryProcEvalTask: TaskDef<TryProcEvalParams, { exception: PetValue |
             } else {
                 excepVar = null;
             }
-            const scope = catchBody.getMember(symbols.SCOPE).getMap();
-            const varSpaceType = getVarSpaceType(varSpace);
-            const parentFrame = (varSpaceType === VarSpaceType.Frame) ? varSpace : null;
-            const frame = createFrame(scope, parentFrame);
+            const frame = createStmtsCompFrame(catchBody, varSpace);
             if (excepVar !== null) {
                 const frameEntry = findVarValue(frame, excepVar);
                 frameEntry.setMember(symbols.VALUE, task.state.exception);

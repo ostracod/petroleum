@@ -122,16 +122,34 @@ WHILE ($condition) {$body}
 Repeats evaluation of `$body` until `$condition` is false.
 
 ```
+ITER ($bunch) {[LOC @$loc, MEMBER @$member], $body}
+```
+
+Iterates over `$bunch`, evaluating `$body` for each member. `$loc` and `$member` are both work-vars. `$bunch` may have one of the following types:
+
+* If `$bunch` is a string:
+    * `$loc` is an index in the string.
+    * `$member` is the character code at the index.
+* If `$bunch` is a list:
+    * `$loc` is an index in the list.
+    * `$member` is the value at the index.
+* If `$bunch` is a map:
+    * `$loc` is a field key.
+    * `$member` is the field value.
+
+`LOC @$loc` and `MEMBER @$member` are both optional.
+
+```
 BREAK
 ```
 
-Throws a break exception, causing the parent `WHILE` procedure to stop.
+Throws a break exception, causing the parent `WHILE` or `ITER` procedure to stop.
 
 ```
 CONT
 ```
 
-Throws a continue exception, causing the parent `WHILE` procedure to skip to the next iteration.
+Throws a continue exception, causing the parent `WHILE` or `ITER` procedure to skip to the next iteration.
 
 ```
 RET ($value, $level?)
