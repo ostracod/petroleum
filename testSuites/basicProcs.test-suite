@@ -65,7 +65,7 @@ PRINT(MAP [FIELDS [("a") : (1)]])
 >>> testCase "MAP procedure with wrong attribute name"
 >>> setupFile ~/targetPackage/main.petrol
 PRINT(MAP [ITEMS [("a") = (1)]])
->>> expectError type: #SYNTAX_ERROR message: "Expected \"FIELDS\" identifier component." lineNumber: 1
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected ITEMS attribute." lineNumber: 1
 =========================
 >>> testCase "MAP procedure with too many key expressions"
 >>> setupFile ~/targetPackage/main.petrol

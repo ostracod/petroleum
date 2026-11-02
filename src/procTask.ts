@@ -6,7 +6,7 @@ import { KnownValue, PetValue, PetString, PetList, PetMap, ObservableBunch } fro
 import { UserModuleExistsFunc } from "./builtInFunc.js";
 import { SetProcParts, setUpImportVars } from "./procedure.js";
 import { PetTypeError, createBreakExcep } from "./exception.js";
-import { getPackage, assertMinCompAmount, getPrepGradeExprs } from "./node.js";
+import { getPackage, assertMinCompAmount, getPrepGradeExprs, getLabeledAttrComps } from "./node.js";
 import { getVariable, getResolvedVarType, findVarValue, getScope, VarSpaceType, getVarSpaceType, createFrame, FuncSignature, getFuncSignature, setArgVarTypes } from "./variable.js";
 import { TaskDef, prepWorkersTask, workersVarsTask } from "./task.js";
 
@@ -350,10 +350,9 @@ export const tryProcEvalTask: TaskDef<TryProcEvalParams, { exception: PetValue |
         (task) => {
             const { catchBody, varSpace } = task.params;
             const attrs = catchBody.getMember(symbols.ATTRS).getList();
+            const attrComps = getLabeledAttrComps(attrs, "EXCEP");
             let excepVar: PetMap | null;
-            if (attrs.getLength() === 1) {
-                const attr = attrs.getMember(0).getMap();
-                const attrComps = attr.getMember(symbols.COMPS).getList();
+            if (typeof attrComps !== "undefined") {
                 const declComp = attrComps.getMember(1).getMap();
                 excepVar = declComp.getMember(symbols.VAR).getMap();
             } else {

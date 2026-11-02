@@ -101,7 +101,7 @@ IMPORT <"./otherModule.petrol"> AS otherModule
 PREP_VAR @otherVar = <10>
 >>> setupFile ~/targetPackage/main.petrol
 IMPORT <"./otherModule.petrol"> [IMPORTS [@otherVar]]
->>> expectError type: #SYNTAX_ERROR message: "Expected \"VARS\" identifier component." lineNumber: 1
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected IMPORTS attribute." lineNumber: 1
 =========================
 >>> testCase "IMPORT procedure with variable rename using wrong keyword"
 >>> setupFile ~/targetPackage/otherModule.petrol

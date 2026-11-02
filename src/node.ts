@@ -304,16 +304,33 @@ export const assertIdentComp = (
     }
 };
 
-export const getAttrComps = (
-    attr: PetMap,
-    expectedText: string,
-    expectedAmount: number,
-): PetList => {
-    const comps = attr.getMember(symbols.COMPS).getList();
-    assertMinCompAmount(comps, 1, attr);
-    assertIdentComp(comps, 0, expectedText);
-    assertCompAmount(comps, expectedAmount, attr);
-    return comps;
+// Returns a map from label to list of components.
+export const getLabeledAttrsComps = (
+    attrs: PetList,
+    allowedLabels: string[],
+): Map<string, PetList> => {
+    const remainingLabels = new Set(allowedLabels);
+    const output = new Map<string, PetList>();
+    for (const attrValue of attrs.elements) {
+        const attr = attrValue.getMap();
+        const comps = attr.getMember(symbols.COMPS).getList();
+        const label = getCompIdent(comps, 0).toString();
+        if (!remainingLabels.has(label)) {
+            const message = allowedLabels.includes(label)
+                ? `Duplicate ${label} attribute.`
+                : `Unexpected ${label} attribute.`;
+            throw createSyntaxError(message, attr);
+        }
+        assertCompAmount(comps, 2, attr);
+        output.set(label, comps);
+        remainingLabels.delete(label);
+    }
+    return output;
+};
+
+export const getLabeledAttrComps = (attrs: PetList, label: string): PetList | undefined => {
+    const labeledComps = getLabeledAttrsComps(attrs, [label]);
+    return labeledComps.get(label);
 };
 
 

@@ -114,11 +114,11 @@ PRINT("This line is not reached")
 }, INIT {
     PRINT("This line is not reached")
 }]
->>> expectError type: #SYNTAX_ERROR message: "Module cannot have more than one attribute." lineNumber: 3
+>>> expectError type: #SYNTAX_ERROR message: "Duplicate INIT attribute." lineNumber: 3
 =========================
 >>> testCase "Module with unknown attribute"
 >>> setupFile ~/targetPackage/main.petrol
 [SETUP {
     PRINT("This line is not reached")
 }]
->>> expectError type: #SYNTAX_ERROR message: "Expected \"INIT\" identifier component." lineNumber: 1
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected SETUP attribute." lineNumber: 1

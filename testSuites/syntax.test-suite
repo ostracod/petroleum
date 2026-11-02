@@ -434,13 +434,13 @@ PRINT(2)
 >>> setupFile ~/targetPackage/main.petrol
 [FOO]
 PRINT(1)
->>> expectError type: #SYNTAX_ERROR message: "Expected \"INIT\" identifier component." lineNumber: 1
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected FOO attribute." lineNumber: 1
 =========================
 >>> testCase "Module attribute without identifier"
 >>> setupFile ~/targetPackage/main.petrol
 [(1)]
 PRINT(1)
->>> expectError type: #SYNTAX_ERROR message: "Expected \"INIT\" identifier component." lineNumber: 1
+>>> expectError type: #SYNTAX_ERROR message: "Expected identifier component." lineNumber: 1
 =========================
 >>> testCase "Tabs as whitespace"
 >>> setupFile ~/targetPackage/main.petrol
@@ -506,7 +506,7 @@ PRINT("This line is not reached")
     INIT {PRINT(2)}
 ]
 PRINT("This line is not reached")
->>> expectError type: #SYNTAX_ERROR message: "Module cannot have more than one attribute." lineNumber: 3
+>>> expectError type: #SYNTAX_ERROR message: "Duplicate INIT attribute." lineNumber: 3
 =========================
 >>> testCase "Unknown FUNC block attribute"
 >>> setupFile ~/targetPackage/main.petrol
@@ -515,7 +515,7 @@ PREP_VAR @myFunc = <FUNC {
     [FOO]
     RET (1)
 }>
->>> expectError type: #SYNTAX_ERROR message: "Expected \"ARGS\" identifier component." lineNumber: 3
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected FOO attribute." lineNumber: 3
 =========================
 >>> testCase "FUNC block attribute with too few components"
 >>> setupFile ~/targetPackage/main.petrol
@@ -533,7 +533,7 @@ TRY {
 } CATCH {
     [FOO]
 }
->>> expectError type: #SYNTAX_ERROR message: "Expected \"EXCEP\" identifier component." lineNumber: 4
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected FOO attribute." lineNumber: 4
 =========================
 >>> testCase "CATCH block attribute with too few components"
 >>> setupFile ~/targetPackage/main.petrol
@@ -548,7 +548,7 @@ TRY {
 >>> setupFile ~/targetPackage/main.petrol
 PRINT("This line is not reached")
 PRINT(MAP [FOO])
->>> expectError type: #SYNTAX_ERROR message: "Expected \"FIELDS\" identifier component." lineNumber: 2
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected FOO attribute." lineNumber: 2
 =========================
 >>> testCase "Unknown IMPORT attribute"
 >>> setupFile ~/targetPackage/main.petrol
@@ -556,4 +556,4 @@ PRINT("This line is not reached")
 IMPORT <"./otherModule.petrol"> [FOO]
 >>> setupFile ~/targetPackage/otherModule.petrol
 PREP_VAR @myVar = <1>
->>> expectError type: #SYNTAX_ERROR message: "Expected \"VARS\" identifier component." lineNumber: 2
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected FOO attribute." lineNumber: 2

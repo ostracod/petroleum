@@ -5,7 +5,7 @@ import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, PetString, PetMap } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
 import { AwaitException, createSyntaxError, PetTypeError, ValueError, StateError } from "./exception.js";
-import { assertMinCompAmount, assertCompAmount, assertIdentComp, getDeclComp, getAttrComps, getWorkGradeExprs } from "./node.js";
+import { assertCompAmount, assertIdentComp, getDeclComp, getLabeledAttrComps, getWorkGradeExprs } from "./node.js";
 
 export const createFrame = (scope: PetMap, parentFrame: PetMap | null): PetMap => {
     const permaFrameValue = scope.getOptionalMember(symbols.PERMA_FRAME);
@@ -253,7 +253,6 @@ const getFuncArgs = (attrsComp: PetMap): FuncArg[] => {
     return argAttrs.elements.map((attrValue) => {
         const argAttr = attrValue.getMap();
         const argComps = argAttr.getMember(symbols.COMPS).getList();
-        assertMinCompAmount(argComps, 1, argAttr);
         const declComp = getDeclComp(argComps, 0);
         const variable = declComp.getMember(symbols.VAR).getMap();
         let defaultValueExpr: PetMap | null;
@@ -270,19 +269,11 @@ const getFuncArgs = (attrsComp: PetMap): FuncArg[] => {
 
 export const getFuncSignature = (stmtsComp: PetMap): FuncSignature => {
     const attrs = stmtsComp.getMember(symbols.ATTRS).getList();
-    const attrAmount = attrs.getLength();
-    if (attrAmount <= 0) {
+    const attrComps = getLabeledAttrComps(attrs, "ARGS");
+    if (typeof attrComps === "undefined") {
         return { args: [], minArgAmount: 0, maxArgAmount: 0 };
     }
-    if (attrAmount > 1) {
-        throw createSyntaxError(
-            "Function procedure cannot have more than one block attribute.",
-            attrs.getMember(1).getMap(),
-        );
-    }
-    const attr = attrs.getMember(0).getMap();
-    const comps = getAttrComps(attr, "ARGS", 2);
-    const comp = comps.getMember(1).getMap();
+    const comp = attrComps.getMember(1).getMap();
     const compType = comp.getMember(symbols.COMP_TYPE).getSymbol();
     if (compType === symbols.ATTRS_COMP) {
         const args = getFuncArgs(comp);

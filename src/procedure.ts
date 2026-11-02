@@ -5,7 +5,7 @@ import { PetSymbol, symbols } from "./symbol.js";
 import { PetValue, nullValue, toSignedInt64, PetString, PetList, PetMap, UserFunc } from "./value.js";
 import { MethodDict, createMethodMap, callDefaultPrep } from "./method.js";
 import { PetException, createBreakExcep, createContExcep, createSyntaxError, PetTypeError, StateError } from "./exception.js";
-import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getStmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp, getCompIdent, getAttrComps } from "./node.js";
+import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getStmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp, getCompIdent, getLabeledAttrComps } from "./node.js";
 import { findVarValue, findModuleVarValue, getVariable, getModuleVarValue, getScope, varIsInScope, getFuncSignature, getResolvedVarType, setArgVarTypes } from "./variable.js";
 import { createMethodInvocation, callMethodTask, prepWorkersTask, workersVarsTask } from "./task.js";
 import { setProcPrepTask, awaitProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask, getFuncWorkers, funcProcPrepTask, tryProcEvalTask, importProcPrepTask, loadModuleProcTask } from "./procTask.js";
@@ -22,12 +22,20 @@ export const createProcedure = (procDef: ProcDef): PetMap => {
     ]);
 };
 
-const validateMapAttr = (attr: PetMap): void => {
-    const comps = getAttrComps(attr, "FIELDS", 2);
+const getMapFieldAttrs = (comps: PetList): PetMap[] => {
     const attrsComp = getAttrsComp(comps, 1);
-    const fieldAttrs = attrsComp.getMember(symbols.ATTRS).getList();
-    for (const fieldAttrValue of fieldAttrs.elements) {
-        const fieldAttr = fieldAttrValue.getMap();
+    const attrs = attrsComp.getMember(symbols.ATTRS).getList();
+    const attrComps = getLabeledAttrComps(attrs, "FIELDS");
+    if (typeof attrComps === "undefined") {
+        return [];
+    }
+    const fieldAttrsComp = getAttrsComp(attrComps, 1);
+    const fieldAttrs = fieldAttrsComp.getMember(symbols.ATTRS).getList();
+    return fieldAttrs.elements.map((fieldAttr) => fieldAttr.getMap());
+};
+
+const validateMapAttrs = (fieldAttrs: PetMap[]): void => {
+    for (const fieldAttr of fieldAttrs) {
         const fieldComps = fieldAttr.getMember(symbols.COMPS).getList();
         assertCompAmount(fieldComps, 3, fieldAttr);
         assertWorkGradeExprs(fieldComps, 0, 1);
@@ -36,13 +44,9 @@ const validateMapAttr = (attr: PetMap): void => {
     }
 };
 
-const getMapFieldComps = (attr: PetMap): MapFieldComps[] => {
-    const comps = attr.getMember(symbols.COMPS).getList();
-    const attrsComp = comps.getMember(1).getMap();
-    const fieldAttrs = attrsComp.getMember(symbols.ATTRS).getList();
+const getMapFieldComps = (fieldAttrs: PetMap[]): MapFieldComps[] => {
     const output: MapFieldComps[] = [];
-    for (const fieldAttrValue of fieldAttrs.elements) {
-        const fieldAttr = fieldAttrValue.getMap();
+    for (const fieldAttr of fieldAttrs) {
         const fieldComps = fieldAttr.getMember(symbols.COMPS).getList();
         output.push({
             keyComp: fieldComps.getMember(0).getMap(),
@@ -217,8 +221,8 @@ export const setUpImportVars = (comps: PetList, module: PetMap): void => {
     const moduleVars = moduleScope.getMember(symbols.VARS).getMap();
     const attrsComp = getAttrsComp(comps, compIndex);
     const attrs = attrsComp.getMember(symbols.ATTRS).getList();
-    for (const attr of attrs.elements) {
-        const attrComps = getAttrComps(attr.getMap(), "VARS", 2);
+    const attrComps = getLabeledAttrComps(attrs, "VARS");
+    if (typeof attrComps !== "undefined") {
         const varAttrsComp = getAttrsComp(attrComps, 1);
         const varAttrs = varAttrsComp.getMember(symbols.ATTRS).getList();
         for (const varAttrValue of varAttrs.elements) {
@@ -276,20 +280,14 @@ export const globalProcDefs: ProcDef[] = [
         prep: (task, worker) => {
             const comps = worker.getMember(symbols.COMPS).getList();
             assertCompAmount(comps, 2);
-            const attrs = getAttrsComp(comps, 1).getMember(symbols.ATTRS).getList();
-            for (const attr of attrs.elements) {
-                validateMapAttr(attr.getMap());
-            }
+            const fieldAttrs = getMapFieldAttrs(comps);
+            validateMapAttrs(fieldAttrs);
             return callDefaultPrep(task, worker);
         },
         eval: (task, worker, varSpace) => {
             const comps = worker.getMember(symbols.COMPS).getList();
-            const attrsComp = comps.getMember(1).getMap();
-            const attrs = attrsComp.getMember(symbols.ATTRS).getList();
-            const compsList: MapFieldComps[] = [];
-            for (const attr of attrs.elements) {
-                compsList.push(...getMapFieldComps(attr.getMap()));
-            }
+            const fieldAttrs = getMapFieldAttrs(comps);
+            const compsList = getMapFieldComps(fieldAttrs);
             return task.runTask(
                 mapProcEvalTask, { compsList, varSpace },
                 (value) => task.returnValue(value),
@@ -830,15 +828,8 @@ export const globalProcDefs: ProcDef[] = [
             assertIdentComp(comps, 2, "CATCH");
             const catchBody = getStmtsComp(comps, 3, true);
             const attrs = catchBody.getMember(symbols.ATTRS).getList();
-            const attrAmount = attrs.getLength();
-            if (attrAmount > 1) {
-                throw createSyntaxError(
-                    "CATCH body cannot have more than one block attribute.", catchBody,
-                );
-            }
-            if (attrAmount === 1) {
-                const attr = attrs.getMember(0).getMap();
-                const attrComps = getAttrComps(attr, "EXCEP", 2);
+            const attrComps = getLabeledAttrComps(attrs, "EXCEP");
+            if (typeof attrComps !== "undefined") {
                 const declComp = getDeclComp(attrComps, 1);
                 const variable = declComp.getMember(symbols.VAR).getMap();
                 variable.setMember(symbols.VAR_TYPE, symbols.WORK_VAR);

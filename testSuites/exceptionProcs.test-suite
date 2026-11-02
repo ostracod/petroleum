@@ -195,7 +195,7 @@ TRY {
 } CATCH {
     [EXCEPTION @excep]
 }
->>> expectError type: #SYNTAX_ERROR message: "Expected \"EXCEP\" identifier component." lineNumber: 4
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected EXCEPTION attribute." lineNumber: 4
 =========================
 >>> testCase "TRY procedure with too many block attributes"
 >>> setupFile ~/targetPackage/main.petrol
@@ -204,7 +204,7 @@ TRY {
 } CATCH {
     [EXCEP @excep1, EXCEP @excep2]
 }
->>> expectError type: #SYNTAX_ERROR message: "CATCH body cannot have more than one block attribute." lineNumber: 3
+>>> expectError type: #SYNTAX_ERROR message: "Duplicate EXCEP attribute." lineNumber: 4
 =========================
 >>> testCase "RESUME procedure"
 >>> setupFile ~/targetPackage/main.petrol
