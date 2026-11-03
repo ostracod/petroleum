@@ -1,38 +1,30 @@
 
 import "./procTask.js";
 
-import { symbols } from "./symbol.js";
-import { PetString, MemberObserver, PetMap, PetFunc, EvalState } from "./value.js";
-import { PetException, CoroEndException, TimeoutError, createSpinExcep } from "./exception.js";
+import { symbols, spinCountSymbol } from "./symbol.js";
+import { MemberObserver, PetMap, PetFunc, EvalState } from "./value.js";
+import { PetException, CoroEndException, TimeoutError } from "./exception.js";
 import { Action, TaskDef, handleExcepTask, spinCondTask } from "./task.js";
 import { PetContext } from "./context.js";
 
 export class Spinner {
-    condition: PetFunc;
-    message: PetString;
-    evalState: EvalState;
+    exception: PetMap;
+    
+    constructor(exception: PetMap) {
+        this.exception = exception;
+    }
+    
+    getCondition(): PetFunc {
+        return this.exception.getMember(symbols.COND).getFunc();
+    }
+    
+    getEvalState(): EvalState {
+        return this.exception.getMember(symbols.EVAL_STATE).getEvalState();
+    }
+    
     // When `Spinner` is held by a `Coroutine`, `spinCount` will always be defined.
-    spinCount?: number;
-    
-    constructor(
-        condition: PetFunc,
-        message: PetString,
-        evalState: EvalState,
-        spinCount?: number,
-    ) {
-        this.condition = condition;
-        this.message = message;
-        this.evalState = evalState;
-        this.spinCount = spinCount;
-    }
-    
-    createSpinExcep(): PetMap {
-        return createSpinExcep(this.condition, this.message, this.evalState, this.spinCount);
-    }
-    
-    getStuckReport(): string {
-        const header = "Stuck spinning: " + this.message.toString();
-        return header + "\n" + this.evalState.toString();
+    getSpinCount(): number | undefined {
+        return this.exception.getOptionalMember(spinCountSymbol)?.toNumber();
     }
 }
 
@@ -174,7 +166,7 @@ export class Scheduler {
         }
         let coroutine = this.spinCoros.firstCoro;
         while (coroutine !== null) {
-            if (coroutine.spinner!.spinCount! < 3) {
+            if (coroutine.spinner!.getSpinCount()! < 3) {
                 return false;
             }
             coroutine = coroutine.nextCoro;

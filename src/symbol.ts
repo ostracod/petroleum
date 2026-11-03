@@ -27,7 +27,7 @@ const symbolNames = [
     "PREP_PHASE", "PREP_VAR", "RET_EXCEP", "RET_LEVEL", "SCOPE", "SPECIFIER",
     "SPIN_EXCEP", "SRC_VAR", "STMT", "STMT_TYPE", "STMTS", "STMTS_COMP",
     "STR_COMP", "STR_EXPR", "VALUE", "VAR", "VAR_TYPE", "VARS", "VER",
-    "WORK_GRADE", "WORK_PHASE", "WORK_VAR",
+    "WORK_GRADE", "WORK_PHASE", "WORK_VAR", "WORKER_NODE",
 ];
 export const symbols: { [name: string]: PetSymbol } = {};
 for (const name of symbolNames) {

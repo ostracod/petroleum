@@ -129,6 +129,7 @@ Petroleum defines many symbols for keys and values in various data structures. S
 * `#WORK_GRADE` symbolizes work-grade.
 * `#WORK_PHASE` symbolizes work-phase.
 * `#WORK_VAR` symbolizes a work-var.
+* `#WORKER_NODE` symbolizes a worker node.
 
 Note that all built-in invocables are also built-in constants, but they will be described in later sections because this section is already long enough.
 

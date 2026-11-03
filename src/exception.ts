@@ -2,7 +2,7 @@
 import "./procedure.js";
 
 import { PetSymbol, symbols, spinCountSymbol } from "./symbol.js";
-import { KnownValue, PetValue, toPetValue, knownValueToLiteral, PetString, ObservableBunch, PetMap, PetFunc, EvalState } from "./value.js";
+import { KnownValue, PetValue, toPetValue, knownValueToLiteral, knownValueToMessage, PetString, ObservableBunch, PetMap, PetFunc, EvalState } from "./value.js";
 import { ConstantFunc } from "./builtInFunc.js";
 import { getModule } from "./node.js";
 import { Action } from "./task.js";
@@ -196,12 +196,23 @@ export const getExcepReport = (exception: PetMap): string => {
         const errorType = exception.getMember(symbols.ERROR_TYPE);
         const message = exception.getMember(symbols.MESSAGE).toMessage();
         output = `Encountered ${errorType.toLiteral()} error: ` + message;
+    } else if (excepType === symbols.AWAIT_EXCEP) {
+        output = "Stuck awaiting member";
+        const message = exception.getMember(symbols.MESSAGE).getKnownValue();
+        if (message !== null) {
+            output += ": " + knownValueToMessage(message);
+        }
+    } else if (excepType === symbols.SPIN_EXCEP) {
+        const message = exception.getMember(symbols.MESSAGE).toMessage();
+        output = "Stuck spinning: " + message;
     } else {
         output = `Encountered ${knownValueToLiteral(excepType)} exception.`;
     }
-    const stackTrace = exception.getMember(symbols.EVAL_STATE).getStackTrace().toString();
-    if (stackTrace.length > 0) {
-        output += "\n" + stackTrace;
+    const stackTrace = exception.getMember(symbols.EVAL_STATE).getStackTrace();
+    const startNode = exception.getOptionalMember(symbols.WORKER_NODE)?.getMap();
+    const stackTraceText = stackTrace.toString(startNode);
+    if (stackTraceText.length > 0) {
+        output += "\n" + stackTraceText;
     }
     return output;
 };

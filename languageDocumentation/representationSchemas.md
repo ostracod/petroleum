@@ -277,6 +277,8 @@ Exceptions are represented as maps. All exceptions have the following fields:
 * The `#EXCEP_TYPE` field stores the type of the exception. The type may be `#BREAK_EXCEP`, `#CONT_EXCEP`, `#RET_EXCEP`, `#SPIN_EXCEP`, `#AWAIT_EXCEP`, or `#ERROR_EXCEP`.
     * The user may also define their own exception types.
 * The `#EVAL_STATE` field stores the evaluation state from when the exception was first thrown.
+* The `#WORKER_NODE` field stores the worker node associated with the exception.
+    * If this field is included, stack trace entries beyond the node will not be reported to the user.
 
 Break exceptions and continue exceptions do not define any additional fields beyond the common exception fields. The `#EXCEP_TYPE` field stores `#BREAK_EXCEP` in a break exception, and `#CONT_EXCEP` in a continue exception.
 
@@ -287,7 +289,7 @@ Return exceptions have the following fields:
 * The `#RET_LEVEL` field stores the level of the return exception.
     * When a function invocation receives a return exception whose level is 0, the function invocation will return the value stored in the `#VALUE` field.
     * Otherwise if the level is above 0, the function invocation will decrement the level and rethrow the exception.
-* Return exceptions also have the `#EVAL_STATE` field which is common to all exceptions.
+* Return exceptions also have the `#EVAL_STATE` field which is common to all exceptions, and may have a `#WORKER_NODE` field too.
 
 Spin exceptions have the following fields:
 
@@ -296,6 +298,7 @@ Spin exceptions have the following fields:
     * The function accepts no arguments and returns a boolean.
 * The `#MESSAGE` field stores a human-readable string explaining why the coroutine paused.
 * The `#EVAL_STATE` field stores the evaluation state which the scheduler will resume.
+* Spin exceptions may also have the `#WORKER_NODE` field which is optional for all exceptions.
 
 Await exceptions have the following fields:
 
@@ -308,6 +311,7 @@ Await exceptions have the following fields:
 * The `#MESSAGE` field stores a human-readable string explaining why the coroutine paused.
     * If this field stores null, Petroleum will not report this exception to the user.
 * The `#EVAL_STATE` field stores the evaluation state which the scheduler will resume.
+* Await exceptions may also have the `#WORKER_NODE` field which is optional for all exceptions.
 
 Error exceptions have the following fields:
 
@@ -315,6 +319,6 @@ Error exceptions have the following fields:
 * The `#ERROR_TYPE` field stores the type of the error. The type may be `#SYNTAX_ERROR`, `#TYPE_ERROR`, `#VALUE_ERROR`, or `#STATE_ERROR`.
     * The user may also define their own error types.
 * The `#MESSAGE` field stores a human-readable string explaining the error.
-* Error exceptions also have the `#EVAL_STATE` field which is common to all exceptions.
+* Error exceptions also have the `#EVAL_STATE` field which is common to all exceptions, and may have a `#WORKER_NODE` field too.
 
 

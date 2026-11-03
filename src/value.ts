@@ -2,7 +2,7 @@
 import "./symbol.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { DeferralException, ModulePos, modulePosToString, entityToModulePos, entityPosToString, PetTypeError, ValueError, createAwaitExcep } from "./exception.js";
+import { DeferralException, ModulePos, modulePosToString, entityToModulePos, entityPosToString, PetTypeError, ValueError } from "./exception.js";
 import { createFrame, FuncSignature, getFuncSignature, pruneFrames } from "./variable.js";
 import { Action, Task, awaitCondTask, callUserFuncTask } from "./task.js";
 import { Scheduler } from "./scheduler.js";
@@ -517,42 +517,30 @@ const deferMember = (
 };
 
 export class MemberObserver {
-    bunch: ObservableBunch;
-    location: KnownValue;
-    condition: PetFunc;
-    message: PetString | null;
-    evalState: EvalState;
+    exception: PetMap;
     
-    constructor(
-        bunch: ObservableBunch,
-        location: KnownValue,
-        condition: PetFunc,
-        message: PetString | null,
-        evalState: EvalState,
-    ) {
-        this.bunch = bunch;
-        this.location = location;
-        this.condition = condition;
-        this.message = message;
-        this.evalState = evalState;
+    constructor(exception: PetMap) {
+        this.exception = exception;
+    }
+    
+    getBunch(): ObservableBunch {
+        return this.exception.getMember(symbols.BUNCH).getObservableBunch();
+    }
+    
+    getLocation(): KnownValue {
+        return this.exception.getMember(symbols.LOC).getKnownValue();
+    }
+    
+    getCondition(): PetFunc {
+        return this.exception.getMember(symbols.COND).getFunc();
+    }
+    
+    getEvalState(): EvalState {
+        return this.exception.getMember(symbols.EVAL_STATE).getEvalState();
     }
     
     getMemberValue(): PetValue | undefined {
-        return this.bunch.getOptionalMember(this.location);
-    }
-    
-    createAwaitExcep(): PetMap {
-        return createAwaitExcep(
-            this.bunch, this.location, this.condition, this.message, this.evalState,
-        );
-    }
-    
-    getStuckReport(): string {
-        let header = "Stuck awaiting member";
-        if (this.message !== null) {
-            header += ": " + this.message.toString();
-        }
-        return header + "\n" + this.evalState.toString();
+        return this.getBunch().getOptionalMember(this.getLocation());
     }
 }
 
@@ -566,23 +554,17 @@ class MemberObservatory {
         this.observers = new Map();
     }
     
-    addObserver(
-        scheduler: Scheduler,
-        location: KnownValue,
-        condition: PetFunc,
-        message: PetString | null,
-        evalState: EvalState,
-    ): void {
+    addObserver(scheduler: Scheduler, exception: PetMap): void {
         this.scheduler = scheduler;
+        const location = exception.getMember(symbols.LOC).getKnownValue();
+        const message = exception.getMember(symbols.MESSAGE).getStringOrNull();
         const mapKey = knownValueToMapKey(location);
         let observers = this.observers.get(mapKey);
         if (typeof observers === "undefined") {
             observers = [];
             this.observers.set(mapKey, observers);
         }
-        const observer = new MemberObserver(
-            this.bunch, location, condition, message, evalState,
-        );
+        const observer = new MemberObserver(exception);
         observers.push(observer);
         if (message !== null) {
             this.scheduler.observersToReport.add(observer);
@@ -1063,20 +1045,29 @@ export class UserFunc extends PetFunc {
     }
 }
 
+interface StackTraceEntry {
+    modulePos: ModulePos;
+    workerNode?: PetMap;
+}
+
 export abstract class StackTrace {
     
-    abstract getEntries(): ModulePos[];
+    abstract getEntriesHelper(): StackTraceEntry[];
     
-    getTopEntry(): ModulePos | undefined {
-        const entries = this.getEntries();
-        return (entries.length > 0) ? entries[0] : undefined;
+    getEntries(startNode?: PetMap): StackTraceEntry[] {
+        const entries = this.getEntriesHelper();
+        if (typeof startNode === "undefined") {
+            return entries;
+        }
+        const startIndex = entries.findIndex((entry) => (entry.workerNode === startNode));
+        return (startIndex < 0) ? entries : entries.slice(startIndex);
     }
     
-    toString(): string {
-        const lines = this.getEntries().map((pos, index) => {
+    toString(startNode?: PetMap): string {
+        const lines = this.getEntries(startNode).map((entry, index) => {
             const isFirstEntry = (index === 0);
             const prefix = isFirstEntry ? "On " : "Called from ";
-            return prefix + modulePosToString(pos, isFirstEntry);
+            return prefix + modulePosToString(entry.modulePos, isFirstEntry);
         });
         return lines.join("\n");
     }
@@ -1094,11 +1085,8 @@ export class EvalState extends StackTrace {
         this.pos = pos;
     }
     
-    getEntries(): ModulePos[] {
-        const output: ModulePos[] = [];
-        if (typeof this.pos !== "undefined") {
-            output.push(this.pos);
-        }
+    getEntriesHelper(): StackTraceEntry[] {
+        const output: StackTraceEntry[] = [];
         let task: Task | null = this.currentTask;
         let topNode: PetMap | null = null;
         while (task !== null) {
@@ -1107,19 +1095,30 @@ export class EvalState extends StackTrace {
                 if (typeof taskNode !== "undefined") {
                     topNode = taskNode;
                     const nodePos = entityToModulePos(taskNode);
-                    if (typeof this.pos === "undefined"
-                            || nodePos.lineNumber !== this.pos.lineNumber
-                            || nodePos.modulePath !== this.pos.modulePath) {
-                        output.push(nodePos);
-                    }
+                    output.push({
+                        modulePos: nodePos,
+                        workerNode: taskNode,
+                    });
                 }
             } else {
                 const { callerNode } = task.members;
                 if (typeof callerNode !== "undefined") {
-                    output.push(entityToModulePos(callerNode));
+                    const nodePos = entityToModulePos(callerNode);
+                    output.push({
+                        modulePos: nodePos,
+                        workerNode: callerNode,
+                    });
                 }
             }
             task = task.members.parentTask;
+        }
+        if (typeof this.pos !== "undefined") {
+            const firstPos = output[0]?.modulePos;
+            if (typeof firstPos === "undefined"
+                    || firstPos.lineNumber !== this.pos.lineNumber
+                    || firstPos.modulePath !== this.pos.modulePath) {
+                output.unshift({ modulePos: this.pos });
+            }
         }
         return output;
     }
@@ -1133,10 +1132,10 @@ export class PackageResolverTrace extends StackTrace {
         this.pos = pos;
     }
     
-    getEntries(): ModulePos[] {
-        const output: ModulePos[] = [];
+    getEntriesHelper(): StackTraceEntry[] {
+        const output: StackTraceEntry[] = [];
         if (typeof this.pos !== "undefined") {
-            output.push(this.pos);
+            output.push({ modulePos: this.pos });
         }
         return output;
     }

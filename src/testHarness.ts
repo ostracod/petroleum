@@ -4,9 +4,8 @@ import "./fileSystem.js";
 import * as fs from "fs";
 import * as pathUtils from "path";
 import { symbols } from "./symbol.js";
-import { knownValueToLiteral, MemberObserver, PetMap } from "./value.js";
+import { knownValueToLiteral, knownValueToMessage, PetMap } from "./value.js";
 import { ModulePos, modulePosToString, getExcepReport } from "./exception.js";
-import { Spinner } from "./scheduler.js";
 import { ContextOptions, PetContext } from "./context.js";
 import { getPathParent, VirtualFileSystem } from "./fileSystem.js";
 
@@ -21,50 +20,24 @@ export abstract class Logger {
     
     abstract reportExceptionHelper(exception: PetMap): void;
     
-    abstract reportObserverHelper(observer: MemberObserver): void;
-    
-    abstract reportSpinnerHelper(spinner: Spinner): void;
-    
     reportException(exception: PetMap): void {
         this.reportExceptionHelper(exception);
-        this.hasReportedProblem = true;
-    }
-    
-    reportObserver(observer: MemberObserver): void {
-        this.reportObserverHelper(observer);
-        this.hasReportedProblem = true;
-    }
-    
-    reportSpinner(spinner: Spinner): void {
-        this.reportSpinnerHelper(spinner);
         this.hasReportedProblem = true;
     }
 }
 
 export class ConsoleLogger extends Logger {
     
-    reportProblem(description: string): void {
-        if (!this.hasReportedProblem) {
-            console.log("");
-        }
-        console.log(description);
-        console.log("");
-    }
-    
     print(message: string): void {
         console.log(message);
     }
     
     reportExceptionHelper(exception: PetMap): void {
-        this.reportProblem(getExcepReport(exception));
-    }
-    
-    reportObserverHelper(observer: MemberObserver): void {
-        this.reportProblem(observer.getStuckReport());
-    }
-    
-    reportSpinnerHelper(spinner: Spinner): void {
-        this.reportProblem(spinner.getStuckReport());
+        if (!this.hasReportedProblem) {
+            console.log("");
+        }
+        console.log(getExcepReport(exception));
+        console.log("");
     }
 }
 
@@ -127,6 +100,13 @@ class TestSticker extends TestProblem {
     }
 }
 
+const getExcepTopPos = (exception: PetMap): ModulePos | undefined => {
+    const stackTrace = exception.getMember(symbols.EVAL_STATE).getStackTrace();
+    const startNode = exception.getOptionalMember(symbols.WORKER_NODE)?.getMap();
+    const entries = stackTrace.getEntries(startNode);
+    return (entries.length > 0) ? entries[0].modulePos : undefined;
+};
+
 export class TestLogger extends Logger {
     printMessages: string[];
     exceptions: TestException[];
@@ -146,32 +126,22 @@ export class TestLogger extends Logger {
     }
     
     reportExceptionHelper(exception: PetMap): void {
-        const stackTrace = exception.getMember(symbols.EVAL_STATE).getStackTrace();
-        const pos = stackTrace.getTopEntry();
+        const pos = getExcepTopPos(exception);
         const excepType = exception.getMember(symbols.EXCEP_TYPE).getKnownValue();
         if (excepType === symbols.ERROR_EXCEP) {
             const errorType = exception.getMember(symbols.ERROR_TYPE).toLiteral();
             const message = exception.getMember(symbols.MESSAGE).toMessage();
             const testError = new TestError(errorType, message, pos);
             this.errors.push(testError);
+        } else if (excepType === symbols.AWAIT_EXCEP || excepType === symbols.SPIN_EXCEP) {
+            const messageValue = exception.getMember(symbols.MESSAGE).getKnownValue();
+            const message = (messageValue === null) ? "" : knownValueToMessage(messageValue);
+            const testSticker = new TestSticker(message, pos);
+            this.stickers.push(testSticker);
         } else {
             const testException = new TestException(knownValueToLiteral(excepType), pos);
             this.exceptions.push(testException);
         }
-    }
-    
-    reportObserverHelper(observer: MemberObserver): void {
-        const message = observer.message?.toString() ?? "";
-        const pos = observer.evalState.getTopEntry()!;
-        const sticker = new TestSticker(message, pos);
-        this.stickers.push(sticker);
-    }
-    
-    reportSpinnerHelper(spinner: Spinner): void {
-        const message = spinner.message.toString();
-        const pos = spinner.evalState.getTopEntry()!;
-        const sticker = new TestSticker(message, pos);
-        this.stickers.push(sticker);
     }
     
     getPrintLines(): string[] {

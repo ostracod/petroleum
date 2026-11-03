@@ -5,7 +5,7 @@ import { PetSymbol, symbols, spinCountSymbol } from "./symbol.js";
 import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, nullValue, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, UserFunc, EvalState, valueMayHaveChanged } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
 import { getMethodWithDefault } from "./method.js";
-import { PetSyntaxError, ValueError, StateError, createSyntaxError } from "./exception.js";
+import { createAwaitExcep, createSpinExcep, PetSyntaxError, ValueError, StateError, createSyntaxError } from "./exception.js";
 import { workerIsInvocation, getWorkerMethodMap, getFuncArgsComp, getStmtsComp, getLabeledAttrComps } from "./node.js";
 import { createFrame, VarSpaceType, getVarSpaceType, getVariable, findVarValue, getVarValue, getScope } from "./variable.js";
 import { Spinner } from "./scheduler.js";
@@ -136,7 +136,8 @@ export class Task<ParamsT = any, StateT = any> {
     
     spin(condition: PetFunc, message: PetString, nextAction: Action): Action {
         const evalState = new EvalState(this, nextAction);
-        const spinner = new Spinner(condition, message, evalState);
+        const exception = createSpinExcep(condition, message, evalState);
+        const spinner = new Spinner(exception);
         return this.runTask(
             spinCondTask, { spinner },
             (value) => nextAction,
@@ -150,13 +151,14 @@ export class Task<ParamsT = any, StateT = any> {
         message: string | PetString | null,
         nextAction: Action,
     ): Action {
-        const observer = new MemberObserver(
+        const exception = createAwaitExcep(
             bunch,
             toKnownValue(location),
             condition,
             (typeof message === "string") ? new PetString(message) : message,
             new EvalState(this, nextAction),
         );
+        const observer = new MemberObserver(exception);
         return this.runTask(
             awaitCondTask, { observer },
             (value) => nextAction,
@@ -540,10 +542,10 @@ export const awaitCondTask: TaskDef<{ observer: MemberObserver }, null> = {
             const { observer } = task.params;
             const memberValue = observer.getMemberValue();
             if (typeof memberValue === "undefined") {
-                return task.throwException(observer.createAwaitExcep());
+                return task.throwException(observer.exception);
             }
             return task.callFunction(
-                observer.condition, [memberValue],
+                observer.getCondition(), [memberValue],
                 (returnValue) => {
                     if (returnValue.getInt() === 0n) {
                         const newMemberValue = observer.getMemberValue();
@@ -551,10 +553,10 @@ export const awaitCondTask: TaskDef<{ observer: MemberObserver }, null> = {
                                 && valueMayHaveChanged(memberValue, newMemberValue)) {
                             return task.repeatStage(null);
                         } else {
-                            return task.throwException(observer.createAwaitExcep());
+                            return task.throwException(observer.exception);
                         }
                     } else {
-                        return observer.evalState.actionToResume;
+                        return observer.getEvalState().actionToResume;
                     }
                 },
             );
@@ -568,12 +570,12 @@ export const spinCondTask: TaskDef<{ spinner: Spinner }, null> = {
         (task) => {
             const { spinner } = task.params;
             return task.callFunction(
-                spinner.condition, [],
+                spinner.getCondition(), [],
                 (returnValue) => {
                     if (returnValue.getInt() === 0n) {
-                        return task.throwException(spinner.createSpinExcep());
+                        return task.throwException(spinner.exception);
                     } else {
-                        return spinner.evalState.actionToResume;
+                        return spinner.getEvalState().actionToResume;
                     }
                 },
             );
@@ -800,22 +802,16 @@ export const handleExcepTask: TaskDef<{ exception: PetValue }, null> = {
             const { scheduler } = task.context;
             const exception = task.params.exception.getMap();
             const excepType = exception.getMember(symbols.EXCEP_TYPE).getKnownValue();
-            const evalState = exception.getMember(symbols.EVAL_STATE).getEvalState();
             if (excepType === symbols.SPIN_EXCEP) {
-                const condition = exception.getMember(symbols.COND).getFunc();
-                const message = exception.getMember(symbols.MESSAGE).getPetString();
+                const excepCopy = exception.shallowCopy();
                 const countValue = exception.getOptionalMember(spinCountSymbol);
                 const count = (countValue?.toNumber() ?? 0) + 1;
-                const spinner = new Spinner(condition, message, evalState, count);
+                excepCopy.setMember(spinCountSymbol, BigInt(count));
+                const spinner = new Spinner(excepCopy);
                 scheduler.scheduleSpinner(spinner);
             } else if (excepType === symbols.AWAIT_EXCEP) {
                 const bunch = exception.getMember(symbols.BUNCH).getObservableBunch();
-                const location = exception.getMember(symbols.LOC).getKnownValue();
-                const condition = exception.getMember(symbols.COND).getFunc();
-                const message = exception.getMember(symbols.MESSAGE).getStringOrNull();
-                bunch.observatory.addObserver(
-                    scheduler, location, condition, message, evalState,
-                );
+                bunch.observatory.addObserver(scheduler, exception);
             } else {
                 task.context.handleUncaughtExcep(exception);
             }

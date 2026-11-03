@@ -155,12 +155,12 @@ export class PetContext {
             }
         } else {
             for (const observer of this.scheduler.observersToReport) {
-                this.logger.reportObserver(observer);
+                this.logger.reportException(observer.exception);
             }
             if (isStuckSpinning) {
                 let coroutine = this.scheduler.spinCoros.firstCoro;
                 while (coroutine !== null) {
-                    this.logger.reportSpinner(coroutine.spinner!);
+                    this.logger.reportException(coroutine.spinner!.exception);
                     coroutine = coroutine.nextCoro;
                 }
             }
