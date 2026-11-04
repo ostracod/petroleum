@@ -3,7 +3,7 @@ import "./value.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
 import { toSignedInt64, KnownValue, PetValue, wrapKnownValue, knownValueToLiteral, minIntValue, maxIntValue, stringToLiteral, compareValues, SliceableBunch, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
-import { PetTypeError, ValueError, StateError } from "./exception.js";
+import { PetTypeError, ValueError, StateError, getExcepReport } from "./exception.js";
 import { getChildWorkers, getModule } from "./node.js";
 import { findVariable, findVarValue, getScope, createFrame } from "./variable.js";
 import { Action, Task, sortListTask } from "./task.js";
@@ -1092,6 +1092,15 @@ export const globalFuncDefs: FuncDef[] = [
                 worker, methodKey, methodArgs,
                 (value) => task.returnValue(value),
             );
+        },
+    },
+    {
+        name: "EXCEP_TO_STR",
+        argAmount: 1,
+        call: (task, args) => {
+            const exception = args[0].getMap();
+            const result = getExcepReport(exception);
+            return task.returnValue(new PetString(result));
         },
     },
     {

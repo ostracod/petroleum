@@ -722,7 +722,6 @@ interface EvalFuncParams {
 
 export const evalFuncTask: TaskDef<EvalFuncParams, { args: PetValue[] | null }> = {
     getInitState: (params) => ({ args: null }),
-    getNodes: (params) => ({ taskNode: params.invocNode }),
     stages: [
         (task) => {
             const argsComp = getFuncArgsComp(task.params.invocNode);

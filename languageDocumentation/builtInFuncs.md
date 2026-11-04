@@ -363,6 +363,12 @@ Invokes the method in `$worker` identified by `$methodKey`. `$args` is a list of
 If `$worker` is a procedure invocation, `CALL_METHOD` looks up methods to call in the `#METHODS` field of the procedure.
 
 ```
+EXCEP_TO_STR($exception)
+```
+
+Returns the string representation of `$exception` as Petroleum would report to the user.
+
+```
 CLONE_CODE($code)
 ```
 

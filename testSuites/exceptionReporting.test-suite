@@ -90,3 +90,334 @@ SPIN (FUNC {RET (FALSE)}, "Waiting forever")
 >>> expectPrint
 Main coroutine spinning
 >>> expectError type: #STATE_ERROR message: "First error" lineNumber: 2
+=========================
+>>> testCase "EXCEP_TO_STR function with exception types"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_SYMBOL @#MY_ERROR
+PREP_SYMBOL @#MY_EXCEP
+PREP_FUNC @isPresent {
+    [ARGS [@member]]
+    RET (TRUE)
+}
+TRY {
+    ABORT (#VALUE_ERROR, "Bad value")
+} CATCH {
+    [EXCEP @excep]
+    PRINT(EXCEP_TO_STR(excep))
+}
+TRY {
+    ABORT (#MY_ERROR, "Custom error")
+} CATCH {
+    [EXCEP @excep]
+    PRINT(EXCEP_TO_STR(excep))
+}
+TRY {
+    THROW (MAP [FIELDS [(#EXCEP_TYPE) = (#MY_EXCEP)]])
+} CATCH {
+    [EXCEP @excep]
+    PRINT(EXCEP_TO_STR(excep))
+}
+TRY {
+    AWAIT (MAP [FIELDS []], "a", isPresent, "Waiting for a")
+} CATCH {
+    [EXCEP @excep]
+    PRINT(EXCEP_TO_STR(excep))
+}
+TRY {
+    AWAIT (MAP [FIELDS []], "a", isPresent, NULL)
+} CATCH {
+    [EXCEP @excep]
+    PRINT(EXCEP_TO_STR(excep))
+}
+TRY {
+    SPIN (FUNC {RET (FALSE)}, "Spinning forever")
+} CATCH {
+    [EXCEP @excep]
+    PRINT(EXCEP_TO_STR(excep))
+}
+TRY {
+    BREAK
+} CATCH {
+    [EXCEP @excep]
+    PRINT(EXCEP_TO_STR(excep))
+}
+>>> expectPrint
+Encountered #VALUE_ERROR error: Bad value
+On line 8, column 5 of /home/testUser/targetPackage/main.petrol
+Encountered #MY_ERROR error: Custom error
+On line 14, column 5 of /home/testUser/targetPackage/main.petrol
+Encountered #MY_EXCEP exception.
+On line 20, column 5 of /home/testUser/targetPackage/main.petrol
+Stuck awaiting member: Waiting for a
+On line 26, column 5 of /home/testUser/targetPackage/main.petrol
+Stuck awaiting member
+On line 32, column 5 of /home/testUser/targetPackage/main.petrol
+Stuck spinning: Spinning forever
+On line 38, column 5 of /home/testUser/targetPackage/main.petrol
+Encountered #BREAK_EXCEP exception.
+On line 44, column 5 of /home/testUser/targetPackage/main.petrol
+=========================
+>>> testCase "Stack trace entries for function invocations"
+>>> setupFile ~/targetPackage/main.petrol
+COMMENT "Built-in procedures such as IF, WHILE, and RET are not included."
+PREP_FUNC @inner {
+    IF (TRUE) {
+        WHILE (TRUE) {
+            PRINT(DIV(1, 0))
+        }
+    }
+}
+COMMENT "A function called by a built-in function is included through"
+COMMENT "the invocation of the built-in function."
+PREP_FUNC @middle {
+    CALL(inner, LIST ())
+}
+PREP_FUNC @outer {
+    RET (ADD(1, middle()))
+}
+TRY {
+    outer()
+} CATCH {
+    [EXCEP @excep]
+    PRINT(EXCEP_TO_STR(excep))
+}
+>>> expectPrint
+Encountered #VALUE_ERROR error: Cannot divide by zero.
+On line 5, column 19 of /home/testUser/targetPackage/main.petrol
+Called from line 12 of /home/testUser/targetPackage/main.petrol
+Called from line 15 of /home/testUser/targetPackage/main.petrol
+Called from line 18 of /home/testUser/targetPackage/main.petrol
+=========================
+>>> testCase "Stack trace entries for user-defined methods"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @fail {
+    ABORT (#VALUE_ERROR, "Failed")
+}
+PREP_VAR @failProc = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @frame]]
+            fail()
+        })
+    ]])
+]]>
+PREP_FUNC @useProc {
+    IF (TRUE) {
+        failProc ()
+    }
+}
+TRY {
+    useProc()
+} CATCH {
+    [EXCEP @excep]
+    PRINT(EXCEP_TO_STR(excep))
+}
+>>> expectPrint
+Encountered #VALUE_ERROR error: Failed
+On line 2, column 5 of /home/testUser/targetPackage/main.petrol
+Called from line 9 of /home/testUser/targetPackage/main.petrol
+Called from line 15 of /home/testUser/targetPackage/main.petrol
+Called from line 19 of /home/testUser/targetPackage/main.petrol
+=========================
+>>> testCase "Stack trace entries with syntax error position"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @capturedCode = <MAP [FIELDS []]>
+PREP_VAR @capture = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#PREP) = (FUNC {
+            [ARGS [@worker]]
+            WORK_VAR @nameComp = (MEMBER(MEMBER(worker, #COMPS), 1))
+            SET_MEMBER(capturedCode, MEMBER(nameComp, #STR), worker)
+        })
+    ]])
+]]>
+PREP_FUNC @prepCaptured {
+    [ARGS [@name]]
+    WORK_VAR @stmtsComp = (MEMBER(MEMBER(MEMBER(capturedCode, name), #COMPS), 2))
+    TRY {
+        CALL_METHOD(MEMBER(MEMBER(stmtsComp, #STMTS), 0), #PREP)
+    } CATCH {
+        [EXCEP @excep]
+        PRINT(EXCEP_TO_STR(excep))
+    }
+}
+capture "multiLine" {
+    IF (FALSE) {
+        PRINT(1)
+    } ELSE_IF {
+        PRINT(2)
+    } ELSE {
+        PRINT(3)
+    }
+}
+capture "oneLine" {
+    IF (FALSE) {PRINT(1)} ELSE_IF {PRINT(2)} ELSE {PRINT(3)}
+}
+COMMENT "The syntax error position is on a different line than the IF statement."
+prepCaptured("multiLine")
+COMMENT "The syntax error position is on the same line as the IF statement."
+prepCaptured("oneLine")
+>>> expectPrint
+Encountered #SYNTAX_ERROR error: Expected expression sequence component.
+On line 25, column 15 of /home/testUser/targetPackage/main.petrol
+Called from line 23 of /home/testUser/targetPackage/main.petrol
+Called from line 16 of /home/testUser/targetPackage/main.petrol
+Called from line 35 of /home/testUser/targetPackage/main.petrol
+Encountered #SYNTAX_ERROR error: Expected expression sequence component.
+On line 32, column 5 of /home/testUser/targetPackage/main.petrol
+Called from line 16 of /home/testUser/targetPackage/main.petrol
+Called from line 37 of /home/testUser/targetPackage/main.petrol
+=========================
+>>> testCase "EXCEP_TO_STR function with #WORKER_NODE field"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @fail {
+    [ARGS [@node]]
+    THROW (MAP [FIELDS [
+        (#EXCEP_TYPE) = (#ERROR_EXCEP)
+        (#ERROR_TYPE) = (#VALUE_ERROR)
+        (#MESSAGE) = ("Value must be positive.")
+        (#WORKER_NODE) = (node)
+    ]])
+}
+PREP_VAR @checkPositive = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @frame]]
+            WORK_VAR @exprsComp = (MEMBER(MEMBER(worker, #COMPS), 1))
+            WORK_VAR @values = (CALL_METHOD(exprsComp, #EVAL, LIST (frame)))
+            IF (LESS_EQUAL(MEMBER(values, 0), 0)) {
+                fail(worker)
+            }
+        })
+    ]])
+]]>
+PREP_FUNC @useCheck {
+    [ARGS [@value]]
+    checkPositive (value)
+}
+PREP_FUNC @outer {
+    useCheck(0)
+}
+WORK_VAR @excep
+TRY {
+    outer()
+} CATCH {
+    [EXCEP @caughtExcep]
+    SET excep = (caughtExcep)
+}
+PREP_FUNC @topStmt {
+    [ARGS [@index]]
+    WORK_VAR @module = (LOAD_MODULE ("./main.petrol"))
+    RET (MEMBER(MEMBER(MEMBER(module, #STMTS_COMP), #STMTS), index))
+}
+PREP_FUNC @firstBodyStmt {
+    [ARGS [@stmt, @compIndex]]
+    WORK_VAR @stmtsComp = (MEMBER(MEMBER(stmt, #COMPS), compIndex))
+    RET (MEMBER(MEMBER(stmtsComp, #STMTS), 0))
+}
+COMMENT "The stack trace starts at the custom procedure invocation."
+PRINT(EXCEP_TO_STR(excep))
+COMMENT "The stack trace starts at the invocation of `useCheck` in `outer`."
+WORK_VAR @outerStmt = (topStmt(3))
+SET_MEMBER(excep, #WORKER_NODE, firstBodyStmt(outerStmt, 2))
+PRINT(EXCEP_TO_STR(excep))
+COMMENT "The stack trace only contains the invocation of `outer`."
+SET_MEMBER(excep, #WORKER_NODE, firstBodyStmt(topStmt(5), 1))
+PRINT(EXCEP_TO_STR(excep))
+COMMENT "The stack trace is complete when the node is not in the stack trace."
+SET_MEMBER(excep, #WORKER_NODE, outerStmt)
+PRINT(EXCEP_TO_STR(excep))
+COMMENT "The stack trace is complete when the field is absent."
+DEL_FIELD(excep, #WORKER_NODE)
+PRINT(EXCEP_TO_STR(excep))
+>>> expectPrint
+Encountered #VALUE_ERROR error: Value must be positive.
+On line 25, column 5 of /home/testUser/targetPackage/main.petrol
+Called from line 28 of /home/testUser/targetPackage/main.petrol
+Called from line 32 of /home/testUser/targetPackage/main.petrol
+Encountered #VALUE_ERROR error: Value must be positive.
+On line 28, column 5 of /home/testUser/targetPackage/main.petrol
+Called from line 32 of /home/testUser/targetPackage/main.petrol
+Encountered #VALUE_ERROR error: Value must be positive.
+On line 32, column 5 of /home/testUser/targetPackage/main.petrol
+Encountered #VALUE_ERROR error: Value must be positive.
+On line 3, column 5 of /home/testUser/targetPackage/main.petrol
+Called from line 18 of /home/testUser/targetPackage/main.petrol
+Called from line 25 of /home/testUser/targetPackage/main.petrol
+Called from line 28 of /home/testUser/targetPackage/main.petrol
+Called from line 32 of /home/testUser/targetPackage/main.petrol
+Encountered #VALUE_ERROR error: Value must be positive.
+On line 3, column 5 of /home/testUser/targetPackage/main.petrol
+Called from line 18 of /home/testUser/targetPackage/main.petrol
+Called from line 25 of /home/testUser/targetPackage/main.petrol
+Called from line 28 of /home/testUser/targetPackage/main.petrol
+Called from line 32 of /home/testUser/targetPackage/main.petrol
+=========================
+>>> testCase "Stuck coroutines with #WORKER_NODE field"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @isPresent {
+    [ARGS [@member]]
+    RET (TRUE)
+}
+COMMENT "Usage: procWithEval($evalFunc)"
+COMMENT "Creates a custom procedure with the given #EVAL method."
+PREP_FUNC @procWithEval {
+    [ARGS [@evalFunc]]
+    RET (MAP [FIELDS [
+        (#IS_PROC) = (TRUE)
+        (#METHODS) = (MAP [FIELDS [(#EVAL) = (evalFunc)]])
+    ]])
+}
+PREP_VAR @awaitForever = <procWithEval(FUNC {
+    [ARGS [@worker, @frame]]
+    THROW (MAP [FIELDS [
+        (#EXCEP_TYPE) = (#AWAIT_EXCEP)
+        (#BUNCH) = (MAP [FIELDS []])
+        (#LOC) = ("a")
+        (#COND) = (isPresent)
+        (#MESSAGE) = ("Waiting for a")
+        (#WORKER_NODE) = (worker)
+    ]])
+})>
+PREP_VAR @spinForever = <procWithEval(FUNC {
+    [ARGS [@worker, @frame]]
+    THROW (MAP [FIELDS [
+        (#EXCEP_TYPE) = (#SPIN_EXCEP)
+        (#COND) = (FUNC {RET (FALSE)})
+        (#MESSAGE) = ("Spinning forever")
+        (#WORKER_NODE) = (worker)
+    ]])
+})>
+SCHED {
+    awaitForever ()
+}
+SCHED {
+    spinForever ()
+}
+>>> expectStuck message: "Waiting for a" path: ~/targetPackage/main.petrol lineNumber: 35
+>>> expectStuck message: "Spinning forever" path: ~/targetPackage/main.petrol lineNumber: 38
+=========================
+>>> testCase "Uncaught error exception with #WORKER_NODE field"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @failProc = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @frame]]
+            THROW (MAP [FIELDS [
+                (#EXCEP_TYPE) = (#ERROR_EXCEP)
+                (#ERROR_TYPE) = (#VALUE_ERROR)
+                (#MESSAGE) = ("Failed")
+                (#WORKER_NODE) = (worker)
+            ]])
+        })
+    ]])
+]]>
+PRINT("Before failure")
+failProc ()
+>>> expectPrint
+Before failure
+>>> expectError type: #VALUE_ERROR message: "Failed" path: ~/targetPackage/main.petrol lineNumber: 16
