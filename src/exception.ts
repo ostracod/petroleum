@@ -1,7 +1,7 @@
 
 import "./procedure.js";
 
-import { PetSymbol, symbols, spinCountSymbol } from "./symbol.js";
+import { PetSymbol, symbols } from "./symbol.js";
 import { KnownValue, PetValue, toPetValue, knownValueToLiteral, knownValueToMessage, PetString, ObservableBunch, PetMap, PetFunc, EvalState } from "./value.js";
 import { ConstantFunc } from "./builtInFunc.js";
 import { getModule } from "./node.js";
@@ -33,6 +33,7 @@ export const createAwaitExcep = (
     condition: PetFunc,
     message: PetString | null,
     evalState?: EvalState,
+    workerNode?: PetMap,
 ): PetMap => {
     const output = new PetMap([
         [symbols.EXCEP_TYPE, symbols.AWAIT_EXCEP],
@@ -44,6 +45,9 @@ export const createAwaitExcep = (
     if (typeof evalState !== "undefined") {
         output.setMember(symbols.EVAL_STATE, evalState);
     }
+    if (typeof workerNode !== "undefined") {
+        output.setMember(symbols.WORKER_NODE, workerNode);
+    }
     return output;
 };
 
@@ -51,7 +55,7 @@ export const createSpinExcep = (
     condition: PetFunc,
     message: PetString,
     evalState?: EvalState,
-    spinCount?: number | bigint,
+    workerNode?: PetMap,
 ): PetMap => {
     const output = new PetMap([
         [symbols.EXCEP_TYPE, symbols.SPIN_EXCEP],
@@ -61,8 +65,8 @@ export const createSpinExcep = (
     if (typeof evalState !== "undefined") {
         output.setMember(symbols.EVAL_STATE, evalState);
     }
-    if (typeof spinCount !== "undefined") {
-        output.setMember(spinCountSymbol, BigInt(spinCount));
+    if (typeof workerNode !== "undefined") {
+        output.setMember(symbols.WORKER_NODE, workerNode);
     }
     return output;
 };

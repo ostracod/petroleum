@@ -8,7 +8,7 @@ import { PetException, createBreakExcep, createContExcep, createSyntaxError, Pet
 import { getPackage, assertCompAmount, assertMinCompAmount, assertMaxCompAmount, assertStmtsComp, assertWorkGradeExprs, assertIdentComp, getStmtsComp, getPrepGradeExprs, getWorkGradeExprs, getAttrsComp, getDeclComp, getIdentComp, getCompIdent, getLabeledAttrComps, getLabeledAttrsComps } from "./node.js";
 import { findVarValue, findModuleVarValue, getVariable, getModuleVarValue, getScope, varIsInScope, getFuncSignature, getResolvedVarType, setArgVarTypes } from "./variable.js";
 import { createMethodInvocation, callMethodTask, prepWorkersTask, workersVarsTask } from "./task.js";
-import { setProcPrepTask, awaitProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask, iterProcEvalTask, getFuncWorkers, funcProcPrepTask, tryProcEvalTask, importProcPrepTask, loadModuleProcTask } from "./procTask.js";
+import { setProcPrepTask, spinProcEvalTask, awaitProcEvalTask, abortProcEvalTask, MapFieldComps, mapProcEvalTask, IfProcClause, ifProcEvalTask, whileProcEvalTask, iterProcEvalTask, getFuncWorkers, funcProcPrepTask, tryProcEvalTask, importProcPrepTask, loadModuleProcTask } from "./procTask.js";
 
 interface ProcDef extends MethodDict {
     name: string;
@@ -284,6 +284,36 @@ const readIterComps = (stmts: PetMap): IterProcParts => {
         output.memberVar = memberVar;
     }
     return output;
+};
+
+const checkExcepProcComps = (worker: PetMap, exprAmount: number): void => {
+    const comps = worker.getMember(symbols.COMPS).getList();
+    assertMinCompAmount(comps, 2);
+    assertWorkGradeExprs(comps, 1, exprAmount);
+    if (comps.getLength() > 2) {
+        assertCompAmount(comps, 3);
+        const attrsComp = getAttrsComp(comps, 2);
+        const attrs = attrsComp.getMember(symbols.ATTRS).getList();
+        const attrComps = getLabeledAttrComps(attrs, "NODE");
+        if (typeof attrComps !== "undefined") {
+            assertWorkGradeExprs(attrComps, 1, 1);
+        }
+    }
+};
+
+const readExcepComps = (worker: PetMap): { exprsComp: PetMap, workerNodeComp?: PetMap } => {
+    const comps = worker.getMember(symbols.COMPS).getList();
+    const exprsComp = comps.getMember(1).getMap();
+    let workerNodeComp: PetMap | undefined;
+    if (comps.getLength() > 2) {
+        const attrsComp = comps.getMember(2).getMap();
+        const attrs = attrsComp.getMember(symbols.ATTRS).getList();
+        const attrComps = getLabeledAttrComps(attrs, "NODE");
+        if (typeof attrComps !== "undefined") {
+            workerNodeComp = attrComps.getMember(1).getMap();
+        }
+    }
+    return { exprsComp, workerNodeComp };
 };
 
 export const globalProcDefs: ProcDef[] = [
@@ -793,62 +823,42 @@ export const globalProcDefs: ProcDef[] = [
     {
         name: "SPIN",
         prep: (task, worker) => {
-            const comps = worker.getMember(symbols.COMPS).getList();
-            assertCompAmount(comps, 2);
-            assertWorkGradeExprs(comps, 1, 2);
+            checkExcepProcComps(worker, 2);
             return callDefaultPrep(task, worker);
         },
         eval: (task, worker, varSpace) => {
-            const comps = worker.getMember(symbols.COMPS).getList();
-            const exprsComp = comps.getMember(1).getMap();
-            return task.callMethod(
-                exprsComp, symbols.EVAL, [varSpace],
-                (values) => {
-                    const valueList = values.getList();
-                    const condition = valueList.getMember(0).getFunc();
-                    const message = valueList.getMember(1).getPetString();
-                    const nextAction = task.returnValue(null);
-                    return task.spin(condition, message, nextAction);
-                },
+            const parts = readExcepComps(worker);
+            return task.runTask(
+                spinProcEvalTask, { ...parts, varSpace },
+                (value) => task.returnValue(null),
             );
         },
     },
     {
         name: "AWAIT",
         prep: (task, worker) => {
-            const comps = worker.getMember(symbols.COMPS).getList();
-            assertCompAmount(comps, 2);
-            assertWorkGradeExprs(comps, 1, 4);
+            checkExcepProcComps(worker, 4);
             return callDefaultPrep(task, worker);
         },
-        eval: (task, worker, varSpace) => task.runTask(
-            awaitProcEvalTask, { worker, varSpace },
-            (value) => task.returnValue(value),
-        ),
+        eval: (task, worker, varSpace) => {
+            const parts = readExcepComps(worker);
+            return task.runTask(
+                awaitProcEvalTask, { ...parts, varSpace },
+                (value) => task.returnValue(value),
+            );
+        },
     },
     {
         name: "ABORT",
         prep: (task, worker) => {
-            const comps = worker.getMember(symbols.COMPS).getList();
-            assertCompAmount(comps, 2);
-            assertWorkGradeExprs(comps, 1, 2);
+            checkExcepProcComps(worker, 2);
             return callDefaultPrep(task, worker);
         },
         eval: (task, worker, varSpace) => {
-            const comps = worker.getMember(symbols.COMPS).getList();
-            const exprsComp = comps.getMember(1).getMap();
-            return task.callMethod(
-                exprsComp, symbols.EVAL, [varSpace],
-                (values) => {
-                    const valueList = values.getList();
-                    const errorType = valueList.getMember(0);
-                    const message = valueList.getMember(1);
-                    throw new PetException(new PetMap([
-                        [symbols.EXCEP_TYPE, symbols.ERROR_EXCEP],
-                        [symbols.ERROR_TYPE, errorType],
-                        [symbols.MESSAGE, message],
-                    ]));
-                },
+            const parts = readExcepComps(worker);
+            return task.runTask(
+                abortProcEvalTask, { ...parts, varSpace },
+                (value) => task.returnValue(null),
             );
         },
     },

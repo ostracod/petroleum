@@ -5,7 +5,7 @@ import { PetSymbol, symbols } from "./symbol.js";
 import { KnownValue, PetValue, SliceableBunch, getBunchElementValue, PetString, PetList, PetField, PetMap, ObservableBunch } from "./value.js";
 import { UserModuleExistsFunc } from "./builtInFunc.js";
 import { SetProcParts, IterProcParts, setUpImportVars } from "./procedure.js";
-import { PetTypeError, createBreakExcep } from "./exception.js";
+import { PetException, PetTypeError, createBreakExcep } from "./exception.js";
 import { getPackage, assertMinCompAmount, getPrepGradeExprs, getLabeledAttrComps } from "./node.js";
 import { getVariable, getResolvedVarType, findVarValue, getScope, createStmtsCompFrame, FuncSignature, getFuncSignature, setArgVarTypes } from "./variable.js";
 import { TaskDef, Action, Task, prepWorkersTask, workersVarsTask } from "./task.js";
@@ -409,23 +409,68 @@ export const funcProcPrepTask: TaskDef<FuncProcPrepParams, null> = {
     ],
 };
 
-interface AwaitProcEvalParams {
-    worker: PetMap;
+interface ExcepProcEvalParams {
+    exprsComp: PetMap;
+    workerNodeComp?: PetMap;
     varSpace: PetMap;
 }
 
-interface AwaitProcEvalState {
-    bunch: ObservableBunch | null;
-    location: KnownValue | null;
-}
-
-export const awaitProcEvalTask: TaskDef<AwaitProcEvalParams, AwaitProcEvalState> = {
-    getInitState: (params) => ({ bunch: null, location: null }),
+export const spinProcEvalTask: TaskDef<ExcepProcEvalParams, { workerNode?: PetMap }> = {
+    getInitState: (params) => ({}),
     stages: [
         (task) => {
-            const { worker, varSpace } = task.params;
-            const comps = worker.getMember(symbols.COMPS).getList();
-            const exprsComp = comps.getMember(1).getMap();
+            const { workerNodeComp, varSpace } = task.params;
+            if (typeof workerNodeComp === "undefined") {
+                return task.advanceStage({});
+            }
+            return task.callMethod(
+                workerNodeComp, symbols.EVAL, [varSpace],
+                (values) => {
+                    const workerNode = values.getList().getMember(0).getMap();
+                    return task.advanceStage({ workerNode });
+                },
+            );
+        },
+        (task) => {
+            const { exprsComp, varSpace } = task.params;
+            return task.callMethod(
+                exprsComp, symbols.EVAL, [varSpace],
+                (values) => {
+                    const valueList = values.getList();
+                    const condition = valueList.getMember(0).getFunc();
+                    const message = valueList.getMember(1).getPetString();
+                    const nextAction = task.returnValue(null);
+                    return task.spin(condition, message, nextAction, task.state.workerNode);
+                },
+            );
+        },
+    ],
+};
+
+interface AwaitProcEvalState {
+    bunch?: ObservableBunch;
+    location?: KnownValue;
+    workerNode?: PetMap;
+}
+
+export const awaitProcEvalTask: TaskDef<ExcepProcEvalParams, AwaitProcEvalState> = {
+    getInitState: (params) => ({}),
+    stages: [
+        (task) => {
+            const { workerNodeComp, varSpace } = task.params;
+            if (typeof workerNodeComp === "undefined") {
+                return task.advanceStage({});
+            }
+            return task.callMethod(
+                workerNodeComp, symbols.EVAL, [varSpace],
+                (values) => {
+                    const workerNode = values.getList().getMember(0).getMap();
+                    return task.advanceStage({ workerNode });
+                },
+            );
+        },
+        (task) => {
+            const { exprsComp, varSpace } = task.params;
             return task.callMethod(
                 exprsComp, symbols.EVAL, [varSpace],
                 (values) => {
@@ -437,13 +482,54 @@ export const awaitProcEvalTask: TaskDef<AwaitProcEvalParams, AwaitProcEvalState>
                     return task.awaitMember(
                         bunch, location, condition, message,
                         task.advanceStage({ bunch, location }),
+                        task.state.workerNode,
                     );
                 },
             );
         },
         (task) => {
             const { bunch, location } = task.state;
-            return task.returnValue(bunch!.getMember(location));
+            return task.returnValue(bunch!.getMember(location!));
+        },
+    ],
+};
+
+export const abortProcEvalTask: TaskDef<ExcepProcEvalParams, { workerNode?: PetMap }> = {
+    getInitState: (params) => ({}),
+    stages: [
+        (task) => {
+            const { workerNodeComp, varSpace } = task.params;
+            if (typeof workerNodeComp === "undefined") {
+                return task.advanceStage({});
+            }
+            return task.callMethod(
+                workerNodeComp, symbols.EVAL, [varSpace],
+                (values) => {
+                    const workerNode = values.getList().getMember(0).getMap();
+                    return task.advanceStage({ workerNode });
+                },
+            );
+        },
+        (task) => {
+            const { exprsComp, varSpace } = task.params;
+            const { workerNode } = task.state;
+            return task.callMethod(
+                exprsComp, symbols.EVAL, [varSpace],
+                (values) => {
+                    const valueList = values.getList();
+                    const errorType = valueList.getMember(0);
+                    const message = valueList.getMember(1);
+                    const exception = new PetMap([
+                        [symbols.EXCEP_TYPE, symbols.ERROR_EXCEP],
+                        [symbols.ERROR_TYPE, errorType],
+                        [symbols.MESSAGE, message],
+                    ]);
+                    if (typeof workerNode !== "undefined") {
+                        exception.setMember(symbols.WORKER_NODE, workerNode);
+                    }
+                    throw new PetException(exception);
+                },
+            );
         },
     ],
 };

@@ -164,22 +164,26 @@ SCHED {$body}
 Schedules `$body` to be evaluated in a new coroutine at a later time. The current coroutine will continue to run.
 
 ```
-SPIN ($condition, $message)
+SPIN ($condition, $message) [NODE ($workerNode)]
 ```
 
-Invokes `$condition`. `$condition` is a function which accepts no arguments and returns a boolean. If `$condition` returns false, this procedure throws a spin exception containing `$condition` and `$message`. This effectively pauses the coroutine until `$condition` returns true. See the section on coroutines for details.
+Invokes `$condition`. `$condition` is a function which accepts no arguments and returns a boolean. If `$condition` returns false, this procedure throws a spin exception containing `$condition` and `$message`.
+
+`SPIN` effectively pauses the coroutine until `$condition` returns true. See the section on coroutines for details. If `[NODE ($workerNode)]` is included, stack trace entries above `$workerNode` will not be reported to the user.
 
 ```
-AWAIT ($bunch, $loc, $condition, $message)
+AWAIT ($bunch, $loc, $condition, $message) [NODE ($workerNode)]
 ```
 
-Invokes `$condition` with the member of `$bunch` at `$loc` as the argument. `$bunch` is a list or a map. `$loc` is a list index or field key. `$condition` is a function which accepts a single argument and returns a boolean. If `$condition` returns false or no such member exists, this procedure throws an await exception containing `$bunch`, `$loc`, `$condition`, and `$message`. This effectively pauses the coroutine until the member of `$bunch` at `$loc` satisfies `$condition`. See the section on coroutines for details. This procedure returns the member of `$bunch` at `$loc`.
+Invokes `$condition` with the member of `$bunch` at `$loc` as the argument. `$bunch` is a list or a map. `$loc` is a list index or field key. `$condition` is a function which accepts a single argument and returns a boolean. If `$condition` returns false or no such member exists, this procedure throws an await exception containing `$bunch`, `$loc`, `$condition`, and `$message`. This procedure returns the member of `$bunch` at `$loc`.
+
+`AWAIT` effectively pauses the coroutine until the member of `$bunch` at `$loc` satisfies `$condition`. See the section on coroutines for details. If `[NODE ($workerNode)]` is included, stack trace entries above `$workerNode` will not be reported to the user.
 
 ```
-ABORT ($errorType, $message)
+ABORT ($errorType, $message) [NODE ($workerNode)]
 ```
 
-Throws an error exception with `$errorType` and `$message`.
+Throws an error exception with `$errorType` and `$message`. If `[NODE ($workerNode)]` is included, stack trace entries above `$workerNode` will not be reported to the user.
 
 ```
 THROW ($excep)

@@ -134,9 +134,14 @@ export class Task<ParamsT = any, StateT = any> {
         );
     }
     
-    spin(condition: PetFunc, message: PetString, nextAction: Action): Action {
+    spin(
+        condition: PetFunc,
+        message: PetString,
+        nextAction: Action,
+        workerNode?: PetMap,
+    ): Action {
         const evalState = new EvalState(this, nextAction);
-        const exception = createSpinExcep(condition, message, evalState);
+        const exception = createSpinExcep(condition, message, evalState, workerNode);
         const spinner = new Spinner(exception);
         return this.runTask(
             spinCondTask, { spinner },
@@ -150,6 +155,7 @@ export class Task<ParamsT = any, StateT = any> {
         condition: PetFunc,
         message: string | PetString | null,
         nextAction: Action,
+        workerNode?: PetMap,
     ): Action {
         const exception = createAwaitExcep(
             bunch,
@@ -157,6 +163,7 @@ export class Task<ParamsT = any, StateT = any> {
             condition,
             (typeof message === "string") ? new PetString(message) : message,
             new EvalState(this, nextAction),
+            workerNode,
         );
         const observer = new MemberObserver(exception);
         return this.runTask(
