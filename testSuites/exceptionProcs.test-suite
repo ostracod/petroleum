@@ -31,6 +31,51 @@ Before abort
 ABORT (#VALUE_ERROR)
 >>> expectError type: #SYNTAX_ERROR message: "Expected 2 expressions in sequence." lineNumber: 1
 =========================
+>>> testCase "ABORT procedure with NODE attribute"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @nodes = <MAP [FIELDS []]>
+PREP_VAR @abortHere = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @frame]]
+            SET_MEMBER(nodes, "abortHere", worker)
+            ABORT (#VALUE_ERROR, "Bad value") [NODE (worker)]
+        })
+    ]])
+]]>
+TRY {
+    abortHere ()
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #ERROR_TYPE))
+    PRINT(MEMBER(excep, #MESSAGE))
+    PRINT(EQUAL(MEMBER(excep, #WORKER_NODE), MEMBER(nodes, "abortHere")))
+}
+TRY {
+    ABORT (#VALUE_ERROR, "No node")
+} CATCH {
+    [EXCEP @excep]
+    PRINT(HAS_KEY(excep, #WORKER_NODE))
+}
+>>> expectPrint
+#VALUE_ERROR
+Bad value
+1
+0
+=========================
+>>> testCase "ABORT procedure with wrong attribute name"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+ABORT (#VALUE_ERROR, "Bad value") [WORKER (1)]
+>>> expectError type: #SYNTAX_ERROR message: "Unexpected WORKER attribute." lineNumber: 2
+=========================
+>>> testCase "ABORT procedure with prep-grade NODE expression"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+ABORT (#VALUE_ERROR, "Bad value") [NODE <MAP [FIELDS []]>]
+>>> expectError type: #SYNTAX_ERROR message: "Expected work-grade expression sequence component." lineNumber: 2
+=========================
 >>> testCase "THROW procedure"
 >>> setupFile ~/targetPackage/main.petrol
 PREP_SYMBOL @#MY_EXCEP

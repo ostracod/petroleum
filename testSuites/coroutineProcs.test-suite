@@ -66,6 +66,47 @@ PRINT("This line is not reached")
 Before spin
 >>> expectStuck message: "Waiting forever" lineNumber: 2
 =========================
+>>> testCase "SPIN procedure with NODE attribute"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @nodes = <MAP [FIELDS []]>
+PREP_VAR @flags = <MAP [FIELDS [("ready") = (FALSE)]]>
+PREP_VAR @spinHere = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @frame]]
+            SET_MEMBER(nodes, "spinHere", worker)
+            SPIN (FUNC {
+                RET (MEMBER(flags, "ready"))
+            }, "Waiting until ready") [NODE (worker)]
+        })
+    ]])
+]]>
+TRY {
+    spinHere ()
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #EXCEP_TYPE))
+    PRINT(MEMBER(excep, #MESSAGE))
+    PRINT(EQUAL(MEMBER(excep, #WORKER_NODE), MEMBER(nodes, "spinHere")))
+}
+TRY {
+    SPIN (FUNC {RET (FALSE)}, "No node")
+} CATCH {
+    [EXCEP @excep]
+    PRINT(HAS_KEY(excep, #WORKER_NODE))
+}
+COMMENT "The procedure does not throw when the condition is true."
+SET_MEMBER(flags, "ready", TRUE)
+spinHere ()
+PRINT("After spin")
+>>> expectPrint
+#SPIN_EXCEP
+Waiting until ready
+1
+0
+After spin
+=========================
 >>> testCase "AWAIT procedure with present member"
 >>> setupFile ~/targetPackage/main.petrol
 WORK_VAR @myMap = (MAP [FIELDS [("a") = (10)]])
@@ -135,6 +176,48 @@ AWAIT (myMap, "a", alwaysTrue, NULL)
 PRINT("This line is not reached")
 >>> expectPrint
 Before await
+=========================
+>>> testCase "AWAIT procedure with NODE attribute"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @isPositive {
+    [ARGS [@member]]
+    RET (GREATER(member, 0))
+}
+PREP_VAR @nodes = <MAP [FIELDS []]>
+PREP_VAR @myMap = <MAP [FIELDS [("a") = (0)]]>
+PREP_VAR @awaitHere = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @frame]]
+            SET_MEMBER(nodes, "awaitHere", worker)
+            RET (AWAIT (myMap, "a", isPositive, "Waiting for positive a") [NODE (worker)])
+        })
+    ]])
+]]>
+TRY {
+    awaitHere ()
+} CATCH {
+    [EXCEP @excep]
+    PRINT(MEMBER(excep, #EXCEP_TYPE))
+    PRINT(MEMBER(excep, #MESSAGE))
+    PRINT(EQUAL(MEMBER(excep, #WORKER_NODE), MEMBER(nodes, "awaitHere")))
+}
+TRY {
+    AWAIT (myMap, "a", isPositive, "No node")
+} CATCH {
+    [EXCEP @excep]
+    PRINT(HAS_KEY(excep, #WORKER_NODE))
+}
+COMMENT "The procedure returns the member when the condition is true."
+SET_MEMBER(myMap, "a", 5)
+PRINT(awaitHere ())
+>>> expectPrint
+#AWAIT_EXCEP
+Waiting for positive a
+1
+0
+5
 =========================
 >>> testCase "AWAIT exception"
 >>> setupFile ~/targetPackage/main.petrol
