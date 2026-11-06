@@ -5,7 +5,7 @@ import * as fs from "fs";
 import * as pathUtils from "path";
 import { symbols } from "./symbol.js";
 import { knownValueToLiteral, knownValueToMessage, PetMap } from "./value.js";
-import { ModulePos, modulePosToString, getExcepReport } from "./exception.js";
+import { modulePosToString, getExcepStackTrace, getExcepReport } from "./exception.js";
 import { ContextOptions, PetContext } from "./context.js";
 import { getPathParent, VirtualFileSystem } from "./fileSystem.js";
 
@@ -42,9 +42,9 @@ export class ConsoleLogger extends Logger {
 }
 
 abstract class TestProblem {
-    pos?: ModulePos;
+    pos?: PetMap;
     
-    constructor(pos?: ModulePos) {
+    constructor(pos?: PetMap) {
         this.pos = pos;
     }
     
@@ -62,7 +62,7 @@ abstract class TestProblem {
 class TestException extends TestProblem {
     excepType: string;
     
-    constructor(excepType: string, pos?: ModulePos) {
+    constructor(excepType: string, pos?: PetMap) {
         super(pos);
         this.excepType = excepType;
     }
@@ -76,7 +76,7 @@ class TestError extends TestProblem {
     errorType: string;
     message: string;
     
-    constructor(errorType: string, message: string, pos?: ModulePos) {
+    constructor(errorType: string, message: string, pos?: PetMap) {
         super(pos);
         this.errorType = errorType;
         this.message = message;
@@ -90,7 +90,7 @@ class TestError extends TestProblem {
 class TestSticker extends TestProblem {
     message: string;
     
-    constructor(message: string, pos?: ModulePos) {
+    constructor(message: string, pos?: PetMap) {
         super(pos);
         this.message = message;
     }
@@ -100,11 +100,11 @@ class TestSticker extends TestProblem {
     }
 }
 
-const getExcepTopPos = (exception: PetMap): ModulePos | undefined => {
-    const stackTrace = exception.getMember(symbols.EVAL_STATE).getStackTrace();
-    const startNode = exception.getOptionalMember(symbols.WORKER_NODE)?.getMap();
-    const entries = stackTrace.getEntries(startNode);
-    return (entries.length > 0) ? entries[0].modulePos : undefined;
+const getExcepTopPos = (exception: PetMap): PetMap | undefined => {
+    const stackTrace = getExcepStackTrace(exception);
+    return (stackTrace.length > 0)
+        ? stackTrace[0].getMember(symbols.MODULE_POS).getMap()
+        : undefined;
 };
 
 export class TestLogger extends Logger {
@@ -266,13 +266,15 @@ abstract class ExpectedProblem<T extends TestProblem> {
             );
             // I'm not sure we can actually receive a relative or abnormal path here,
             // but just to be sure we will call getAbsolutePath.
-            const actualPath = fileSystem.getAbsolutePath(pos.modulePath);
-            if (expectedPath !== actualPath) {
+            const actualPath = pos.getMember(symbols.MODULE_PATH).toStringStrict();
+            const absActualPath = fileSystem.getAbsolutePath(actualPath);
+            if (expectedPath !== absActualPath) {
                 return false;
             }
         }
         if (typeof this.lineNumber !== "undefined") {
-            if (typeof pos === "undefined" || pos.lineNumber.toString() !== this.lineNumber) {
+            if (typeof pos === "undefined"
+                    || pos.getMember(symbols.LINE_NUM).toLiteral() !== this.lineNumber) {
                 return false;
             }
         }

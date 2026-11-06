@@ -101,6 +101,8 @@ Petroleum defines many symbols for keys and values in various data structures. S
 * `#MESSAGE` symbolizes a message.
 * `#METHODS` symbolizes a map of methods.
 * `#MODULE` symbolizes a module.
+* `#MODULE_PATH` symbolizes a module path.
+* `#MODULE_POS` symbolizes a module position.
 * `#MODULE_TYPE` symbolizes the type of a module.
 * `#NODE_TYPE` symbolizes the type of a node.
 * `#PACK` symbolizes a package.

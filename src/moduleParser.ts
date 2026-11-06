@@ -189,11 +189,19 @@ export class ModuleParser {
         return posToFields(this.getPos());
     }
     
+    posToModulePos(pos: ContentPos): PetMap {
+        return new PetMap([
+            [symbols.MODULE_PATH, new PetString(this.modulePath)],
+            [symbols.LINE_NUM, pos.lineNumber],
+            [symbols.COL_NUM, pos.columnNumber],
+        ]);
+    }
+    
     createError(message: string, pos?: ContentPos): PetSyntaxError {
         if (typeof pos === "undefined") {
             pos = this.getPos();
         }
-        return new PetSyntaxError(message, { ...pos, modulePath: this.modulePath });
+        return new PetSyntaxError(message, this.posToModulePos(pos));
     }
     
     parseIntComp(): PetMap {
@@ -214,7 +222,7 @@ export class ModuleParser {
             if (intText.length > 16) {
                 throw new ValueError(
                     "Hexadecimal integer cannot contain more than 64 bits.",
-                    { ...pos, modulePath: this.modulePath },
+                    this.posToModulePos(pos),
                 );
             }
             intValue = toSignedInt64(BigInt("0x" + intText));
@@ -229,7 +237,7 @@ export class ModuleParser {
             if (intValue > maxIntValue) {
                 throw new ValueError(
                     "Signed integer literal exceeds 64 bits.",
-                    { ...pos, modulePath: this.modulePath },
+                    this.posToModulePos(pos),
                 );
             }
         }

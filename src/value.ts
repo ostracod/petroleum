@@ -2,13 +2,13 @@
 import "./symbol.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
-import { DeferralException, ModulePos, modulePosToString, entityToModulePos, entityPosToString, PetTypeError, ValueError } from "./exception.js";
+import { DeferralException, entityToModulePos, entityPosToString, PetTypeError, ValueError, stackTraceToString } from "./exception.js";
 import { createFrame, FuncSignature, getFuncSignature, pruneFrames } from "./variable.js";
 import { Action, Task, awaitCondTask, callUserFuncTask } from "./task.js";
 import { Scheduler } from "./scheduler.js";
 
 // PetValueAndKey contains types which can be used as both values and Map keys.
-export type PetValueAndKey = null | bigint | PetSymbol | PetList | PetMap | PetFunc | StackTrace;
+export type PetValueAndKey = null | bigint | PetSymbol | PetList | PetMap | PetFunc | EvalState;
 export type KnownValue = PetString | PetValueAndKey;
 export type MapKey = string | PetValueAndKey;
 
@@ -110,10 +110,6 @@ export class PetValue {
     
     getFunc(): PetFunc {
         return this.getInstance(PetFunc, "function");
-    }
-    
-    getStackTrace(): StackTrace {
-        return this.getInstance(StackTrace, "stack trace");
     }
     
     getEvalState(): EvalState {
@@ -354,6 +350,12 @@ export class PetString implements SliceableBunchIface<number> {
         return this.toBuffer().length;
     }
     
+    equals(otherString: PetString): boolean {
+        const buffer1 = this.toBuffer();
+        const buffer2 = otherString.toBuffer();
+        return buffer1.equals(buffer2);
+    }
+    
     compare(otherString: PetString): number {
         const buffer1 = this.toBuffer();
         const buffer2 = otherString.toBuffer();
@@ -470,15 +472,11 @@ const knownValueToMapKey = (value: KnownValue): MapKey => (
     (value instanceof PetString) ? value.toHexString() : value
 );
 
-export const valuesAreEqual = (value1: KnownValue, value2: KnownValue): boolean => {
-    if (value1 instanceof PetString && value2 instanceof PetString) {
-        const buffer1 = value1.toBuffer();
-        const buffer2 = value2.toBuffer();
-        return buffer1.equals(buffer2);
-    } else {
-        return (value1 === value2);
-    }
-};
+export const valuesAreEqual = (value1: KnownValue, value2: KnownValue): boolean => (
+    (value1 instanceof PetString && value2 instanceof PetString)
+        ? value1.equals(value2)
+        : (value1 === value2)
+);
 
 export const valueMayHaveChanged = (oldValue: PetValue, newValue: PetValue): boolean => {
     const oldKnownValue = oldValue.tryKnownValue();
@@ -1045,48 +1043,17 @@ export class UserFunc extends PetFunc {
     }
 }
 
-interface StackTraceEntry {
-    modulePos: ModulePos;
-    workerNode?: PetMap;
-}
-
-export abstract class StackTrace {
-    
-    abstract getEntriesHelper(): StackTraceEntry[];
-    
-    getEntries(startNode?: PetMap): StackTraceEntry[] {
-        const entries = this.getEntriesHelper();
-        if (typeof startNode === "undefined") {
-            return entries;
-        }
-        const startIndex = entries.findIndex((entry) => (entry.workerNode === startNode));
-        return (startIndex < 0) ? entries : entries.slice(startIndex);
-    }
-    
-    toString(startNode?: PetMap): string {
-        const lines = this.getEntries(startNode).map((entry, index) => {
-            const isFirstEntry = (index === 0);
-            const prefix = isFirstEntry ? "On " : "Called from ";
-            return prefix + modulePosToString(entry.modulePos, isFirstEntry);
-        });
-        return lines.join("\n");
-    }
-}
-
-export class EvalState extends StackTrace {
+export class EvalState {
     currentTask: Task;
     actionToResume: Action;
-    pos?: ModulePos;
     
-    constructor(currentTask: Task, actionToResume: Action, pos?: ModulePos) {
-        super();
+    constructor(currentTask: Task, actionToResume: Action) {
         this.currentTask = currentTask;
         this.actionToResume = actionToResume;
-        this.pos = pos;
     }
     
-    getEntriesHelper(): StackTraceEntry[] {
-        const output: StackTraceEntry[] = [];
+    getStackTrace(startNode?: PetMap): PetMap[] {
+        const entries: PetMap[] = [];
         let task: Task | null = this.currentTask;
         let topNode: PetMap | null = null;
         while (task !== null) {
@@ -1095,49 +1062,34 @@ export class EvalState extends StackTrace {
                 if (typeof taskNode !== "undefined") {
                     topNode = taskNode;
                     const nodePos = entityToModulePos(taskNode);
-                    output.push({
-                        modulePos: nodePos,
-                        workerNode: taskNode,
-                    });
+                    entries.push(new PetMap([
+                        [symbols.MODULE_POS, nodePos],
+                        [symbols.WORKER_NODE, taskNode],
+                    ]));
                 }
             } else {
                 const { callerNode } = task.members;
                 if (typeof callerNode !== "undefined") {
                     const nodePos = entityToModulePos(callerNode);
-                    output.push({
-                        modulePos: nodePos,
-                        workerNode: callerNode,
-                    });
+                    entries.push(new PetMap([
+                        [symbols.MODULE_POS, nodePos],
+                        [symbols.WORKER_NODE, callerNode],
+                    ]));
                 }
             }
             task = task.members.parentTask;
         }
-        if (typeof this.pos !== "undefined") {
-            const firstPos = output[0]?.modulePos;
-            if (typeof firstPos === "undefined"
-                    || firstPos.lineNumber !== this.pos.lineNumber
-                    || firstPos.modulePath !== this.pos.modulePath) {
-                output.unshift({ modulePos: this.pos });
-            }
+        if (typeof startNode === "undefined") {
+            return entries;
         }
-        return output;
-    }
-}
-
-export class PackageResolverTrace extends StackTrace {
-    pos?: ModulePos;
-    
-    constructor(pos?: ModulePos) {
-        super();
-        this.pos = pos;
+        const startIndex = entries.findIndex((entry) => (
+            entry.getMember(symbols.WORKER_NODE).getMap() === startNode
+        ));
+        return (startIndex < 0) ? entries : entries.slice(startIndex);
     }
     
-    getEntriesHelper(): StackTraceEntry[] {
-        const output: StackTraceEntry[] = [];
-        if (typeof this.pos !== "undefined") {
-            output.push({ modulePos: this.pos });
-        }
-        return output;
+    toString(): string {
+        return stackTraceToString(this.getStackTrace());
     }
 }
 

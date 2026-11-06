@@ -3,8 +3,8 @@ import "./moduleParser.js";
 
 import * as pathUtils from "path";
 import { symbols } from "./symbol.js";
-import { PetString, PetMap, PackageResolverTrace } from "./value.js";
-import { PetException, ModulePos, ErrorException, ValueError, StateError } from "./exception.js";
+import { PetString, PetMap } from "./value.js";
+import { PetException, ValueError, StateError } from "./exception.js";
 import { ModuleParser } from "./moduleParser.js";
 import { FileSystem } from "./fileSystem.js";
 
@@ -344,17 +344,7 @@ const errorToException = (error: any): PetMap => {
     if (!(error instanceof PetException)) {
         throw error;
     }
-    const output = error.mapValue.getMap();
-    if (output.hasKey(symbols.EVAL_STATE)) {
-        return output;
-    }
-    let pos: ModulePos | undefined;
-    if (error instanceof ErrorException) {
-        ({ pos } = error);
-    }
-    const trace = new PackageResolverTrace(pos);
-    output.setMember(symbols.EVAL_STATE, trace);
-    return output;
+    return error.mapValue.getMap();
 };
 
 export class PackageResolver {

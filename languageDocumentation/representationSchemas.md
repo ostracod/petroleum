@@ -279,6 +279,8 @@ Exceptions are represented as maps. All exceptions have the following fields:
 * The `#EVAL_STATE` field stores the evaluation state from when the exception was first thrown.
 * The `#WORKER_NODE` field stores the worker node associated with the exception.
     * If this field is included, stack trace entries beyond the node will not be reported to the user.
+* The `#MODULE_POS` field stores the module position associated with the exception.
+    * If this field is included, the module position will be reported as the first stack trace entry.
 
 Break exceptions and continue exceptions do not define any additional fields beyond the common exception fields. The `#EXCEP_TYPE` field stores `#BREAK_EXCEP` in a break exception, and `#CONT_EXCEP` in a continue exception.
 
@@ -289,7 +291,8 @@ Return exceptions have the following fields:
 * The `#RET_LEVEL` field stores the level of the return exception.
     * When a function invocation receives a return exception whose level is 0, the function invocation will return the value stored in the `#VALUE` field.
     * Otherwise if the level is above 0, the function invocation will decrement the level and rethrow the exception.
-* Return exceptions also have the `#EVAL_STATE` field which is common to all exceptions, and may have a `#WORKER_NODE` field too.
+* Return exceptions also have the `#EVAL_STATE` field which is common to all exceptions.
+    * Return exceptions may have `#WORKER_NODE` and `#MODULE_POS` fields too.
 
 Spin exceptions have the following fields:
 
@@ -298,7 +301,7 @@ Spin exceptions have the following fields:
     * The function accepts no arguments and returns a boolean.
 * The `#MESSAGE` field stores a human-readable string explaining why the coroutine paused.
 * The `#EVAL_STATE` field stores the evaluation state which the scheduler will resume.
-* Spin exceptions may also have the `#WORKER_NODE` field which is optional for all exceptions.
+* Spin exceptions may also have `#WORKER_NODE` and `#MODULE_POS` fields which are optional for all exceptions.
 
 Await exceptions have the following fields:
 
@@ -311,7 +314,7 @@ Await exceptions have the following fields:
 * The `#MESSAGE` field stores a human-readable string explaining why the coroutine paused.
     * If this field stores null, Petroleum will not report this exception to the user.
 * The `#EVAL_STATE` field stores the evaluation state which the scheduler will resume.
-* Await exceptions may also have the `#WORKER_NODE` field which is optional for all exceptions.
+* Await exceptions may also have `#WORKER_NODE` and `#MODULE_POS` fields which are optional for all exceptions.
 
 Error exceptions have the following fields:
 
@@ -319,6 +322,21 @@ Error exceptions have the following fields:
 * The `#ERROR_TYPE` field stores the type of the error. The type may be `#SYNTAX_ERROR`, `#TYPE_ERROR`, `#VALUE_ERROR`, or `#STATE_ERROR`.
     * The user may also define their own error types.
 * The `#MESSAGE` field stores a human-readable string explaining the error.
-* Error exceptions also have the `#EVAL_STATE` field which is common to all exceptions, and may have a `#WORKER_NODE` field too.
+* Error exceptions also have the `#EVAL_STATE` field which is common to all exceptions.
+    * Error exceptions may have `#WORKER_NODE` and `#MODULE_POS` fields too.
+
+### Stack Trace Schema
+
+Stack trace entries are represented as maps with the following fields:
+
+* The `#MODULE_POS` field stores the module position.
+* The `#WORKER_NODE` field stores the worker node.
+    * This field will be absent if the stack trace entry is not associated with any worker node.
+
+Module positions are represented as maps with the following fields:
+
+* The `#MODULE_PATH` field stores the absolute path of the module.
+* The `#LINE_NUM` field stores the line number in the module.
+* The `#COL_NUM` field stores the column number in the module.
 
 

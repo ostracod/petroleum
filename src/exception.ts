@@ -102,49 +102,47 @@ export const createContExcep = (): PetException => new PetException(
     new PetMap([[symbols.EXCEP_TYPE, symbols.CONT_EXCEP]]),
 );
 
-export interface ModulePos {
-    lineNumber: bigint;
-    columnNumber: bigint;
-    modulePath: string;
-}
-
 export class ErrorException extends PetException {
-    pos?: ModulePos;
     
-    constructor(errorType: PetSymbol, message: string, pos?: ModulePos) {
-        super(new PetMap([
+    constructor(errorType: PetSymbol, message: string, pos?: PetMap) {
+        const mapValue = new PetMap([
             [symbols.EXCEP_TYPE, symbols.ERROR_EXCEP],
             [symbols.ERROR_TYPE, errorType],
             [symbols.MESSAGE, new PetString(message)],
-        ]));
-        this.pos = pos;
-    }
-    
-    override createEvalState(currentAction: Action): EvalState {
-        const task = currentAction.task!;
-        return new EvalState(task, task.returnValue(null), this.pos);
+        ]);
+        if (typeof pos !== "undefined") {
+            mapValue.setMember(symbols.MODULE_POS, pos);
+        }
+        super(mapValue);
     }
 }
 
 export class PetSyntaxError extends ErrorException {
     
-    constructor(message: string, pos?: ModulePos) {
+    constructor(message: string, pos?: PetMap) {
         super(symbols.SYNTAX_ERROR, message, pos);
     }
 }
 
 // `entity` is a node or a component.
-export const entityToModulePos = (entity: PetMap): ModulePos => {
-    const lineNumber = entity.getMember(symbols.LINE_NUM).getInt();
-    const columnNumber = entity.getMember(symbols.COL_NUM).getInt();
+export const entityToModulePos = (entity: PetMap): PetMap => {
     const module = getModule(entity);
-    const modulePath = module.getMember(symbols.FILE_PATH).toStringStrict();
-    return { lineNumber, columnNumber, modulePath };
+    const modulePath = module.getMember(symbols.FILE_PATH);
+    const lineNumber = entity.getMember(symbols.LINE_NUM);
+    const columnNumber = entity.getMember(symbols.COL_NUM);
+    return new PetMap([
+        [symbols.MODULE_PATH, modulePath],
+        [symbols.LINE_NUM, lineNumber],
+        [symbols.COL_NUM, columnNumber],
+    ]);
 };
 
-export const modulePosToString = (pos: ModulePos, includeColNum = true): string => {
-    const columnText = includeColNum ? `, column ${pos.columnNumber}` : "";
-    return `line ${pos.lineNumber}${columnText} of ${pos.modulePath}`;
+export const modulePosToString = (pos: PetMap, includeColNum = true): string => {
+    const columnNumber = pos.getMember(symbols.COL_NUM).toNumber();
+    const lineNumber = pos.getMember(symbols.LINE_NUM).toNumber();
+    const modulePath = pos.getMember(symbols.MODULE_PATH).toStringStrict();
+    const columnText = includeColNum ? `, column ${columnNumber}` : "";
+    return `line ${lineNumber}${columnText} of ${modulePath}`;
 };
 
 export const entityPosToString = (entity: PetMap): string => {
@@ -161,21 +159,21 @@ export const createSyntaxError = (message: string, entity?: PetMap): PetSyntaxEr
 
 export class PetTypeError extends ErrorException {
     
-    constructor(message: string, pos?: ModulePos) {
+    constructor(message: string, pos?: PetMap) {
         super(symbols.TYPE_ERROR, message, pos);
     }
 }
 
 export class ValueError extends ErrorException {
     
-    constructor(message: string, pos?: ModulePos) {
+    constructor(message: string, pos?: PetMap) {
         super(symbols.VALUE_ERROR, message, pos);
     }
 }
 
 export class StateError extends ErrorException {
     
-    constructor(message: string, pos?: ModulePos) {
+    constructor(message: string, pos?: PetMap) {
         super(symbols.STATE_ERROR, message, pos);
     }
 }
@@ -192,6 +190,46 @@ export class CoroEndException extends Error {
 export class TimeoutError extends Error {
     
 }
+
+export const stackTraceToString = (entries: PetMap[]): string => {
+    const lines = entries.map((entry, index) => {
+        const isFirstEntry = (index === 0);
+        const prefix = isFirstEntry ? "On " : "Called from ";
+        const modulePos = entry.getMember(symbols.MODULE_POS).getMap();
+        return prefix + modulePosToString(modulePos, isFirstEntry);
+    });
+    return lines.join("\n");
+};
+
+const posLinesAreEqual = (pos1: PetMap, pos2: PetMap): boolean => {
+    const modulePath1 = pos1.getMember(symbols.MODULE_PATH).getPetString();
+    const modulePath2 = pos2.getMember(symbols.MODULE_PATH).getPetString();
+    const lineNumber1 = pos1.getMember(symbols.LINE_NUM).getInt();
+    const lineNumber2 = pos2.getMember(symbols.LINE_NUM).getInt();
+    return (modulePath1.equals(modulePath2) && lineNumber1 === lineNumber2);
+};
+
+export const getExcepStackTrace = (exception: PetMap): PetMap[] => {
+    let entries: PetMap[];
+    const evalStateValue = exception.getOptionalMember(symbols.EVAL_STATE);
+    if (typeof evalStateValue === "undefined") {
+        // Package resolution can throw errors without an evaluation state.
+        entries = [];
+    } else {
+        const evalState = evalStateValue.getEvalState();
+        const startNode = exception.getOptionalMember(symbols.WORKER_NODE)?.getMap();
+        entries = evalState.getStackTrace(startNode);
+    }
+    const posValue = exception.getOptionalMember(symbols.MODULE_POS);
+    if (typeof posValue !== "undefined") {
+        const pos = posValue.getMap();
+        const firstPos = entries[0]?.getMember(symbols.MODULE_POS).getMap();
+        if (typeof firstPos === "undefined" || !posLinesAreEqual(pos, firstPos)) {
+            entries.unshift(new PetMap([[symbols.MODULE_POS, pos]]));
+        }
+    }
+    return entries;
+};
 
 export const getExcepReport = (exception: PetMap): string => {
     const excepType = exception.getMember(symbols.EXCEP_TYPE).getKnownValue();
@@ -212,9 +250,8 @@ export const getExcepReport = (exception: PetMap): string => {
     } else {
         output = `Encountered ${knownValueToLiteral(excepType)} exception.`;
     }
-    const stackTrace = exception.getMember(symbols.EVAL_STATE).getStackTrace();
-    const startNode = exception.getOptionalMember(symbols.WORKER_NODE)?.getMap();
-    const stackTraceText = stackTrace.toString(startNode);
+    const stackTrace = getExcepStackTrace(exception);
+    const stackTraceText = stackTraceToString(stackTrace);
     if (stackTraceText.length > 0) {
         output += "\n" + stackTraceText;
     }
