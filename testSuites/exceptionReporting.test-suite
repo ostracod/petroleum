@@ -421,3 +421,120 @@ failProc ()
 >>> expectPrint
 Before failure
 >>> expectError type: #VALUE_ERROR message: "Failed" path: ~/targetPackage/main.petrol lineNumber: 16
+=========================
+>>> testCase "EXCEP_TO_STR function with #MODULE_POS field"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @posAt {
+    [ARGS [@path, @lineNumber, @columnNumber]]
+    RET (MAP [FIELDS [
+        (#MODULE_PATH) = (path)
+        (#LINE_NUM) = (lineNumber)
+        (#COL_NUM) = (columnNumber)
+    ]])
+}
+PREP_FUNC @throwWithPos {
+    [ARGS [@pos]]
+    TRY {
+        THROW (MAP [FIELDS [
+            (#EXCEP_TYPE) = (#ERROR_EXCEP)
+            (#ERROR_TYPE) = (#SYNTAX_ERROR)
+            (#MESSAGE) = ("Bad syntax")
+            (#MODULE_POS) = (pos)
+        ]])
+    } CATCH {
+        [EXCEP @excep]
+        PRINT(EXCEP_TO_STR(excep))
+    }
+}
+WORK_VAR @mainPath = ("/home/testUser/targetPackage/main.petrol")
+COMMENT "The position is on a different line than the THROW statement."
+throwWithPos(posAt(mainPath, 30, 7))
+COMMENT "The position is on the same line as the THROW statement."
+throwWithPos(posAt(mainPath, 12, 20))
+COMMENT "The position has the same line number in a different module."
+throwWithPos(posAt("/home/testUser/targetPackage/otherModule.petrol", 12, 20))
+>>> expectPrint
+Encountered #SYNTAX_ERROR error: Bad syntax
+On line 30, column 7 of /home/testUser/targetPackage/main.petrol
+Called from line 12 of /home/testUser/targetPackage/main.petrol
+Called from line 25 of /home/testUser/targetPackage/main.petrol
+Encountered #SYNTAX_ERROR error: Bad syntax
+On line 12, column 20 of /home/testUser/targetPackage/main.petrol
+Called from line 27 of /home/testUser/targetPackage/main.petrol
+Encountered #SYNTAX_ERROR error: Bad syntax
+On line 12, column 20 of /home/testUser/targetPackage/otherModule.petrol
+Called from line 12 of /home/testUser/targetPackage/main.petrol
+Called from line 29 of /home/testUser/targetPackage/main.petrol
+=========================
+>>> testCase "EXCEP_TO_STR function with #MODULE_POS and #WORKER_NODE fields"
+>>> setupFile ~/targetPackage/main.petrol
+COMMENT "Throws a syntax error positioned at the last component of the invocation."
+PREP_VAR @failAtLastComp = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @frame]]
+            WORK_VAR @comps = (MEMBER(worker, #COMPS))
+            WORK_VAR @lastComp = (MEMBER(comps, SUB(LEN(comps), 1)))
+            THROW (MAP [FIELDS [
+                (#EXCEP_TYPE) = (#ERROR_EXCEP)
+                (#ERROR_TYPE) = (#SYNTAX_ERROR)
+                (#MESSAGE) = ("Unexpected component.")
+                (#WORKER_NODE) = (worker)
+                (#MODULE_POS) = (MAP [FIELDS [
+                    (#MODULE_PATH) = (MEMBER(MODULE(lastComp), #FILE_PATH))
+                    (#LINE_NUM) = (MEMBER(lastComp, #LINE_NUM))
+                    (#COL_NUM) = (MEMBER(lastComp, #COL_NUM))
+                ]])
+            ]])
+        })
+    ]])
+]]>
+PREP_FUNC @sameLine {
+    failAtLastComp (1) (2)
+}
+PREP_FUNC @laterLine {
+    failAtLastComp {
+        PRINT("This line is not reached")
+    } (2)
+}
+PREP_FUNC @printExcep {
+    [ARGS [@func]]
+    TRY {
+        CALL(func, LIST ())
+    } CATCH {
+        [EXCEP @excep]
+        PRINT(EXCEP_TO_STR(excep))
+    }
+}
+COMMENT "The component is on the same line as the custom procedure invocation."
+printExcep(sameLine)
+COMMENT "The component is on a later line than the custom procedure invocation."
+printExcep(laterLine)
+>>> expectPrint
+Encountered #SYNTAX_ERROR error: Unexpected component.
+On line 24, column 24 of /home/testUser/targetPackage/main.petrol
+Called from line 34 of /home/testUser/targetPackage/main.petrol
+Called from line 41 of /home/testUser/targetPackage/main.petrol
+Encountered #SYNTAX_ERROR error: Unexpected component.
+On line 29, column 7 of /home/testUser/targetPackage/main.petrol
+Called from line 27 of /home/testUser/targetPackage/main.petrol
+Called from line 34 of /home/testUser/targetPackage/main.petrol
+Called from line 43 of /home/testUser/targetPackage/main.petrol
+=========================
+>>> testCase "Uncaught exception with #MODULE_POS field"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("Before throw")
+THROW (MAP [FIELDS [
+    (#EXCEP_TYPE) = (#ERROR_EXCEP)
+    (#ERROR_TYPE) = (#SYNTAX_ERROR)
+    (#MESSAGE) = ("Bad syntax")
+    (#MODULE_POS) = (MAP [FIELDS [
+        (#MODULE_PATH) = ("/home/testUser/targetPackage/main.petrol")
+        (#LINE_NUM) = (1)
+        (#COL_NUM) = (7)
+    ]])
+]])
+>>> expectPrint
+Before throw
+>>> expectError type: #SYNTAX_ERROR message: "Bad syntax" path: ~/targetPackage/main.petrol lineNumber: 1
