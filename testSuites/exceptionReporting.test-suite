@@ -538,3 +538,86 @@ THROW (MAP [FIELDS [
 >>> expectPrint
 Before throw
 >>> expectError type: #SYNTAX_ERROR message: "Bad syntax" path: ~/targetPackage/main.petrol lineNumber: 1
+=========================
+>>> testCase "STACK_TRACE function"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_VAR @nodes = <MAP [FIELDS []]>
+PREP_VAR @failProc = <MAP [FIELDS [
+    (#IS_PROC) = (TRUE)
+    (#METHODS) = (MAP [FIELDS [
+        (#EVAL) = (FUNC {
+            [ARGS [@worker, @frame]]
+            SET_MEMBER(nodes, "failProc", worker)
+            fail()
+        })
+    ]])
+]]>
+PREP_FUNC @fail {
+    THROW (MAP [FIELDS [
+        (#EXCEP_TYPE) = (#ERROR_EXCEP)
+        (#ERROR_TYPE) = (#VALUE_ERROR)
+        (#MESSAGE) = ("Failed")
+    ]])
+}
+PREP_FUNC @useProc {
+    failProc ()
+}
+WORK_VAR @excep
+TRY {
+    useProc()
+} CATCH {
+    [EXCEP @caughtExcep]
+    SET excep = (caughtExcep)
+}
+COMMENT "Prints the line number, column number, and worker node of each entry."
+PREP_FUNC @printEntries {
+    ITER (STACK_TRACE(excep)) {
+        [MEMBER @entry]
+        WORK_VAR @pos = (MEMBER(entry, #MODULE_POS))
+        WORK_VAR @nodeLine = (NULL)
+        IF (HAS_KEY(entry, #WORKER_NODE)) {
+            SET nodeLine = (MEMBER(MEMBER(entry, #WORKER_NODE), #LINE_NUM))
+        }
+        PRINT(LIST (MEMBER(pos, #LINE_NUM), MEMBER(pos, #COL_NUM), nodeLine))
+    }
+}
+WORK_VAR @entries = (STACK_TRACE(excep))
+WORK_VAR @firstPos = (MEMBER(MEMBER(entries, 0), #MODULE_POS))
+PRINT(MEMBER(firstPos, #MODULE_PATH))
+COMMENT "Neither #WORKER_NODE nor #MODULE_POS"
+printEntries()
+COMMENT "#WORKER_NODE truncates the entries."
+WORK_VAR @worker = (MEMBER(nodes, "failProc"))
+SET_MEMBER(excep, #WORKER_NODE, worker)
+printEntries()
+PRINT(EQUAL(MEMBER(MEMBER(STACK_TRACE(excep), 0), #WORKER_NODE), worker))
+COMMENT "#MODULE_POS adds an entry without a worker node."
+DEL_FIELD(excep, #WORKER_NODE)
+SET_MEMBER(excep, #MODULE_POS, MAP [FIELDS [
+    (#MODULE_PATH) = ("/home/testUser/targetPackage/otherModule.petrol")
+    (#LINE_NUM) = (100)
+    (#COL_NUM) = (7)
+]])
+printEntries()
+PRINT(MEMBER(MEMBER(MEMBER(STACK_TRACE(excep), 0), #MODULE_POS), #MODULE_PATH))
+COMMENT "Both fields"
+SET_MEMBER(excep, #WORKER_NODE, worker)
+printEntries()
+>>> expectPrint
+/home/testUser/targetPackage/main.petrol
+LIST (13, 5, 13)
+LIST (8, 13, 8)
+LIST (20, 5, 20)
+LIST (24, 5, 24)
+LIST (20, 5, 20)
+LIST (24, 5, 24)
+1
+LIST (100, 7, NULL)
+LIST (13, 5, 13)
+LIST (8, 13, 8)
+LIST (20, 5, 20)
+LIST (24, 5, 24)
+/home/testUser/targetPackage/otherModule.petrol
+LIST (100, 7, NULL)
+LIST (20, 5, 20)
+LIST (24, 5, 24)

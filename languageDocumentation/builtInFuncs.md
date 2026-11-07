@@ -369,6 +369,12 @@ EXCEP_TO_STR($exception)
 Returns the string representation of `$exception` as Petroleum would report to the user.
 
 ```
+STACK_TRACE($exception)
+```
+
+Returns the list of stack trace entries for `$exception`. This function takes the optional `#WORKER_NODE` and `#MODULE_POS` fields into account when constructing the stack trace.
+
+```
 CLONE_CODE($code)
 ```
 
