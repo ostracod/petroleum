@@ -256,7 +256,7 @@ export const getExcepStackTrace = (exception: PetMap): PetMap[] => {
     return entries;
 };
 
-export const getExcepReport = (exception: PetMap): string => {
+export const getDefaultExcepReport = (exception: PetMap): string => {
     const excepType = exception.getMember(symbols.EXCEP_TYPE).getKnownValue();
     let output: string;
     if (excepType === symbols.ERROR_EXCEP) {

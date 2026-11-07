@@ -3,15 +3,15 @@ import "./scheduler.js";
 
 import * as pathUtils from "path";
 import { PetSymbol, symbols } from "./symbol.js";
-import { PetValue, KnownValue, PetString, PetList, PetMap } from "./value.js";
+import { PetValue, KnownValue, PetString, PetList, PetMap, PetFunc } from "./value.js";
 import { DefFunc, globalFuncDefs } from "./builtInFunc.js";
 import { WorkerMethodsMap, createWorkerMethodsMap } from "./method.js";
 import { createProcedure, globalProcDefs } from "./procedure.js";
-import { ValueError, StateError, CoroEndException } from "./exception.js";
+import { ValueError, StateError, CoroEndException, getDefaultExcepReport } from "./exception.js";
 import { createBuiltInModules } from "./builtInModule.js";
 import { ModuleParser } from "./moduleParser.js";
 import { PackageResolver } from "./package.js";
-import { Action, TaskDef, TaskMembers, Task, mainTask, prepModuleTask } from "./task.js";
+import { Action, TaskDef, TaskMembers, Task, mainTask, prepModuleTask, reportExcepsTask } from "./task.js";
 import { Scheduler } from "./scheduler.js";
 import { FileSystem, HostFileSystem } from "./fileSystem.js";
 import { Logger, ConsoleLogger } from "./testHarness.js";
@@ -20,6 +20,16 @@ export interface ContextOptions {
     logger?: Logger;
     fileSystem?: FileSystem;
     timeout?: number | null; // Measured in seconds.
+}
+
+class ExcepToReport {
+    excepMap: PetMap;
+    nextExcep: ExcepToReport | null;
+    
+    constructor(excepMap: PetMap) {
+        this.excepMap = excepMap;
+        this.nextExcep = null;
+    }
 }
 
 export class PetContext {
@@ -37,7 +47,10 @@ export class PetContext {
     workerMethodsMap: WorkerMethodsMap;
     globalScope: PetMap;
     isPrepping: boolean;
-    excepsToReport: PetMap[];
+    firstExcep: ExcepToReport | null;
+    lastExcep: ExcepToReport | null;
+    excepReporters: PetFunc[];
+    reportingExceps: Set<PetMap>;
     
     constructor(
         entryPackagePath: string,
@@ -57,7 +70,10 @@ export class PetContext {
         this.preppingWorkers = new Set();
         this.globalScope = this.createGlobalScope();
         this.isPrepping = true;
-        this.excepsToReport = [];
+        this.firstExcep = null;
+        this.lastExcep = null;
+        this.excepReporters = [];
+        this.reportingExceps = new Set();
         const packageResolver = new PackageResolver(
             this.fileSystem,
             this.entryPackagePath,
@@ -66,7 +82,8 @@ export class PetContext {
         const { entryPackage, exceptions } = packageResolver.resolvePackages();
         if (exceptions.length > 0) {
             for (const exception of exceptions) {
-                this.logger.reportException(exception);
+                const excepText = getDefaultExcepReport(exception);
+                this.logger.reportException(exception, excepText);
             }
         } else {
             const mainModule = entryPackage!.getMember(symbols.MAIN_MODULE).getMap();
@@ -125,21 +142,9 @@ export class PetContext {
         return this.logger.hasReportedProblem;
     }
     
-    handlePrepFinished(): void {
-        for (const exception of this.excepsToReport) {
-            this.logger.reportException(exception);
-        }
-        this.excepsToReport = [];
-        this.isPrepping = false;
-    }
-    
-    run(): void {
-        if (this.hasReportedProblem()) {
-            return;
-        }
-        this.scheduler.scheduleTask(mainTask, null);
+    runScheduler(shouldRun: () => boolean): void {
         let isStuckSpinning = false;
-        while (!this.hasReportedProblem()) {
+        while (shouldRun()) {
             const hasRun = this.scheduler.runNextCoro();
             if (!hasRun) {
                 break;
@@ -149,21 +154,47 @@ export class PetContext {
                 break;
             }
         }
-        if (this.excepsToReport.length > 0) {
-            for (const exception of this.excepsToReport) {
-                this.logger.reportException(exception);
-            }
-        } else {
+        if (this.firstExcep === null) {
             for (const observer of this.scheduler.observersToReport) {
-                this.logger.reportException(observer.exception);
+                this.addExcepToReport(observer.exception);
             }
             if (isStuckSpinning) {
                 let coroutine = this.scheduler.spinCoros.firstCoro;
                 while (coroutine !== null) {
-                    this.logger.reportException(coroutine.spinner!.exception);
+                    this.addExcepToReport(coroutine.spinner!.exception);
                     coroutine = coroutine.nextCoro;
                 }
             }
+        }
+    }
+    
+    run(): void {
+        if (this.hasReportedProblem()) {
+            // This can happen if package resolution fails.
+            return;
+        }
+        // Prepare and evaluate modules.
+        this.scheduler.scheduleTask(mainTask, null);
+        this.runScheduler(() => (this.firstExcep === null || this.isPrepping));
+        if (this.firstExcep === null) {
+            return;
+        }
+        // Report exceptions using exception reporters.
+        this.scheduler.reset();
+        this.scheduler.scheduleTask(reportExcepsTask, null);
+        this.runScheduler(() => true);
+        // Fallback behavior in case exception reporters fail.
+        const exceptions: PetMap[] = [...this.reportingExceps];
+        while (true) {
+            const exception = this.popExcepToReport();
+            if (exception === null) {
+                break;
+            }
+            exceptions.push(exception);
+        }
+        for (const exception of exceptions) {
+            const excepText = getDefaultExcepReport(exception);
+            this.logger.reportException(exception, excepText);
         }
     }
     
@@ -263,12 +294,29 @@ export class PetContext {
         return mainModule;
     }
     
-    handleUncaughtExcep(exception: PetMap): void {
-        if (this.isPrepping) {
-            this.excepsToReport.push(exception);
+    addExcepReporter(reporter: PetFunc): void {
+        this.excepReporters.push(reporter);
+    }
+    
+    addExcepToReport(excepMap: PetMap): void {
+        const excepToReport = new ExcepToReport(excepMap);
+        if (this.lastExcep === null) {
+            this.firstExcep = excepToReport;
         } else {
-            this.logger.reportException(exception);
+            this.lastExcep.nextExcep = excepToReport;
         }
+        this.lastExcep = excepToReport;
+    }
+    
+    popExcepToReport(): PetMap | null {
+        const excepToReport = this.firstExcep;
+        if (excepToReport !== null) {
+            this.firstExcep = excepToReport.nextExcep;
+            if (this.firstExcep === null) {
+                this.lastExcep = null;
+            }
+        }
+        return excepToReport?.excepMap ?? null;
     }
 }
 

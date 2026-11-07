@@ -3,10 +3,10 @@ import "./value.js";
 
 import { PetSymbol, symbols } from "./symbol.js";
 import { toSignedInt64, KnownValue, PetValue, wrapKnownValue, knownValueToLiteral, minIntValue, maxIntValue, stringToLiteral, compareValues, SliceableBunch, PetString, PetList, PetMap, PetFunc, EvalState, valuesAreEqual } from "./value.js";
-import { PetTypeError, ValueError, StateError, getExcepStackTrace, getExcepReport } from "./exception.js";
+import { PetTypeError, ValueError, StateError, getExcepStackTrace } from "./exception.js";
 import { getChildWorkers, getModule } from "./node.js";
 import { findVariable, findVarValue, getScope, createFrame } from "./variable.js";
-import { Action, Task, sortListTask } from "./task.js";
+import { Action, Task, excepReportTask, sortListTask } from "./task.js";
 import { PetContext } from "./context.js";
 
 export interface FuncDef {
@@ -1099,8 +1099,10 @@ export const globalFuncDefs: FuncDef[] = [
         argAmount: 1,
         call: (task, args) => {
             const exception = args[0].getMap();
-            const result = getExcepReport(exception);
-            return task.returnValue(new PetString(result));
+            return task.runTask(
+                excepReportTask, { exception },
+                (value) => task.returnValue(value),
+            );
         },
     },
     {
@@ -1110,6 +1112,15 @@ export const globalFuncDefs: FuncDef[] = [
             const exception = args[0].getMap();
             const entries = getExcepStackTrace(exception);
             return task.returnValue(new PetList(entries));
+        },
+    },
+    {
+        name: "ADD_EXCEP_REPORTER",
+        argAmount: 1,
+        call: (task, args) => {
+            const reporter = args[0].getFunc();
+            task.context.addExcepReporter(reporter);
+            return task.returnValue(null);
         },
     },
     {

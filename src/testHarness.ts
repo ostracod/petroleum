@@ -5,7 +5,7 @@ import * as fs from "fs";
 import * as pathUtils from "path";
 import { symbols } from "./symbol.js";
 import { knownValueToLiteral, knownValueToMessage, PetMap } from "./value.js";
-import { modulePosToString, getExcepStackTrace, getExcepReport } from "./exception.js";
+import { modulePosToString, getExcepStackTrace } from "./exception.js";
 import { ContextOptions, PetContext } from "./context.js";
 import { getPathParent, VirtualFileSystem } from "./fileSystem.js";
 
@@ -18,10 +18,10 @@ export abstract class Logger {
     
     abstract print(message: string): void;
     
-    abstract reportExceptionHelper(exception: PetMap): void;
+    abstract reportExceptionHelper(exception: PetMap, excepText: string): void;
     
-    reportException(exception: PetMap): void {
-        this.reportExceptionHelper(exception);
+    reportException(exception: PetMap, excepText: string): void {
+        this.reportExceptionHelper(exception, excepText);
         this.hasReportedProblem = true;
     }
 }
@@ -32,11 +32,11 @@ export class ConsoleLogger extends Logger {
         console.log(message);
     }
     
-    reportExceptionHelper(exception: PetMap): void {
+    reportExceptionHelper(exception: PetMap, excepText: string): void {
         if (!this.hasReportedProblem) {
             console.log("");
         }
-        console.log(getExcepReport(exception));
+        console.log(excepText);
         console.log("");
     }
 }
@@ -125,7 +125,7 @@ export class TestLogger extends Logger {
         this.printMessages.push(message);
     }
     
-    reportExceptionHelper(exception: PetMap): void {
+    reportExceptionHelper(exception: PetMap, excepText: string): void {
         const pos = getExcepTopPos(exception);
         const excepType = exception.getMember(symbols.EXCEP_TYPE).getKnownValue();
         if (excepType === symbols.ERROR_EXCEP) {

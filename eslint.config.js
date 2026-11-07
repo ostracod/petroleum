@@ -79,6 +79,11 @@ export default defineConfig(
             "@stylistic/member-delimiter-style": ["warn", {
                 "multiline": { "delimiter": "semi" },
                 "singleline": { "delimiter": "comma", "requireLast": false },
+                "overrides": {
+                    "typeLiteral": {
+                        "multiline": { "delimiter": "comma", "requireLast": true },
+                    },
+                },
             }],
             "@stylistic/no-extra-semi": "warn",
             "@stylistic/no-multi-spaces": "warn",

@@ -122,6 +122,10 @@ export class Scheduler {
     
     constructor(context: PetContext) {
         this.context = context;
+        this.reset();
+    }
+    
+    reset(): void {
         this.nonSpinCoros = new CoroQueue();
         this.spinCoros = new CoroQueue();
         this.observersToReport = new Set();

@@ -985,6 +985,10 @@ export abstract class PetFunc {
     
     abstract call(task: Task, args: PetList): Action;
     
+    getModulePos(): PetMap | undefined {
+        return undefined;
+    }
+    
     abstract toString(): string;
 }
 
@@ -1035,6 +1039,10 @@ export class UserFunc extends PetFunc {
             callUserFuncTask, { userFunc: this, argValues, bodyFrame },
             (value) => task.returnValue(value),
         );
+    }
+    
+    override getModulePos(): PetMap | undefined {
+        return entityToModulePos(this.stmtsComp);
     }
     
     toString(): string {

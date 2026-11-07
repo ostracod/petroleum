@@ -366,13 +366,19 @@ If `$worker` is a procedure invocation, `CALL_METHOD` looks up methods to call i
 EXCEP_TO_STR($exception)
 ```
 
-Returns the string representation of `$exception` as Petroleum would report to the user.
+Returns the string representation of `$exception` as Petroleum would report to the user. `EXCEP_TO_STR` uses exception reporters if any have been registered with `ADD_EXCEP_REPORTER`.
 
 ```
 STACK_TRACE($exception)
 ```
 
 Returns the list of stack trace entries for `$exception`. This function takes the optional `#WORKER_NODE` and `#MODULE_POS` fields into account when constructing the stack trace.
+
+```
+ADD_EXCEP_REPORTER($reporter)
+```
+
+Registers a new exception reporter, which determines how Petroleum will report exceptions. `$reporter` is a function which accepts an exception and returns a string to report. If `$reporter` throws an exception, that exception will be passed to the next exception reporter.
 
 ```
 CLONE_CODE($code)
