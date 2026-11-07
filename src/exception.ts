@@ -191,16 +191,6 @@ export class TimeoutError extends Error {
     
 }
 
-export const stackTraceToString = (entries: PetMap[]): string => {
-    const lines = entries.map((entry, index) => {
-        const isFirstEntry = (index === 0);
-        const prefix = isFirstEntry ? "On " : "Called from ";
-        const modulePos = entry.getMember(symbols.MODULE_POS).getMap();
-        return prefix + modulePosToString(modulePos, isFirstEntry);
-    });
-    return lines.join("\n");
-};
-
 const posLinesAreEqual = (pos1: PetMap, pos2: PetMap): boolean => {
     const modulePath1 = pos1.getMember(symbols.MODULE_PATH).getPetString();
     const modulePath2 = pos2.getMember(symbols.MODULE_PATH).getPetString();
@@ -209,24 +199,59 @@ const posLinesAreEqual = (pos1: PetMap, pos2: PetMap): boolean => {
     return (modulePath1.equals(modulePath2) && lineNumber1 === lineNumber2);
 };
 
-export const getExcepStackTrace = (exception: PetMap): PetMap[] => {
-    let entries: PetMap[];
-    const evalStateValue = exception.getOptionalMember(symbols.EVAL_STATE);
-    if (typeof evalStateValue === "undefined") {
-        // Package resolution can throw errors without an evaluation state.
-        entries = [];
+const getModulePosList = (entries: PetMap[]): PetMap[] => {
+    const output: PetMap[] = [];
+    let index: number;
+    if (entries.length < 2) {
+        index = 0;
     } else {
-        const evalState = evalStateValue.getEvalState();
-        const startNode = exception.getOptionalMember(symbols.WORKER_NODE)?.getMap();
-        entries = evalState.getStackTrace(startNode);
+        const entry1 = entries[0];
+        const entry2 = entries[1];
+        const pos1 = entry1.getMember(symbols.MODULE_POS).getMap();
+        const pos2 = entry2.getMember(symbols.MODULE_POS).getMap();
+        const node1 = entry1.getOptionalMember(symbols.WORKER_NODE);
+        const node2 = entry2.getOptionalMember(symbols.WORKER_NODE);
+        output.push(pos1);
+        // Special case: If the first entry has no node, the second entry has a node, and
+        // both entries are on the same line, only report the position of the first entry.
+        // This happens when a syntax error is on the same line as the worker.
+        if (!(typeof node1 === "undefined" && typeof node2 !== "undefined"
+                && posLinesAreEqual(pos1, pos2))) {
+            output.push(pos2);
+        }
+        index = 2;
     }
+    while (index < entries.length) {
+        const pos = entries[index].getMember(symbols.MODULE_POS).getMap();
+        output.push(pos);
+        index += 1;
+    }
+    return output;
+};
+
+export const stackTraceToString = (entries: PetMap[]): string => {
+    const posList = getModulePosList(entries);
+    const lines = posList.map((pos, index) => {
+        const isFirstEntry = (index === 0);
+        const prefix = isFirstEntry ? "On " : "Called from ";
+        return prefix + modulePosToString(pos, isFirstEntry);
+    });
+    return lines.join("\n");
+};
+
+export const getExcepStackTrace = (exception: PetMap): PetMap[] => {
+    const entries: PetMap[] = [];
     const posValue = exception.getOptionalMember(symbols.MODULE_POS);
     if (typeof posValue !== "undefined") {
         const pos = posValue.getMap();
-        const firstPos = entries[0]?.getMember(symbols.MODULE_POS).getMap();
-        if (typeof firstPos === "undefined" || !posLinesAreEqual(pos, firstPos)) {
-            entries.unshift(new PetMap([[symbols.MODULE_POS, pos]]));
-        }
+        entries.push(new PetMap([[symbols.MODULE_POS, pos]]));
+    }
+    const evalStateValue = exception.getOptionalMember(symbols.EVAL_STATE);
+    // Package resolution can throw errors without an evaluation state.
+    if (typeof evalStateValue !== "undefined") {
+        const evalState = evalStateValue.getEvalState();
+        const startNode = exception.getOptionalMember(symbols.WORKER_NODE)?.getMap();
+        entries.push(...evalState.getStackTrace(startNode));
     }
     return entries;
 };

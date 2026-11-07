@@ -266,7 +266,7 @@ Called from line 23 of /home/testUser/targetPackage/main.petrol
 Called from line 16 of /home/testUser/targetPackage/main.petrol
 Called from line 35 of /home/testUser/targetPackage/main.petrol
 Encountered #SYNTAX_ERROR error: Expected expression sequence component.
-On line 32, column 5 of /home/testUser/targetPackage/main.petrol
+On line 32, column 35 of /home/testUser/targetPackage/main.petrol
 Called from line 16 of /home/testUser/targetPackage/main.petrol
 Called from line 37 of /home/testUser/targetPackage/main.petrol
 =========================
