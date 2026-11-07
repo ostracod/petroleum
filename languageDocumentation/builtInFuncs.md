@@ -378,7 +378,7 @@ Returns the list of stack trace entries for `$exception`. This function takes th
 ADD_EXCEP_REPORTER($reporter)
 ```
 
-Registers a new exception reporter, which determines how Petroleum will report exceptions. `$reporter` is a function which accepts an exception and returns a string to report. If `$reporter` throws an exception, that exception will be passed to the next exception reporter.
+Registers a new exception reporter, which determines how Petroleum will report exceptions. `$reporter` is a function which accepts an exception and returns a string to report. If `$reporter` throws an exception (which is not a spin exception or await exception), that exception will be passed to the next reporter.
 
 ```
 CLONE_CODE($code)

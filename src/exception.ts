@@ -102,17 +102,30 @@ export const createContExcep = (): PetException => new PetException(
     new PetMap([[symbols.EXCEP_TYPE, symbols.CONT_EXCEP]]),
 );
 
+export const createErrorExcep = (
+    errorType: PetSymbol,
+    message: string,
+    pos?: PetMap,
+    evalState?: EvalState,
+): PetMap => {
+    const output = new PetMap([
+        [symbols.EXCEP_TYPE, symbols.ERROR_EXCEP],
+        [symbols.ERROR_TYPE, errorType],
+        [symbols.MESSAGE, new PetString(message)],
+    ]);
+    if (typeof pos !== "undefined") {
+        output.setMember(symbols.MODULE_POS, pos);
+    }
+    if (typeof evalState !== "undefined") {
+        output.setMember(symbols.EVAL_STATE, evalState);
+    }
+    return output;
+};
+
 export class ErrorException extends PetException {
     
     constructor(errorType: PetSymbol, message: string, pos?: PetMap) {
-        const mapValue = new PetMap([
-            [symbols.EXCEP_TYPE, symbols.ERROR_EXCEP],
-            [symbols.ERROR_TYPE, errorType],
-            [symbols.MESSAGE, new PetString(message)],
-        ]);
-        if (typeof pos !== "undefined") {
-            mapValue.setMember(symbols.MODULE_POS, pos);
-        }
+        const mapValue = createErrorExcep(errorType, message, pos);
         super(mapValue);
     }
 }

@@ -2,10 +2,10 @@
 import "./variable.js";
 
 import { PetSymbol, symbols, spinCountSymbol } from "./symbol.js";
-import { KnownValue, PetValue, toPetValue, toKnownValue, toPetList, nullValue, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, UserFunc, EvalState, valueMayHaveChanged } from "./value.js";
+import { KnownValue, wrapKnownValue, PetValue, toPetValue, toKnownValue, toPetList, nullValue, PetString, PetList, PetMap, MemberObserver, ObservableBunch, PetFunc, UserFunc, EvalState, valueMayHaveChanged } from "./value.js";
 import { NotEqualFunc } from "./builtInFunc.js";
 import { getMethodWithDefault } from "./method.js";
-import { createAwaitExcep, createSpinExcep, PetSyntaxError, PetTypeError, ValueError, StateError, createSyntaxError, getDefaultExcepReport } from "./exception.js";
+import { createAwaitExcep, createSpinExcep, createErrorExcep, PetSyntaxError, ValueError, StateError, createSyntaxError, getDefaultExcepReport } from "./exception.js";
 import { workerIsInvocation, getWorkerMethodMap, getFuncArgsComp, getStmtsComp, getLabeledAttrComps } from "./node.js";
 import { createFrame, VarSpaceType, getVarSpaceType, getVariable, findVarValue, getVarValue, getScope } from "./variable.js";
 import { Spinner } from "./scheduler.js";
@@ -843,25 +843,37 @@ export const excepReportTask: TaskDef<{ exception: PetMap }, ExcepReportParams> 
             const { lastExcep } = task.state;
             const reporterIndex = task.state.reporterIndex ?? (excepReporters.length - 1);
             if (reporterIndex < 0) {
-                const excepText = getDefaultExcepReport(task.params.exception);
+                const excepText = getDefaultExcepReport(lastExcep);
                 return task.returnValue(new PetString(excepText));
             }
             const excepReporter = excepReporters[reporterIndex];
-            const handleException = (exception: PetValue): Action => task.repeatStage({
-                lastExcep: exception.getMap(),
-                reporterIndex: reporterIndex - 1,
-            });
+            const handleException = (excepValue: PetValue): Action => {
+                const exception = excepValue.getMap();
+                const excepType = exception.getMember(symbols.EXCEP_TYPE).getKnownValue();
+                if (excepType === symbols.SPIN_EXCEP || excepType === symbols.AWAIT_EXCEP) {
+                    return task.throwException(exception);
+                } else {
+                    return task.repeatStage({
+                        lastExcep: exception,
+                        reporterIndex: reporterIndex - 1,
+                    });
+                }
+            };
             return task.callFunction(
                 excepReporter, [lastExcep],
                 (value) => {
                     const knownValue = value.getKnownValue();
+                    const nextAction = task.returnValue(knownValue);
                     if (!(knownValue instanceof PetString)) {
-                        throw new PetTypeError(
+                        const typeError = createErrorExcep(
+                            symbols.TYPE_ERROR,
                             "Exception reporter must return a string.",
                             excepReporter.getModulePos(),
+                            new EvalState(task, nextAction),
                         );
+                        return handleException(wrapKnownValue(typeError));
                     }
-                    return task.returnValue(knownValue);
+                    return nextAction;
                 },
                 { handleException },
             );

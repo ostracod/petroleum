@@ -621,3 +621,287 @@ LIST (24, 5, 24)
 LIST (100, 7, NULL)
 LIST (20, 5, 20)
 LIST (24, 5, 24)
+=========================
+>>> testCase "EXCEP_TO_STR function with exception reporters"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @reporter1 {
+    [ARGS [@excep]]
+    PRINT("Reporter 1 was called")
+    RET (CONCAT(LIST ("Reporter 1: ", MEMBER(excep, #MESSAGE))))
+}
+PREP_FUNC @reporter2 {
+    [ARGS [@excep]]
+    RET (CONCAT(LIST ("Reporter 2: ", MEMBER(excep, #MESSAGE))))
+}
+WORK_VAR @excep = (MAP [FIELDS [
+    (#EXCEP_TYPE) = (#ERROR_EXCEP)
+    (#ERROR_TYPE) = (#VALUE_ERROR)
+    (#MESSAGE) = ("Bad value")
+]])
+PRINT(EXCEP_TO_STR(excep))
+ADD_EXCEP_REPORTER(reporter1)
+PRINT(EXCEP_TO_STR(excep))
+COMMENT "The most recently added reporter is used first."
+ADD_EXCEP_REPORTER(reporter2)
+PRINT(EXCEP_TO_STR(excep))
+>>> expectPrint
+Encountered #VALUE_ERROR error: Bad value
+Reporter 1 was called
+Reporter 1: Bad value
+Reporter 2: Bad value
+=========================
+>>> testCase "Exception reporter throws exception to next reporter"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @reporter1 {
+    [ARGS [@excep]]
+    RET (CONCAT(LIST ("Reporter 1: ", MEMBER(excep, #MESSAGE))))
+}
+PREP_FUNC @reporter2 {
+    [ARGS [@excep]]
+    PRINT(LIST ("Reporter 2", MEMBER(excep, #MESSAGE)))
+    THROW (MAP [FIELDS [
+        (#EXCEP_TYPE) = (#ERROR_EXCEP)
+        (#ERROR_TYPE) = (#STATE_ERROR)
+        (#MESSAGE) = ("Reporter 2 failed")
+    ]])
+}
+PREP_FUNC @reporter3 {
+    [ARGS [@excep]]
+    PRINT(LIST ("Reporter 3", MEMBER(excep, #MESSAGE)))
+    ABORT (#VALUE_ERROR, "Reporter 3 failed")
+}
+ADD_EXCEP_REPORTER(reporter1)
+ADD_EXCEP_REPORTER(reporter2)
+ADD_EXCEP_REPORTER(reporter3)
+PRINT(EXCEP_TO_STR(MAP [FIELDS [
+    (#EXCEP_TYPE) = (#ERROR_EXCEP)
+    (#ERROR_TYPE) = (#VALUE_ERROR)
+    (#MESSAGE) = ("Bad value")
+]]))
+>>> expectPrint
+LIST ("Reporter 3", "Bad value")
+LIST ("Reporter 2", "Reporter 3 failed")
+Reporter 1: Reporter 2 failed
+=========================
+>>> testCase "EXCEP_TO_STR function when all exception reporters throw"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @reporter1 {
+    [ARGS [@excep]]
+    PRINT(LIST ("Reporter 1", MEMBER(excep, #MESSAGE)))
+    ABORT (#STATE_ERROR, "Reporter 1 failed")
+}
+PREP_FUNC @reporter2 {
+    [ARGS [@excep]]
+    PRINT(LIST ("Reporter 2", MEMBER(excep, #MESSAGE)))
+    ABORT (#VALUE_ERROR, "Reporter 2 failed")
+}
+ADD_EXCEP_REPORTER(reporter1)
+ADD_EXCEP_REPORTER(reporter2)
+WORK_VAR @excepText = (EXCEP_TO_STR(MAP [FIELDS [
+    (#EXCEP_TYPE) = (#ERROR_EXCEP)
+    (#ERROR_TYPE) = (#VALUE_ERROR)
+    (#MESSAGE) = ("Bad value")
+]]))
+COMMENT "Only print the first line, which excludes the stack trace."
+PRINT(MEMBER(SPLIT(excepText, "\n"), 0))
+>>> expectPrint
+LIST ("Reporter 2", "Bad value")
+LIST ("Reporter 1", "Reporter 2 failed")
+Encountered #STATE_ERROR error: Reporter 1 failed
+=========================
+>>> testCase "EXCEP_TO_STR function with exception reporter returning non-string"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @reporter1 {
+    [ARGS [@excep]]
+    PRINT(LIST (MEMBER(excep, #ERROR_TYPE), MEMBER(excep, #MESSAGE)))
+    RET ("Reporter 1 output")
+}
+PREP_FUNC @reporter2 {
+    [ARGS [@excep]]
+    RET (123)
+}
+WORK_VAR @excep = (MAP [FIELDS [
+    (#EXCEP_TYPE) = (#ERROR_EXCEP)
+    (#ERROR_TYPE) = (#VALUE_ERROR)
+    (#MESSAGE) = ("Bad value")
+]])
+COMMENT "The type error is passed to the default reporter."
+ADD_EXCEP_REPORTER(reporter2)
+WORK_VAR @excepText = (EXCEP_TO_STR(excep))
+PRINT(MEMBER(SPLIT(excepText, "\n"), 0))
+COMMENT "The type error is passed to the next reporter."
+ADD_EXCEP_REPORTER(reporter1)
+ADD_EXCEP_REPORTER(reporter2)
+PRINT(EXCEP_TO_STR(excep))
+>>> expectPrint
+Encountered #TYPE_ERROR error: Exception reporter must return a string.
+LIST (#TYPE_ERROR, "Exception reporter must return a string.")
+Reporter 1 output
+=========================
+>>> testCase "Uncaught exception with exception reporters"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @reporter1 {
+    [ARGS [@excep]]
+    PRINT(LIST ("Reporter 1", MEMBER(excep, #MESSAGE)))
+    RET ("Reporter 1 output")
+}
+PREP_FUNC @reporter2 {
+    [ARGS [@excep]]
+    PRINT(LIST ("Reporter 2", MEMBER(excep, #MESSAGE)))
+    ABORT (#VALUE_ERROR, "Reporter 2 failed")
+}
+ADD_EXCEP_REPORTER(reporter1)
+ADD_EXCEP_REPORTER(reporter2)
+SCHED {
+    PRINT("This line is not reached")
+}
+ABORT (#STATE_ERROR, "Uncaught error")
+>>> expectPrint
+LIST ("Reporter 2", "Uncaught error")
+LIST ("Reporter 1", "Reporter 2 failed")
+>>> expectError type: #STATE_ERROR message: "Uncaught error" lineNumber: 16
+=========================
+>>> testCase "Exceptions during prep-phase with exception reporter"
+>>> setupFile ~/targetPackage/main.petrol
+[INIT {
+    ADD_EXCEP_REPORTER(FUNC {
+        [ARGS [@excep]]
+        PRINT(LIST ("Reporting", MEMBER(excep, #MESSAGE)))
+        RET ("Reporter output")
+    })
+}]
+PREP_VAR @var1 = <RUN {
+    ABORT (#STATE_ERROR, "First error")
+}>
+PREP_VAR @var2 = <RUN {
+    ABORT (#VALUE_ERROR, "Second error")
+}>
+PRINT("This line is not reached")
+>>> expectPrint
+LIST ("Reporting", "First error")
+LIST ("Reporting", "Second error")
+>>> expectError type: #STATE_ERROR message: "First error" lineNumber: 9
+>>> expectError type: #VALUE_ERROR message: "Second error" lineNumber: 12
+=========================
+>>> testCase "Stuck coroutines with exception reporter"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @reporter {
+    [ARGS [@excep]]
+    PRINT(LIST (MEMBER(excep, #EXCEP_TYPE), MEMBER(excep, #MESSAGE)))
+    RET ("Reporter output")
+}
+ADD_EXCEP_REPORTER(reporter)
+SCHED {
+    SPIN (FUNC {
+        RET (FALSE)
+    }, "Spinning forever")
+}
+AWAIT (MAP [FIELDS []], "missingKey", FUNC {
+    [ARGS [@value]]
+    RET (TRUE)
+}, "Awaiting forever")
+>>> expectPrint
+LIST (#AWAIT_EXCEP, "Awaiting forever")
+LIST (#SPIN_EXCEP, "Spinning forever")
+>>> expectStuck message: "Awaiting forever" lineNumber: 12
+>>> expectStuck message: "Spinning forever" lineNumber: 8
+=========================
+>>> testCase "Exceptions during prep-phase with exception reporter returning non-string"
+>>> setupFile ~/targetPackage/main.petrol
+[INIT {
+    ADD_EXCEP_REPORTER(FUNC {
+        [ARGS [@excep]]
+        PRINT(LIST ("Reporter 1", MEMBER(excep, #MESSAGE)))
+        RET ("Reporter 1 output")
+    })
+    ADD_EXCEP_REPORTER(FUNC {
+        [ARGS [@excep]]
+        PRINT(LIST ("Reporter 2", MEMBER(excep, #MESSAGE)))
+        IF (EQUAL(MEMBER(excep, #MESSAGE), "First error")) {
+            RET (123)
+        }
+        RET ("Reporter 2 output")
+    })
+}]
+PREP_VAR @var1 = <RUN {
+    ABORT (#STATE_ERROR, "First error")
+}>
+PREP_VAR @var2 = <RUN {
+    ABORT (#VALUE_ERROR, "Second error")
+}>
+PRINT("This line is not reached")
+>>> expectPrint
+LIST ("Reporter 2", "First error")
+LIST ("Reporter 1", "Exception reporter must return a string.")
+LIST ("Reporter 2", "Second error")
+>>> expectError type: #STATE_ERROR message: "First error" lineNumber: 17
+>>> expectError type: #VALUE_ERROR message: "Second error" lineNumber: 20
+=========================
+>>> testCase "Exception reporter with spin exception"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @reporter1 {
+    [ARGS [@excep]]
+    PRINT(LIST ("Reporter 1", MEMBER(excep, #EXCEP_TYPE), MEMBER(excep, #MESSAGE)))
+    RET ("Reporter 1 output")
+}
+PREP_FUNC @reporter2 {
+    [ARGS [@excep]]
+    WORK_VAR @flags = (MAP [FIELDS [("ready") = (FALSE)]])
+    SCHED {
+        PRINT("Setting flag")
+        SET_MEMBER(flags, "ready", TRUE)
+    }
+    PRINT("Spinning")
+    SPIN (FUNC {
+        RET (MEMBER(flags, "ready"))
+    }, "Waiting for flag")
+    PRINT("Finished spinning")
+    RET (CONCAT(LIST ("Reporter 2: ", MEMBER(excep, #MESSAGE))))
+}
+ADD_EXCEP_REPORTER(reporter1)
+ADD_EXCEP_REPORTER(reporter2)
+PRINT(EXCEP_TO_STR(MAP [FIELDS [
+    (#EXCEP_TYPE) = (#ERROR_EXCEP)
+    (#ERROR_TYPE) = (#VALUE_ERROR)
+    (#MESSAGE) = ("Bad value")
+]]))
+>>> expectPrint
+Spinning
+Setting flag
+Finished spinning
+Reporter 2: Bad value
+=========================
+>>> testCase "Exception reporter with await exception"
+>>> setupFile ~/targetPackage/main.petrol
+PREP_FUNC @reporter1 {
+    [ARGS [@excep]]
+    PRINT(LIST ("Reporter 1", MEMBER(excep, #EXCEP_TYPE), MEMBER(excep, #MESSAGE)))
+    RET ("Reporter 1 output")
+}
+PREP_FUNC @reporter2 {
+    [ARGS [@excep]]
+    WORK_VAR @myMap = (MAP [FIELDS []])
+    SCHED {
+        PRINT("Setting field")
+        SET_MEMBER(myMap, "a", "Field value")
+    }
+    PRINT("Awaiting")
+    WORK_VAR @value = (AWAIT (myMap, "a", FUNC {
+        [ARGS [@member]]
+        RET (TRUE)
+    }, "Waiting for field"))
+    PRINT(LIST ("Finished awaiting", value))
+    RET (CONCAT(LIST ("Reporter 2: ", MEMBER(excep, #MESSAGE))))
+}
+ADD_EXCEP_REPORTER(reporter1)
+ADD_EXCEP_REPORTER(reporter2)
+PRINT(EXCEP_TO_STR(MAP [FIELDS [
+    (#EXCEP_TYPE) = (#ERROR_EXCEP)
+    (#ERROR_TYPE) = (#VALUE_ERROR)
+    (#MESSAGE) = ("Bad value")
+]]))
+>>> expectPrint
+Awaiting
+Setting field
+LIST ("Finished awaiting", "Field value")
+Reporter 2: Bad value
