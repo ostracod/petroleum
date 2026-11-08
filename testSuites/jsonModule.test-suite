@@ -1,0 +1,436 @@
+>>> commonFile ~/targetPackage/testUtils.petrol
+COMMENT "Usage: printError($func, $args)"
+COMMENT "Calls $func with $args. Prints the result, or the error type and message if an error is thrown."
+PREP_FUNC @printError {
+    [ARGS [@func, @args]]
+    TRY {
+        PRINT(CALL(func, args))
+    } CATCH {
+        [EXCEP @excep]
+        PRINT(LIST (MEMBER(excep, #ERROR_TYPE), MEMBER(excep, #MESSAGE)))
+    }
+}
+COMMENT "Usage: printErrorType($func, $args)"
+COMMENT "Calls $func with $args. Prints the result, or the error type if an error is thrown."
+PREP_FUNC @printErrorType {
+    [ARGS [@func, @args]]
+    TRY {
+        PRINT(CALL(func, args))
+    } CATCH {
+        [EXCEP @excep]
+        PRINT(MEMBER(excep, #ERROR_TYPE))
+    }
+}
+=========================
+>>> testCase "PARSE function with scalar values"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#JSON> [VARS [@PARSE]]
+PRINT(PARSE("123"))
+PRINT(PARSE("-45"))
+PRINT(PARSE("0"))
+PRINT(PARSE("-0"))
+PRINT(PARSE("1.0"))
+PRINT(PARSE("1e2"))
+PRINT(PARSE("true"))
+PRINT(PARSE("false"))
+PRINT(PARSE("null"))
+PRINT(PARSE("\"text\""))
+PRINT(PARSE("  \n 7 \t"))
+PRINT(TYPE(PARSE("123")))
+PRINT(TYPE(PARSE("true")))
+PRINT(TYPE(PARSE("\"text\"")))
+PRINT(TYPE(PARSE("null")))
+>>> expectPrint
+123
+-45
+0
+0
+1
+100
+1
+0
+NULL
+text
+7
+#INT
+#INT
+#STR
+#NULL
+=========================
+>>> testCase "PARSE function with string escapes"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#JSON> [VARS [@PARSE]]
+PRINT(EQUAL(PARSE("\"a\\\"b\\\\c\\nd\\te\\/f\""), "a\"b\\c\nd\te/f"))
+PRINT(PARSE("\"\\u0041\\u0062\""))
+PRINT(PARSE("\"\\u00e9\""))
+PRINT(LEN(PARSE("\"\\u00e9\"")))
+PRINT(LEN(PARSE("\"\"")))
+>>> expectPrint
+1
+Ab
+é
+2
+0
+=========================
+>>> testCase "PARSE function with arrays and objects"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#JSON> [VARS [@PARSE]]
+PRINT(PARSE("[]"))
+PRINT(PARSE("{}"))
+PRINT(PARSE("[1, \"two\", null, true, [3, []]]"))
+PRINT(PARSE("{\"b\": 1, \"a\": \"text\"}"))
+WORK_VAR @data = (PARSE("{\"name\": \"Bob\", \"tags\": [\"x\", \"y\"], \"info\": {\"age\": 30, \"pet\": null}}"))
+PRINT(data)
+PRINT(MEMBER(MEMBER(data, "tags"), 1))
+PRINT(MEMBER(MEMBER(data, "info"), "age"))
+PRINT(PARSE("[{\"a\": 1}, {\"a\": 2}]"))
+PRINT(TYPE(PARSE("[]")))
+PRINT(TYPE(PARSE("{}")))
+>>> expectPrint
+LIST ()
+MAP [FIELDS []]
+LIST (1, "two", NULL, 1, LIST (3, LIST ()))
+MAP [FIELDS [("b") = (1), ("a") = ("text")]]
+MAP [FIELDS [("name") = ("Bob"), ("tags") = (LIST ("x", "y")), ("info") = (MAP [FIELDS [("age") = (30), ("pet") = (NULL)]])]]
+y
+30
+LIST (MAP [FIELDS [("a") = (1)]], MAP [FIELDS [("a") = (2)]])
+#LIST
+#MAP
+=========================
+>>> testCase "PARSE function with invalid input"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#JSON> [VARS [@PARSE]]
+IMPORT <"./testUtils.petrol"> [VARS [@printError, @printErrorType]]
+printErrorType(PARSE, LIST (""))
+printErrorType(PARSE, LIST ("{"))
+printErrorType(PARSE, LIST ("[1, 2,]"))
+printErrorType(PARSE, LIST ("{\"a\" 1}"))
+printErrorType(PARSE, LIST ("{a: 1}"))
+printErrorType(PARSE, LIST ("'text'"))
+printErrorType(PARSE, LIST ("undefined"))
+printErrorType(PARSE, LIST ("1 2"))
+printError(PARSE, LIST ("1.5"))
+printError(PARSE, LIST ("[1, 2.5]"))
+printError(PARSE, LIST ("{\"a\": 0.1}"))
+printError(PARSE, LIST ("1e400"))
+printError(PARSE, LIST ("1e19"))
+printError(PARSE, LIST ("-1e19"))
+printError(PARSE, LIST (123))
+printError(PARSE, LIST (NULL))
+>>> expectPrint
+#VALUE_ERROR
+#VALUE_ERROR
+#VALUE_ERROR
+#VALUE_ERROR
+#VALUE_ERROR
+#VALUE_ERROR
+#VALUE_ERROR
+#VALUE_ERROR
+LIST (#VALUE_ERROR, "JSON number must be a whole number.")
+LIST (#VALUE_ERROR, "JSON number must be a whole number.")
+LIST (#VALUE_ERROR, "JSON number must be a whole number.")
+LIST (#VALUE_ERROR, "JSON number is outside signed 64-bit integer range.")
+LIST (#VALUE_ERROR, "JSON number is outside signed 64-bit integer range.")
+LIST (#VALUE_ERROR, "JSON number is outside signed 64-bit integer range.")
+LIST (#TYPE_ERROR, "Expected string.")
+LIST (#TYPE_ERROR, "Expected string.")
+=========================
+>>> testCase "PARSE function with decimal parts and exponents"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#JSON> [VARS [@PARSE]]
+PRINT(PARSE("1.5e1"))
+PRINT(PARSE("1.50e2"))
+PRINT(PARSE("-1.5e1"))
+PRINT(PARSE("0.5e1"))
+PRINT(PARSE("0.05e2"))
+PRINT(PARSE("1E+2"))
+PRINT(PARSE("2.000"))
+PRINT(PARSE("1.000000000000000000000000000000"))
+PRINT(PARSE("100e-2"))
+PRINT(PARSE("-100e-2"))
+PRINT(PARSE("1200e-2"))
+PRINT(PARSE("1.20e1"))
+PRINT(PARSE("[1.5e1, {\"a\": 250e-1}]"))
+>>> expectPrint
+15
+150
+-15
+5
+5
+100
+2
+1
+1
+-1
+12
+12
+LIST (15, MAP [FIELDS [("a") = (25)]])
+=========================
+>>> testCase "PARSE function with fractional exponent values"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#JSON> [VARS [@PARSE]]
+IMPORT <"./testUtils.petrol"> [VARS [@printError]]
+printError(PARSE, LIST ("1e-1"))
+printError(PARSE, LIST ("100e-5"))
+printError(PARSE, LIST ("-25e-1"))
+printError(PARSE, LIST ("1.25e1"))
+printError(PARSE, LIST ("1.0001e3"))
+printError(PARSE, LIST ("1e-99999999999999999999"))
+printError(PARSE, LIST ("[1, {\"a\": 25e-1}]"))
+>>> expectPrint
+LIST (#VALUE_ERROR, "JSON number must be a whole number.")
+LIST (#VALUE_ERROR, "JSON number must be a whole number.")
+LIST (#VALUE_ERROR, "JSON number must be a whole number.")
+LIST (#VALUE_ERROR, "JSON number must be a whole number.")
+LIST (#VALUE_ERROR, "JSON number must be a whole number.")
+LIST (#VALUE_ERROR, "JSON number must be a whole number.")
+LIST (#VALUE_ERROR, "JSON number must be a whole number.")
+=========================
+>>> testCase "PARSE function with large exponents"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#JSON> [VARS [@PARSE]]
+IMPORT <"./testUtils.petrol"> [VARS [@printError]]
+printError(PARSE, LIST ("1e18"))
+printError(PARSE, LIST ("9.223372036854775807e18"))
+printError(PARSE, LIST ("-9.223372036854775808e18"))
+printError(PARSE, LIST ("9.223372036854775808e18"))
+printError(PARSE, LIST ("-9.223372036854775809e18"))
+printError(PARSE, LIST ("1e20"))
+printError(PARSE, LIST ("1e21"))
+COMMENT "These exponents are too large to construct as bigints in a reasonable time."
+printError(PARSE, LIST ("1e1000000000"))
+printError(PARSE, LIST ("-1e1000000000"))
+printError(PARSE, LIST ("1e99999999999999999999"))
+>>> expectPrint
+1000000000000000000
+9223372036854775807
+-9223372036854775808
+LIST (#VALUE_ERROR, "JSON number is outside signed 64-bit integer range.")
+LIST (#VALUE_ERROR, "JSON number is outside signed 64-bit integer range.")
+LIST (#VALUE_ERROR, "JSON number is outside signed 64-bit integer range.")
+LIST (#VALUE_ERROR, "JSON number is outside signed 64-bit integer range.")
+LIST (#VALUE_ERROR, "JSON number is outside signed 64-bit integer range.")
+LIST (#VALUE_ERROR, "JSON number is outside signed 64-bit integer range.")
+LIST (#VALUE_ERROR, "JSON number is outside signed 64-bit integer range.")
+=========================
+>>> testCase "PARSE function with zero and exponents"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#JSON> [VARS [@PARSE]]
+PRINT(PARSE("0e0"))
+PRINT(PARSE("0e21"))
+PRINT(PARSE("0e100"))
+PRINT(PARSE("0.0e50"))
+PRINT(PARSE("-0e30"))
+PRINT(PARSE("0.000e-5"))
+PRINT(PARSE("0e1000000000"))
+PRINT(PARSE("0e-99999999999999999999"))
+>>> expectPrint
+0
+0
+0
+0
+0
+0
+0
+0
+=========================
+>>> testCase "STR function with scalar values"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#JSON> [VARS [@STR]]
+PRINT(STR(123))
+PRINT(STR(NEG(45)))
+PRINT(STR(0))
+PRINT(STR(TRUE))
+PRINT(STR(NULL))
+PRINT(STR("text"))
+PRINT(STR(""))
+PRINT(STR("a\"b\\c\nd\te/f"))
+PRINT(STR(""))
+PRINT(TYPE(STR(123)))
+>>> expectPrint
+123
+-45
+0
+1
+null
+"text"
+""
+"a\"b\\c\nd\te/f"
+""
+#STR
+=========================
+>>> testCase "STR function with lists and maps"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#JSON> [VARS [@STR]]
+PRINT(STR(LIST ()))
+PRINT(STR(MAP [FIELDS []]))
+PRINT(STR(LIST (1, "two", NULL, LIST (3, LIST ()))))
+PRINT(STR(MAP [FIELDS [("b") = (1), ("a") = ("text")]]))
+PRINT(STR(MAP [FIELDS [
+    ("name") = ("Bob")
+    ("tags") = (LIST ("x", "y"))
+    ("info") = (MAP [FIELDS [("age") = (30), ("pet") = (NULL)]])
+]]))
+PRINT(STR(LIST (MAP [FIELDS [("a") = (1)]], MAP [FIELDS []])))
+>>> expectPrint
+[]
+{}
+[1,"two",null,[3,[]]]
+{"b":1,"a":"text"}
+{"name":"Bob","tags":["x","y"],"info":{"age":30,"pet":null}}
+[{"a":1},{}]
+=========================
+>>> testCase "STR function with indentation"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#JSON> [VARS [@STR]]
+WORK_VAR @data = (MAP [FIELDS [
+    ("a") = (LIST (1, 2))
+    ("b") = (MAP [FIELDS [("c") = (NULL)]])
+    ("d") = (LIST ())
+]])
+PRINT(STR(data, 2))
+PRINT(STR(data, 4))
+PRINT(STR(data, 0))
+PRINT(STR(123, 2))
+PRINT(STR(LIST (), 2))
+>>> expectPrint
+{
+  "a": [
+    1,
+    2
+  ],
+  "b": {
+    "c": null
+  },
+  "d": []
+}
+{
+    "a": [
+        1,
+        2
+    ],
+    "b": {
+        "c": null
+    },
+    "d": []
+}
+{"a":[1,2],"b":{"c":null},"d":[]}
+123
+[]
+=========================
+>>> testCase "STR function with shared references"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#JSON> [VARS [@STR]]
+WORK_VAR @shared = (LIST (1, 2))
+PRINT(STR(LIST (shared, shared)))
+PRINT(STR(MAP [FIELDS [("a") = (shared), ("b") = (LIST (shared))]]))
+>>> expectPrint
+[[1,2],[1,2]]
+{"a":[1,2],"b":[[1,2]]}
+=========================
+>>> testCase "STR function with circular references"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#JSON> [VARS [@STR]]
+IMPORT <"./testUtils.petrol"> [VARS [@printError]]
+WORK_VAR @myList = (LIST (1, 2))
+ADD_ELEM(myList, myList)
+printError(STR, LIST (myList))
+WORK_VAR @myMap = (MAP [FIELDS [("a") = (1)]])
+SET_MEMBER(myMap, "self", myMap)
+printError(STR, LIST (myMap))
+WORK_VAR @outerList = (LIST ())
+WORK_VAR @innerMap = (MAP [FIELDS [("list") = (outerList)]])
+ADD_ELEM(outerList, LIST (innerMap))
+printError(STR, LIST (outerList))
+printError(STR, LIST (innerMap))
+printError(STR, LIST (LIST ("wrapper", myList)))
+>>> expectPrint
+LIST (#VALUE_ERROR, "Cannot convert value with circular reference to JSON.")
+LIST (#VALUE_ERROR, "Cannot convert value with circular reference to JSON.")
+LIST (#VALUE_ERROR, "Cannot convert value with circular reference to JSON.")
+LIST (#VALUE_ERROR, "Cannot convert value with circular reference to JSON.")
+LIST (#VALUE_ERROR, "Cannot convert value with circular reference to JSON.")
+=========================
+>>> testCase "STR function with invalid input"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#JSON> [VARS [@STR]]
+IMPORT <"./testUtils.petrol"> [VARS [@printError]]
+printError(STR, LIST (MAP [FIELDS [(1) = ("a")]]))
+printError(STR, LIST (MAP [FIELDS [(#INT) = ("a")]]))
+printError(STR, LIST (LIST (MAP [FIELDS [("a") = (1), (NULL) = (2)]])))
+printError(STR, LIST (#INT))
+printError(STR, LIST (LIST (1, #INT)))
+printError(STR, LIST (MAP [FIELDS [("a") = (STR)]]))
+printError(STR, LIST (LIST (1), "2"))
+printError(STR, LIST (LIST (1), NULL))
+>>> expectPrint
+LIST (#TYPE_ERROR, "All map keys must be strings for JSON conversion.")
+LIST (#TYPE_ERROR, "All map keys must be strings for JSON conversion.")
+LIST (#TYPE_ERROR, "All map keys must be strings for JSON conversion.")
+LIST (#TYPE_ERROR, "Unsupported value type for JSON conversion.")
+LIST (#TYPE_ERROR, "Unsupported value type for JSON conversion.")
+LIST (#TYPE_ERROR, "Unsupported value type for JSON conversion.")
+LIST (#TYPE_ERROR, "Expected integer.")
+LIST (#TYPE_ERROR, "Expected integer.")
+=========================
+>>> testCase "PARSE function reverses STR function"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#JSON> [VARS [@PARSE, @STR]]
+WORK_VAR @texts = (LIST (
+    "123"
+    "\"text\""
+    "null"
+    "[1,\"two\",null,[3,[]]]"
+    "{\"b\":1,\"a\":{\"c\":[\"x\"]}}"
+))
+WORK_VAR @index = (0)
+WHILE (LESS(index, LEN(texts))) {
+    WORK_VAR @text = (MEMBER(texts, index))
+    PRINT(EQUAL(STR(PARSE(text)), text))
+    SET index = (ADD(index, 1))
+}
+WORK_VAR @data = (MAP [FIELDS [("a") = (LIST (1, NEG(2))), ("b") = ("c")]])
+PRINT(PARSE(STR(data)))
+PRINT(PARSE(STR(data, 2)))
+>>> expectPrint
+1
+1
+1
+1
+1
+MAP [FIELDS [("a") = (LIST (1, -2)), ("b") = ("c")]]
+MAP [FIELDS [("a") = (LIST (1, -2)), ("b") = ("c")]]
+=========================
+>>> testCase "JSON functions with large integers"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#JSON> [VARS [@PARSE, @STR]]
+IMPORT <"./testUtils.petrol"> [VARS [@printError]]
+PRINT(STR(9223372036854775807))
+PRINT(STR(SUB(NEG(9223372036854775807), 1)))
+PRINT(STR(9007199254740993))
+PRINT(PARSE("9223372036854775807"))
+PRINT(PARSE("-9223372036854775808"))
+PRINT(PARSE("9007199254740993"))
+printError(PARSE, LIST ("9223372036854775808"))
+printError(PARSE, LIST ("-9223372036854775809"))
+>>> expectPrint
+9223372036854775807
+-9223372036854775808
+9007199254740993
+9223372036854775807
+-9223372036854775808
+9007199254740993
+LIST (#VALUE_ERROR, "JSON number is outside signed 64-bit integer range.")
+LIST (#VALUE_ERROR, "JSON number is outside signed 64-bit integer range.")
+=========================
+>>> testCase "JSON functions with __proto__ key"
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#JSON> [VARS [@PARSE, @STR]]
+PRINT(PARSE("{\"__proto__\": {\"x\": 1}, \"y\": 2}"))
+PRINT(STR(MAP [FIELDS [("__proto__") = (MAP [FIELDS [("x") = (1)]]), ("y") = (2)]]))
+PRINT(STR(MAP [FIELDS [("__proto__") = (5)]]))
+>>> expectPrint
+MAP [FIELDS [("__proto__") = (MAP [FIELDS [("x") = (1)]]), ("y") = (2)]]
+{"__proto__":{"x":1},"y":2}
+{"__proto__":5}

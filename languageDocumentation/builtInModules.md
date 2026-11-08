@@ -1,7 +1,7 @@
 
 ## Built-In Modules
 
-This section describes all built-in modules in Petroleum. Right now there is only one built-in module (the file system module), but more will likely be added in the future.
+This section describes all built-in modules in Petroleum.
 
 ### File System Module
 
@@ -109,5 +109,37 @@ REL_PATH($refPath, $targetPath)
 ```
 
 Returns the path of `$targetPath` relative to `$refPath`.
+
+### JSON Module
+
+The specifier of the JSON module is `#JSON`. This module exports the following variables:
+
+```
+PARSE($text)
+```
+
+Parses JSON `$text`, and returns a representation of the JSON using Petroleum data types. Values are converted according to these rules:
+
+* JSON strings become Petroleum strings.
+* JSON numbers become Petroleum integers.
+    * If the JSON number is not a whole number, `PARSE` throws an error.
+* JSON booleans become Petroleum integers equal to 0 or 1.
+* JSON arrays become Petroleum lists.
+* JSON objects become Petroleum maps.
+* JSON null becomes Petroleum null.
+
+```
+STR($value, $indentation?)
+```
+
+Converts `$value` to JSON text. If `$indentation` is included, the JSON will be indented with the given number of spaces. Values are converted according to these rules:
+
+* Petroleum strings become JSON strings.
+* Petroleum integers become JSON numbers.
+* Petroleum lists become JSON arrays.
+* Petroleum maps become JSON objects.
+    * If any map key is not a string, `STR` throws an error.
+* Petroleum null becomes JSON null.
+* For all other Petroleum data types, `STR` throws an error.
 
 

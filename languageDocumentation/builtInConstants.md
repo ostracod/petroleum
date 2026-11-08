@@ -55,7 +55,7 @@ Built-in method keys are symbols. Petroleum defines the following method keys:
 Built-in module specifiers are symbols. The following built-in module specifiers are available:
 
 * `#FILE_SYSTEM` symbolizes the file system module.
-* More symbols will be defined for future built-in modules.
+* `#JSON` symbolizes the JSON module.
 
 Petroleum defines many symbols for keys and values in various data structures. See the section on representation schemas for details. Such symbols include:
 
