@@ -488,6 +488,22 @@ export const evalStmtsTask: TaskDef<EvalStmtsParams, EvalStmtsState> = {
     ],
 };
 
+export interface AccumulatorNode<T> {
+    element: T;
+    previousNode?: AccumulatorNode<T>;
+}
+
+export const getAccumulatorElements = <T>(lastNode?: AccumulatorNode<T>): T[] => {
+    const elements: T[] = [];
+    let node = lastNode;
+    while (typeof node !== "undefined") {
+        elements.push(node.element);
+        node = node.previousNode;
+    }
+    elements.reverse();
+    return elements;
+};
+
 interface EvalExprsParams {
     exprsComp: PetMap;
     varSpace: PetMap;
@@ -495,26 +511,27 @@ interface EvalExprsParams {
 
 interface EvalExprsState {
     exprIndex: number;
-    returnValues: PetValue[];
+    lastAccumNode?: AccumulatorNode<PetValue>;
 }
 
 export const evalExprsTask: TaskDef<EvalExprsParams, EvalExprsState> = {
-    getInitState: (params) => ({ exprIndex: 0, returnValues: [] }),
+    getInitState: (params) => ({ exprIndex: 0 }),
     stages: [
         (task) => {
             const exprs = task.params.exprsComp.getMember(symbols.EXPRS).getList();
-            const { exprIndex, returnValues } = task.state;
+            const { exprIndex, lastAccumNode } = task.state;
             if (exprIndex < exprs.getLength()) {
                 const expr = exprs.getMember(exprIndex).getMap();
                 return task.callMethod(
                     expr, symbols.EVAL, [task.params.varSpace],
                     (value) => task.repeatStage({
                         exprIndex: exprIndex + 1,
-                        returnValues: [...returnValues, value],
+                        lastAccumNode: { element: value, previousNode: lastAccumNode },
                     }),
                 );
             } else {
-                const valueList = new PetList(returnValues);
+                const values = getAccumulatorElements(lastAccumNode);
+                const valueList = new PetList(values);
                 return task.returnValue(valueList);
             }
         },
@@ -911,17 +928,12 @@ interface SortListParams {
     compare: PetFunc;
 }
 
-interface SortedListNode {
-    element: PetValue;
-    previousNode?: SortedListNode;
-}
-
 interface SortListState {
     sortedHalf1?: PetValue[];
     sortedHalf2?: PetValue[];
     halfIndex1?: number;
     halfIndex2?: number;
-    lastNode?: SortedListNode;
+    lastAccumNode?: AccumulatorNode<PetValue>;
 }
 
 const getMiddleIndex = (elements: PetValue[]): number => Math.floor(elements.length / 2);
@@ -971,7 +983,7 @@ export const sortListTask: TaskDef<SortListParams, SortListState> = {
             const sortedHalf2 = state.sortedHalf2!;
             const halfIndex1 = state.halfIndex1!;
             const halfIndex2 = state.halfIndex2!;
-            const { lastNode } = state;
+            const { lastAccumNode } = state;
             const element1 = sortedHalf1[halfIndex1];
             const element2 = sortedHalf2[halfIndex2];
             const reachedEnd1 = (typeof element1 === "undefined");
@@ -981,24 +993,18 @@ export const sortListTask: TaskDef<SortListParams, SortListState> = {
                 sortedHalf2,
                 halfIndex1: halfIndex1 + 1,
                 halfIndex2,
-                lastNode: { element: element1, previousNode: lastNode },
+                lastAccumNode: { element: element1, previousNode: lastAccumNode },
             });
             const addElement2 = (): Action => task.repeatStage({
                 sortedHalf1,
                 sortedHalf2,
                 halfIndex1,
                 halfIndex2: halfIndex2 + 1,
-                lastNode: { element: element2, previousNode: lastNode },
+                lastAccumNode: { element: element2, previousNode: lastAccumNode },
             });
             if (reachedEnd1) {
                 if (reachedEnd2) {
-                    const sortedElements: PetValue[] = [];
-                    let node = lastNode;
-                    while (typeof node !== "undefined") {
-                        sortedElements.push(node.element);
-                        node = node.previousNode;
-                    }
-                    sortedElements.reverse();
+                    const sortedElements = getAccumulatorElements(lastAccumNode);
                     return task.returnValue(new PetList(sortedElements));
                 } else {
                     return addElement2();

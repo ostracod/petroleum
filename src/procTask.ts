@@ -8,7 +8,7 @@ import { SetProcParts, IterProcParts, setUpImportVars } from "./procedure.js";
 import { PetException, PetTypeError, createBreakExcep } from "./exception.js";
 import { getPackage, assertMinCompAmount, getPrepGradeExprs, getLabeledAttrComps } from "./node.js";
 import { getVariable, getResolvedVarType, findVarValue, getScope, createStmtsCompFrame, FuncSignature, getFuncSignature, setArgVarTypes } from "./variable.js";
-import { TaskDef, Action, Task, prepWorkersTask, workersVarsTask } from "./task.js";
+import { TaskDef, Action, Task, prepWorkersTask, workersVarsTask, AccumulatorNode, getAccumulatorElements } from "./task.js";
 
 export interface MapFieldComps {
     keyComp: PetMap;
@@ -53,33 +53,35 @@ interface MapProcEvalParams {
 }
 
 interface MapProcEvalState {
-    map: PetMap;
     compsIndex: number;
+    lastAccumNode?: AccumulatorNode<[KnownValue, PetValue]>;
 }
 
 export const mapProcEvalTask: TaskDef<MapProcEvalParams, MapProcEvalState> = {
-    getInitState: (params) => ({ map: new PetMap(), compsIndex: 0 }),
+    getInitState: (params) => ({ compsIndex: 0 }),
     stages: [
         (task) => {
             const { compsList, varSpace } = task.params;
-            const { map, compsIndex } = task.state;
-            if (compsIndex < compsList.length) {
-                const comps = compsList[compsIndex];
-                return task.runTask(
-                    mapFieldEvalTask, { comps, varSpace },
-                    (listValue) => {
-                        const values = listValue.getList();
-                        const fieldKey = values.getMember(0);
-                        const fieldValue = values.getMember(1);
-                        // Something something quadratic time complexity whatever who cares
-                        const nextMap = map.shallowCopy();
-                        nextMap.addField(fieldKey, fieldValue);
-                        return task.repeatStage({ map: nextMap, compsIndex: compsIndex + 1 });
-                    },
-                );
-            } else {
+            const { compsIndex, lastAccumNode } = task.state;
+            if (compsIndex >= compsList.length) {
+                const fieldEntries = getAccumulatorElements(lastAccumNode);
+                const map = new PetMap(fieldEntries);
                 return task.returnValue(map);
             }
+            const comps = compsList[compsIndex];
+            return task.runTask(
+                mapFieldEvalTask, { comps, varSpace },
+                (listValue) => {
+                    const values = listValue.getList();
+                    const fieldKey = values.getMember(0).getKnownValue();
+                    const fieldValue = values.getMember(1);
+                    const fieldEntry: [KnownValue, PetValue] = [fieldKey, fieldValue];
+                    return task.repeatStage({
+                        compsIndex: compsIndex + 1,
+                        lastAccumNode: { element: fieldEntry, previousNode: lastAccumNode },
+                    });
+                },
+            );
         },
     ],
 };
