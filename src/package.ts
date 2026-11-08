@@ -4,7 +4,7 @@ import "./moduleParser.js";
 import * as pathUtils from "path";
 import { symbols } from "./symbol.js";
 import { PetString, PetMap } from "./value.js";
-import { PetException, ValueError, StateError } from "./exception.js";
+import { PetException, PetSyntaxError, PetTypeError, ValueError, StateError } from "./exception.js";
 import { ModuleParser } from "./moduleParser.js";
 import { FileSystem } from "./fileSystem.js";
 
@@ -123,6 +123,89 @@ class Dependency {
     }
 }
 
+type ValueType = "string" | DictType | [ValueType];
+
+interface DictType {
+    [key: string]: ValueType;
+}
+
+const packageConfigSchema: DictType = {
+    specifier: "string",
+    version: "string",
+    mainModule: "string",
+    petroleumVersion: "string",
+    dependencies: [{
+        specifier: "string",
+        version: "string",
+    }],
+};
+
+const getJsonDisplayPath = (jsonPath: string): string => (
+    (jsonPath.length > 0)
+        ? "`" + jsonPath + "`"
+        : "Top level"
+);
+
+const checkArraySchema = (
+    arrayValue: any[],
+    schema: [ValueType],
+    filePath: string,
+    jsonPath: string,
+): void => {
+    const elementSchema = schema[0];
+    for (let index = 0; index < arrayValue.length; index++) {
+        const element: unknown = arrayValue[index];
+        checkValueSchema(element, elementSchema, filePath, `${jsonPath}[${index}]`);
+    }
+};
+
+const checkDictSchema = (
+    dictValue: { [key: string]: any },
+    schema: DictType,
+    filePath: string,
+    jsonPath: string,
+): void => {
+    for (const key in schema) {
+        const member: unknown = dictValue[key];
+        const memberPath = (jsonPath.length > 0) ? `${jsonPath}.${key}` : key;
+        if (typeof member === "undefined") {
+            const memberDisplayPath = getJsonDisplayPath(memberPath);
+            throw new PetTypeError(`${memberDisplayPath} field is missing in ${filePath}`);
+        }
+        const memberSchema = schema[key];
+        checkValueSchema(member, memberSchema, filePath, memberPath);
+    }
+};
+
+const checkValueSchema = (
+    value: any,
+    schema: ValueType,
+    filePath: string,
+    jsonPath: string = "",
+): void => {
+    const jsonDisplayPath = getJsonDisplayPath(jsonPath);
+    if (schema === "string") {
+        if (typeof value !== "string") {
+            throw new PetTypeError(`${jsonDisplayPath} must be a string in ${filePath}`);
+        }
+    } else if (Array.isArray(schema)) {
+        if (!Array.isArray(value)) {
+            throw new PetTypeError(`${jsonDisplayPath} must be an array in ${filePath}`);
+        }
+        checkArraySchema(value, schema, filePath, jsonPath);
+    } else {
+        if (typeof value !== "object" || value === null || Array.isArray(value)) {
+            throw new PetTypeError(`${jsonDisplayPath} must be a dictionary in ${filePath}`);
+        }
+        checkDictSchema(value as { [key: string]: any }, schema, filePath, jsonPath);
+    }
+};
+
+const validatePackageConfig = (packageConfig: any, filePath: string): PackageConfig => {
+    checkValueSchema(packageConfig, packageConfigSchema, filePath);
+    return packageConfig as PackageConfig;
+};
+
 class PetPackage {
     fileSystem: FileSystem;
     dirPath: string;
@@ -139,7 +222,14 @@ class PetPackage {
         this.dirPath = dirPath;
         const configPath = pathUtils.join(this.dirPath, "petroleumPackage.json");
         const configText = this.fileSystem.readFile(configPath).toString();
-        this.config = JSON.parse(configText) as PackageConfig;
+        let config: unknown;
+        try {
+            config = JSON.parse(configText);
+        } catch (error) {
+            const message = (error instanceof Error) ? error.message : `${error}`;
+            throw new PetSyntaxError(`${message} in ${configPath}`);
+        }
+        this.config = validatePackageConfig(config, configPath);
         this.specifier = this.config.specifier;
         this.version = new Version(this.config.version);
         this.petroleumVersionRange = new VersionRange(this.config.petroleumVersion);
@@ -350,6 +440,7 @@ const errorToException = (error: any): PetMap => {
 export class PackageResolver {
     fileSystem: FileSystem;
     packageStorePath: string;
+    entryPackagePath: string;
     entryPackage: PetPackage;
     globalScope: PetMap;
     // Map from specifier to VersionMap. A null value in the VersionMap
@@ -371,7 +462,7 @@ export class PackageResolver {
         this.packageStorePath = pathUtils.join(
             this.fileSystem.getHomeDirectory(), "petroleumPackages",
         );
-        this.entryPackage = new PetPackage(this.fileSystem, entryPackagePath);
+        this.entryPackagePath = entryPackagePath;
         this.globalScope = globalScope;
         this.packageStoreCache = new Map();
     }
@@ -627,6 +718,7 @@ export class PackageResolver {
     }
     
     resolvePackagesHelper(): { entryPackage: PetMap | null, exceptions: PetMap[] } {
+        this.entryPackage = new PetPackage(this.fileSystem, this.entryPackagePath);
         if (!this.entryPackage.petroleumIsCompatible()) {
             throw new StateError("Entry package is not compatible with this version of Petroleum.");
         }
