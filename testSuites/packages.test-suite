@@ -757,3 +757,193 @@ PRINT(IN_ENTRY_PACK <>)
 PRINT("This line is not reached")
 PRINT(IN_ENTRY_PACK () ())
 >>> expectError type: #SYNTAX_ERROR message: "Node has too many components." lineNumber: 2
+=========================
+>>> testCase "Package file with invalid JSON"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+>>> expectError type: #SYNTAX_ERROR
+=========================
+>>> testCase "Package file with non-dictionary top level"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+[
+    "testUser.targetPackage"
+]
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+>>> expectError type: #TYPE_ERROR message: "Top level must be a dictionary in /home/testUser/targetPackage/petroleumPackage.json"
+=========================
+>>> testCase "Package file with null top level"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+null
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+>>> expectError type: #TYPE_ERROR message: "Top level must be a dictionary in /home/testUser/targetPackage/petroleumPackage.json"
+=========================
+>>> testCase "Package file with missing field"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+>>> expectError type: #TYPE_ERROR message: "`mainModule` field is missing in /home/testUser/targetPackage/petroleumPackage.json"
+=========================
+>>> testCase "Package file with non-string field"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": 100,
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+>>> expectError type: #TYPE_ERROR message: "`version` must be a string in /home/testUser/targetPackage/petroleumPackage.json"
+=========================
+>>> testCase "Package file with null field"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": null,
+    "dependencies": []
+}
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+>>> expectError type: #TYPE_ERROR message: "`petroleumVersion` must be a string in /home/testUser/targetPackage/petroleumPackage.json"
+=========================
+>>> testCase "Package file with non-array dependencies"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": {
+        "specifier": "testDev.myLib",
+        "version": "^1.0.0"
+    }
+}
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+>>> expectError type: #TYPE_ERROR message: "`dependencies` must be an array in /home/testUser/targetPackage/petroleumPackage.json"
+=========================
+>>> testCase "Package file with non-dictionary dependency"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.myLib",
+            "version": "^1.0.0"
+        },
+        "testDev.otherLib"
+    ]
+}
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+>>> expectError type: #TYPE_ERROR message: "`dependencies[1]` must be a dictionary in /home/testUser/targetPackage/petroleumPackage.json"
+=========================
+>>> testCase "Package file with missing dependency field"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.myLib",
+            "version": "^1.0.0"
+        },
+        {
+            "specifier": "testDev.otherLib"
+        }
+    ]
+}
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+>>> expectError type: #TYPE_ERROR message: "`dependencies[1].version` field is missing in /home/testUser/targetPackage/petroleumPackage.json"
+=========================
+>>> testCase "Package file with non-string dependency field"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": ["testDev.myLib"],
+            "version": "^1.0.0"
+        }
+    ]
+}
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+>>> expectError type: #TYPE_ERROR message: "`dependencies[0].specifier` must be a string in /home/testUser/targetPackage/petroleumPackage.json"
+=========================
+>>> testCase "Dependency package file with invalid schema"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.myLib",
+            "version": "^1.0.0"
+        }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/myLib/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.myLib",
+    "version": "1.0.0",
+    "mainModule": 5,
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/myLib/v1.0.0/main.petrol
+PREP_VAR @version = <"1.0.0">
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+>>> expectError type: #TYPE_ERROR message: "`mainModule` must be a string in /home/testUser/petroleumPackages/testDev/myLib/v1.0.0/petroleumPackage.json"
+=========================
+>>> testCase "Dependency package file with invalid JSON"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        {
+            "specifier": "testDev.myLib",
+            "version": "^1.0.0"
+        }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/myLib/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.myLib",
+    "version": "1.0.0",,
+}
+>>> setupFile ~/petroleumPackages/testDev/myLib/v1.0.0/main.petrol
+PREP_VAR @version = <"1.0.0">
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+>>> expectError type: #SYNTAX_ERROR
