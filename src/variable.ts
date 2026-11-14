@@ -17,7 +17,7 @@ export const createFrame = (scope: PetMap, parentFrame: PetMap | null): PetMap =
     const frameEntries: [PetValue, PetMap][] = [];
     for (const field of variables.fields.values()) {
         const variable = field.value.getMap();
-        const varType = variable.getMember(symbols.VAR_TYPE).getSymbol();
+        const varType = getVarType(variable, false);
         if (varType === symbols.WORK_VAR) {
             const identifier = variable.getMember(symbols.IDENT);
             const frameEntry = new PetMap([
@@ -87,10 +87,13 @@ export const getVariable = (scope: PetMap, name: PetString): PetMap => {
     return result;
 };
 
-const getVarType = (variable: PetMap): PetSymbol => {
+const getVarType = (variable: PetMap, allowAwait = true): PetSymbol => {
     const varType = variable.getMember(symbols.VAR_TYPE).getKnownValue();
     if (varType === null) {
         const varName = variable.getMember(symbols.IDENT).toStringStrict();
+        if (!allowAwait) {
+            throw new StateError(`Type of variable "${varName}" has not been assigned.`);
+        }
         throw new AwaitException(
             variable,
             symbols.VAR_TYPE,
