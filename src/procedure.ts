@@ -930,6 +930,20 @@ export const globalProcDefs: ProcDef[] = [
         },
     },
     {
+        name: "PACK_PATH",
+        prep: (task, worker) => {
+            const comps = worker.getMember(symbols.COMPS).getList();
+            assertCompAmount(comps, 2);
+            assertWorkGradeExprs(comps, 1, 0);
+            return callDefaultPrep(task, worker);
+        },
+        eval: (task, worker, varSpace) => {
+            const pack = getPackage(worker);
+            const packPath = pack.getMember(symbols.DIR_PATH).toStringStrict();
+            return task.returnValue(new PetString(packPath));
+        },
+    },
+    {
         name: "IN_ENTRY_PACK",
         prep: (task, worker) => {
             const comps = worker.getMember(symbols.COMPS).getList();

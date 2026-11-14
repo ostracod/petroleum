@@ -758,6 +758,100 @@ PRINT("This line is not reached")
 PRINT(IN_ENTRY_PACK () ())
 >>> expectError type: #SYNTAX_ERROR message: "Node has too many components." lineNumber: 2
 =========================
+>>> testCase "PACK_PATH procedure"
+>>> setupFile ~/targetPackage/petroleumPackage.json
+{
+    "specifier": "testUser.targetPackage",
+    "version": "1.0.0",
+    "mainModule": "./main.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        { "specifier": "testDev.lib", "version": "^1.0.0" }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/lib/v1.2.0/petroleumPackage.json
+{
+    "specifier": "testDev.lib",
+    "version": "1.2.0",
+    "mainModule": "./src/lib.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": [
+        { "specifier": "testDev.subLib", "version": "^1.0.0" }
+    ]
+}
+>>> setupFile ~/petroleumPackages/testDev/lib/v1.2.0/src/lib.petrol
+IMPORT_PACK <"testDev.subLib"> [VARS [@subLibPath]]
+PREP_VAR @libPath = <PACK_PATH ()>
+PREP_FUNC @getLibPath {
+    RET (PACK_PATH ())
+}
+PREP_VAR @virtModule = <VIRT_MODULE (
+    "./virtModule.petrol",
+    "PREP_VAR @virtPath = <PACK_PATH ()>"
+)>
+PREP_VAR @virtPath = <GET <virtModule> virtPath>
+>>> setupFile ~/petroleumPackages/testDev/subLib/v1.0.0/petroleumPackage.json
+{
+    "specifier": "testDev.subLib",
+    "version": "1.0.0",
+    "mainModule": "./subLib.petrol",
+    "petroleumVersion": "^1.0.0",
+    "dependencies": []
+}
+>>> setupFile ~/petroleumPackages/testDev/subLib/v1.0.0/subLib.petrol
+PREP_VAR @subLibPath = <PACK_PATH ()>
+>>> setupFile ~/targetPackage/utils/helper.petrol
+PREP_VAR @helperPath = <PACK_PATH ()>
+>>> setupFile ~/targetPackage/main.petrol
+IMPORT <#FILE_SYSTEM> [VARS [@EXISTS]]
+IMPORT <"./utils/helper.petrol"> [VARS [@helperPath]]
+IMPORT_PACK <"testDev.lib"> AS @lib [VARS [@libPath, @getLibPath, @virtPath]]
+PRINT(PACK_PATH ())
+PRINT(TYPE(PACK_PATH ()))
+PRINT(helperPath)
+PRINT(libPath)
+PRINT(GET <lib> subLibPath)
+COMMENT "The result depends on where the code is, not where it is called from."
+PRINT(getLibPath())
+COMMENT "A virtual module belongs to the package which created it."
+PRINT(virtPath)
+PRINT(EXISTS(CONCAT(LIST (PACK_PATH (), "/petroleumPackage.json"))))
+PRINT(EXISTS(CONCAT(LIST (libPath, "/src/lib.petrol"))))
+>>> expectPrint
+/home/testUser/targetPackage
+#STR
+/home/testUser/targetPackage
+/home/testUser/petroleumPackages/testDev/lib/v1.2.0
+/home/testUser/petroleumPackages/testDev/subLib/v1.0.0
+/home/testUser/petroleumPackages/testDev/lib/v1.2.0
+/home/testUser/petroleumPackages/testDev/lib/v1.2.0
+1
+1
+=========================
+>>> testCase "PACK_PATH procedure with expression"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(PACK_PATH (1))
+>>> expectError type: #SYNTAX_ERROR message: "Expected 0 expressions in sequence." lineNumber: 2
+=========================
+>>> testCase "PACK_PATH procedure with statement sequence"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(PACK_PATH {PRINT("This line is not reached")})
+>>> expectError type: #SYNTAX_ERROR message: "Expected expression sequence component." lineNumber: 2
+=========================
+>>> testCase "PACK_PATH procedure with prep-grade expression sequence"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(PACK_PATH <>)
+>>> expectError type: #SYNTAX_ERROR message: "Expected work-grade expression sequence component." lineNumber: 2
+=========================
+>>> testCase "PACK_PATH procedure with too many components"
+>>> setupFile ~/targetPackage/main.petrol
+PRINT("This line is not reached")
+PRINT(PACK_PATH () ())
+>>> expectError type: #SYNTAX_ERROR message: "Node has too many components." lineNumber: 2
+=========================
 >>> testCase "Package file with invalid JSON"
 >>> setupFile ~/targetPackage/petroleumPackage.json
 {

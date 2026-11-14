@@ -204,6 +204,12 @@ RESUME ($evalState)
 Resumes `$evalState`. The evaluation state of the current coroutine becomes `$evalState`. Control flow will not proceed to any statements which are after this procedure.
 
 ```
+PACK_PATH ()
+```
+
+Returns the absolute path of the package directory which contains the current module.
+
+```
 IN_ENTRY_PACK ()
 ```
 
