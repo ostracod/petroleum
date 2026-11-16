@@ -7,31 +7,48 @@ A metaprogramming language by Jack Eisenmann
 
 ## Installation and Usage
 
-Petroleum has the following system-wide dependencies:
+Petroleum requires Node.js version 22 or later to run. To install Petroleum, enter this command:
 
-* Node.js version ^22.14
-* pnpm version ^12.10
-
-I've only tested Petroleum on macOS. It probably works on Linux, but I'm less sure about Windows. Let me know what you find.
-
-To set up Petroleum:
-
-1. Clone this repository: `git clone https://github.com/ostracod/petroleum.git`
-1. Enter the repo directory: `cd petroleum`
-1. Install dependencies: `pnpm i`
-1. Compile TypeScript code: `npm run build`
-
-To run the Petroleum interpreter:
-
-```
-node ./dist/petroleum.js <packagePath> <args?>
+```bash
+npm i -g petroleum
 ```
 
-For example:
+After installing Petroleum, use the `petroleum` command to run the interpreter:
 
+```bash
+petroleum <packagePath> <args?>
 ```
-node ./dist/petroleum.js ./examplePackage
+
+Petroleum can also be installed as a dependency of a Node.js application. To run the interpreter in your script:
+
+```js
+import { Petroleum } from "petroleum";
+
+const packagePath = "./yourPackage";
+const args = ["your", "args"];
+const petroleum = new Petroleum(packagePath, args);
+petroleum.run();
+if (petroleum.hasReportedProblem()) {
+    console.log("Interpreter ran into a problem!");
+} else {
+    console.log("Interpreter ran successfully.");
+}
 ```
+
+## Language Documentation
+
+For documentation on Petroleum, please consult these pages:
+
+* [Data Types and Syntax](languageDocumentation/typesAndSyntax.md)
+* [Workers and Phases](languageDocumentation/workersAndPhases.md)
+* [Variables and Coroutines](languageDocumentation/varsAndCoroutines.md)
+* [Module System and Module Attributes](languageDocumentation/moduleSystem.md)
+* [Built-In Constants](languageDocumentation/builtInConstants.md)
+* [Representation Schemas](languageDocumentation/representationSchemas.md)
+* [Built-In Procedures](languageDocumentation/builtInProcs.md)
+* [Built-In Functions](languageDocumentation/builtInFuncs.md)
+* [Built-In Modules](languageDocumentation/builtInModules.md)
+* [Example Code](languageDocumentation/exampleCode.md)
 
 ## Design Goals
 
@@ -49,24 +66,33 @@ I plan to use Petroleum as an intermediate language for some of my personal proj
 * Ostracode (General-purpose programming language with feature-based objects)
 * WheatBlossom (Programming language for WheatSystem bytecode applications)
 
-## Language Documentation
+## Local Development
 
-For documentation on Petroleum, please consult these pages:
+To install Petroleum for local development, you will need these system-wide dependencies:
 
-* [Data Types and Syntax](languageDocumentation/typesAndSyntax.md)
-* [Workers and Phases](languageDocumentation/workersAndPhases.md)
-* [Variables and Coroutines](languageDocumentation/varsAndCoroutines.md)
-* [Module System and Module Attributes](languageDocumentation/moduleSystem.md)
-* [Built-In Constants](languageDocumentation/builtInConstants.md)
-* [Representation Schemas](languageDocumentation/representationSchemas.md)
-* [Built-In Procedures](languageDocumentation/builtInProcs.md)
-* [Built-In Functions](languageDocumentation/builtInFuncs.md)
-* [Built-In Modules](languageDocumentation/builtInModules.md)
-* [Example Code](languageDocumentation/exampleCode.md)
+* Node.js version >=22
+* pnpm version ^12.10
 
-## Code Quality Tools
+After installing system-wide dependencies, follow these steps:
 
-The following tools are available for development of the Petroleum interpreter:
+1. Clone this repository: `git clone https://github.com/ostracod/petroleum.git`
+1. Enter the repo directory: `cd petroleum`
+1. Install dependencies: `pnpm i`
+1. Compile TypeScript code: `npm run build`
+
+To run the interpreter which you built locally:
+
+```bash
+node ./dist/petroleum.js <packagePath> <args?>
+```
+
+For example, to run the example package in this repo:
+
+```bash
+node ./dist/petroleum.js ./examplePackage
+```
+
+The following tools are available for local development:
 
 * Run the linter: `npm run lint`
 * Run the test suites: `node ./dist/petroleum.js --test ./testSuites`

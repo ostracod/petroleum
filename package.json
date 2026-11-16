@@ -1,10 +1,44 @@
 {
     "name": "petroleum",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "type": "module",
+    "description": "Metaprogramming language driven by coroutines",
+    "keywords": [
+        "programming-language",
+        "metaprogramming",
+        "interpreter",
+        "coroutines",
+        "petroleum"
+    ],
+    "author": {
+        "name": "Jack Eisenmann",
+        "url": "https://github.com/ostracod"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/ostracod/petroleum.git"
+    },
+    "homepage": "https://github.com/ostracod/petroleum",
+    "license": "MIT",
+    "engines": {
+        "node": ">=22"
+    },
+    "files": [
+        "dist"
+    ],
+    "bin": {
+        "petroleum": "dist/petroleum.js"
+    },
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        }
+    },
     "scripts": {
         "build": "tsc",
-        "lint": "eslint ."
+        "lint": "eslint .",
+        "prepack": "rm -rf dist && tsc"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",

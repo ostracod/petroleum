@@ -1,5 +1,5 @@
 
-import "./scheduler.js";
+import "./testHarness.js";
 
 import * as pathUtils from "path";
 import { PetSymbol, symbols } from "./symbol.js";

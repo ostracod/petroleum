@@ -1,5 +1,4 @@
-
-import "./testHarness.js";
+#!/usr/bin/env node
 
 import { PetContext } from "./context.js";
 import { TestHarness } from "./testHarness.js";
@@ -7,9 +6,9 @@ import { TestHarness } from "./testHarness.js";
 const printUsage = (): void => {
     console.log([
         "Petroleum interpreter usage:",
-        "    node ./dist/petroleum.js <packagePath> <args?>",
-        "    node ./dist/petroleum.js --test <dirPath>",
-        "    node ./dist/petroleum.js --test <testSuitePath> <testCaseName?>",
+        "    petroleum <packagePath> <args?>",
+        "    petroleum --test <dirPath>",
+        "    petroleum --test <testSuitePath> <testCaseName?>",
     ].join("\n"));
 };
 
